@@ -1,14 +1,6 @@
-import { Header } from "@/components/header"
-import { PerfilContent } from "@/components/perfil-content"
+import { redirect } from "next/navigation"
 
-export default function PerfilPage() {
-  return (
-    <>
-      <Header />
-      <div className="p-4">
-        <PerfilContent />
-      </div>
-    </>
-  )
+export default function PerfilRedirect() {
+  redirect("/dashboard/perfil")
 }
 

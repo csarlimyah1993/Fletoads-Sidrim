@@ -1,14 +1,19 @@
-import { Header } from "@/components/header"
-import { IntegracoesContent } from "@/components/integracoes-content"
+"use client"
 
-export default function IntegracoesPage() {
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+
+export default function IntegracaoesRedirect() {
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace("/dashboard/integracoes")
+  }, [router])
+
   return (
-    <>
-      <Header />
-      <div className="p-4">
-        <IntegracoesContent />
-      </div>
-    </>
+    <div className="flex items-center justify-center h-screen">
+      <p>Redirecionando...</p>
+    </div>
   )
 }
 

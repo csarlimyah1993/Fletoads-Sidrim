@@ -16,6 +16,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Movido de experimental.serverComponentsExternalPackages para serverExternalPackages
+  serverExternalPackages: ["mongoose"],
   experimental: {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
@@ -46,3 +48,4 @@ function mergeConfig(nextConfig, userConfig) {
 }
 
 export default nextConfig
+

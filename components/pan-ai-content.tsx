@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import {
   MessageSquare,
   Send,
@@ -28,8 +30,8 @@ import {
   MapPin,
   Calendar,
   Edit,
-  Trash2,
   Plus,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,11 +40,16 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { generateTogetherAIContent } from "@/lib/together-ai-client"
 
 export function PanAIContent() {
   const [message, setMessage] = useState("")
   const [activeView, setActiveView] = useState("chat") // "chat", "contacts", "contactDetail"
-  const [selectedContact, setSelectedContact] = useState(null)
+  const [selectedContact, setSelectedContact] = useState<any>(null)
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -51,6 +58,29 @@ export function PanAIContent() {
       timestamp: "10:30",
     },
   ])
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [templateType, setTemplateType] = useState("")
+  const [customPrompt, setCustomPrompt] = useState("")
+  const [isApiConfigured, setIsApiConfigured] = useState(true)
+
+  useEffect(() => {
+    const checkApiConfig = async () => {
+      try {
+        // Verificar se a API key está disponível como variável de ambiente pública
+        const apiKey = process.env.NEXT_PUBLIC_TOGETHER_API_KEY
+
+        if (!apiKey) {
+          setIsApiConfigured(false)
+        }
+      } catch (error) {
+        console.error("Erro ao verificar configuração da API:", error)
+        setIsApiConfigured(false)
+      }
+    }
+
+    checkApiConfig()
+  }, [])
 
   // Dados simulados de contatos
   const contacts = [
@@ -113,41 +143,120 @@ export function PanAIContent() {
     configuracoes: false,
   })
 
-  const toggleSection = (section) => {
+  const toggleSection = (section: string) => {
     setExpandedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
     }))
   }
 
-  const handleSendMessage = (e) => {
+  // Função para gerar resposta usando a TogetherAI
+  const generateAIResponse = async (userMessage: string) => {
+    setIsGenerating(true)
+    setError(null)
+
+    try {
+      // Construir o prompt com base no contexto
+      let prompt = ""
+
+      // Se for uma solicitação de template específico
+      if (templateType) {
+        prompt = `
+          Crie um conteúdo para um template de ${templateType} com as seguintes características:
+          
+          ${customPrompt || `Criar uma mensagem de ${templateType} personalizada`}
+          
+          ${
+            selectedContact
+              ? `Adaptar para o perfil do cliente: ${selectedContact.name}
+               Informações do cliente: ${selectedContact.notes}
+               Tags do cliente: ${selectedContact.tags.join(", ")}`
+              : "Adaptar para um cliente genérico"
+          }
+          
+          O conteúdo deve ser persuasivo, claro e direcionado ao público-alvo.
+        `
+      } else {
+        // Caso seja uma conversa normal, usar o prompt do usuário
+        prompt = `
+          ${userMessage}
+          
+          ${
+            selectedContact
+              ? `Considere que está falando com: ${selectedContact.name}
+               Informações do cliente: ${selectedContact.notes}
+               Tags do cliente: ${selectedContact.tags.join(", ")}`
+              : "Responda de forma genérica para um cliente"
+          }
+        `
+      }
+
+      // Chamar diretamente a API da Together AI
+      const content = await generateTogetherAIContent(prompt)
+
+      // Limpar o tipo de template após uso
+      setTemplateType("")
+      setCustomPrompt("")
+
+      return content
+    } catch (err: any) {
+      setError(err.message || "Erro ao gerar resposta")
+      return "Desculpe, ocorreu um erro ao gerar a resposta. Por favor, tente novamente."
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim()) return
+    if (!message.trim() && !templateType) return
+
+    const messageContent =
+      message.trim() || `Gerar template de ${templateType} ${customPrompt ? `: ${customPrompt}` : ""}`
 
     // Adicionar mensagem do usuário
     const userMessage = {
       id: messages.length + 1,
       role: "user",
-      content: message,
+      content: messageContent,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }
 
     setMessages([...messages, userMessage])
     setMessage("")
 
-    // Simular resposta do assistente após 1 segundo
-    setTimeout(() => {
-      const assistantMessage = {
-        id: messages.length + 2,
+    // Adicionar mensagem de carregamento
+    const loadingMessageId = messages.length + 2
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: loadingMessageId,
         role: "assistant",
-        content: "Estou processando sua solicitação. Em breve retornarei com uma resposta personalizada.",
+        content: "Gerando resposta...",
+        isLoading: true,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }
-      setMessages((prev) => [...prev, assistantMessage])
-    }, 1000)
+      },
+    ])
+
+    // Gerar resposta com a TogetherAI
+    const aiResponse = await generateAIResponse(messageContent)
+
+    // Substituir mensagem de carregamento pela resposta real
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === loadingMessageId
+          ? {
+              id: loadingMessageId,
+              role: "assistant",
+              content: aiResponse,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            }
+          : msg,
+      ),
+    )
   }
 
-  const handleContactClick = (contact) => {
+  const handleContactClick = (contact: any) => {
     setSelectedContact(contact)
     setActiveView("contactDetail")
   }
@@ -157,12 +266,27 @@ export function PanAIContent() {
     setActiveView("contacts")
   }
 
+  const handleTemplateSelect = (template: string, description: string) => {
+    setTemplateType(template)
+    setCustomPrompt(description)
+    handleSendMessage({ preventDefault: () => {} } as React.FormEvent)
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">Ferramenta Pan AI</h1>
       <p className="text-gray-500 mb-6">
         Utilize nossa ferramenta de inteligência artificial para criar mensagens personalizadas para seus clientes.
       </p>
+
+      {!isApiConfigured && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            A API da TogetherAI não está configurada corretamente. Verifique se a variável de ambiente TOGETHER_API_KEY
+            está definida.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Atualizar a estrutura do grid para ser mais responsiva */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -280,14 +404,16 @@ export function PanAIContent() {
                     </div>
                     <div>
                       <h2 className="font-medium">Pan AI Assistant</h2>
-                      <p className="text-xs text-gray-500">Online agora</p>
+                      <p className="text-xs text-gray-500">
+                        {selectedContact ? `Conversando sobre ${selectedContact.name}` : "Assistente de IA"}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Área de Mensagens */}
                 <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                  {messages.map((msg) => (
+                  {messages.map((msg: any) => (
                     <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-[80%] rounded-lg p-3 ${
@@ -299,9 +425,18 @@ export function PanAIContent() {
                           <span className="font-medium text-sm">{msg.role === "assistant" ? "Pan AI" : "Você"}</span>
                           <span className="text-xs opacity-70">{msg.timestamp}</span>
                         </div>
-                        <p className={`text-sm ${msg.role === "user" ? "text-white" : "text-gray-800"}`}>
-                          {msg.content}
-                        </p>
+                        {msg.isLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className={`text-sm ${msg.role === "user" ? "text-white" : "text-gray-800"}`}>
+                              Gerando resposta...
+                            </span>
+                          </div>
+                        ) : (
+                          <p className={`text-sm ${msg.role === "user" ? "text-white" : "text-gray-800"}`}>
+                            {msg.content}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -309,6 +444,31 @@ export function PanAIContent() {
 
                 {/* Área de Input */}
                 <div className="p-4 border-t">
+                  {error && (
+                    <Alert variant="destructive" className="mb-2">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {templateType && (
+                    <div className="mb-2 p-2 bg-blue-50 rounded-md">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Template: {templateType}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTemplateType("")
+                            setCustomPrompt("")
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                      {customPrompt && <p className="text-xs text-gray-600 mt-1">{customPrompt}</p>}
+                    </div>
+                  )}
+
                   <form onSubmit={handleSendMessage} className="flex gap-2">
                     <Button type="button" variant="ghost" size="icon" className="rounded-full">
                       <Paperclip className="h-5 w-5 text-gray-500" />
@@ -322,11 +482,12 @@ export function PanAIContent() {
                     <Input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Digite sua mensagem..."
+                      placeholder={templateType ? "Adicione detalhes específicos (opcional)" : "Digite sua mensagem..."}
                       className="flex-1"
+                      disabled={isGenerating}
                     />
-                    <Button type="submit" size="icon" className="rounded-full">
-                      <Send className="h-5 w-5" />
+                    <Button type="submit" size="icon" className="rounded-full" disabled={isGenerating}>
+                      {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     </Button>
                   </form>
                 </div>
@@ -373,7 +534,7 @@ export function PanAIContent() {
                           <AvatarFallback>
                             {contact.name
                               .split(" ")
-                              .map((n) => n[0])
+                              .map((n: string) => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>
@@ -411,14 +572,14 @@ export function PanAIContent() {
                       <AvatarFallback className="text-lg">
                         {selectedContact.name
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <h2 className="text-xl font-bold">{selectedContact.name}</h2>
                       <div className="flex gap-2 mt-1">
-                        {selectedContact.tags.map((tag, index) => (
+                        {selectedContact.tags.map((tag: string, index: number) => (
                           <Badge key={index} variant="outline">
                             {tag}
                           </Badge>
@@ -440,13 +601,19 @@ export function PanAIContent() {
                   </div>
 
                   <div className="flex gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setActiveView("chat")
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Conversar
+                    </Button>
                     <Button variant="outline" className="flex-1">
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
-                    </Button>
-                    <Button variant="outline" className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir
                     </Button>
                   </div>
                 </div>
@@ -469,20 +636,88 @@ export function PanAIContent() {
                 <TemplateCard
                   title="Promoção de Calçados"
                   description="Anuncie uma promoção de calçados com desconto"
+                  onClick={() => handleTemplateSelect("promocao", "Promoção de calçados com desconto")}
                 />
-                <TemplateCard title="Liquidação de Estoque" description="Comunique uma liquidação de fim de estação" />
-                <TemplateCard title="Oferta Relâmpago" description="Crie uma oferta por tempo limitado" />
+                <TemplateCard
+                  title="Liquidação de Estoque"
+                  description="Comunique uma liquidação de fim de estação"
+                  onClick={() => handleTemplateSelect("liquidacao", "Liquidação de fim de estação")}
+                />
+                <TemplateCard
+                  title="Oferta Relâmpago"
+                  description="Crie uma oferta por tempo limitado"
+                  onClick={() => handleTemplateSelect("oferta", "Oferta relâmpago por tempo limitado")}
+                />
               </TabsContent>
               <TabsContent value="eventos" className="space-y-2">
-                <TemplateCard title="Convite para Evento" description="Convide clientes para um evento especial" />
-                <TemplateCard title="Lançamento de Coleção" description="Anuncie o lançamento de uma nova coleção" />
+                <TemplateCard
+                  title="Convite para Evento"
+                  description="Convide clientes para um evento especial"
+                  onClick={() => handleTemplateSelect("evento", "Convite para evento especial")}
+                />
+                <TemplateCard
+                  title="Lançamento de Coleção"
+                  description="Anuncie o lançamento de uma nova coleção"
+                  onClick={() => handleTemplateSelect("lancamento", "Lançamento de nova coleção")}
+                />
               </TabsContent>
               <TabsContent value="atendimento" className="space-y-2">
-                <TemplateCard title="Boas-vindas" description="Mensagem de boas-vindas para novos clientes" />
-                <TemplateCard title="Pós-venda" description="Acompanhamento após uma compra" />
-                <TemplateCard title="Feedback" description="Solicite feedback sobre produtos ou serviços" />
+                <TemplateCard
+                  title="Boas-vindas"
+                  description="Mensagem de boas-vindas para novos clientes"
+                  onClick={() => handleTemplateSelect("boas-vindas", "Mensagem de boas-vindas para novos clientes")}
+                />
+                <TemplateCard
+                  title="Pós-venda"
+                  description="Acompanhamento após uma compra"
+                  onClick={() => handleTemplateSelect("pos-venda", "Acompanhamento após uma compra")}
+                />
+                <TemplateCard
+                  title="Feedback"
+                  description="Solicite feedback sobre produtos ou serviços"
+                  onClick={() => handleTemplateSelect("feedback", "Solicitação de feedback sobre produtos ou serviços")}
+                />
               </TabsContent>
             </Tabs>
+          </Card>
+
+          <Card className="p-4 mb-4">
+            <h2 className="font-semibold mb-3">Personalizar Mensagem</h2>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="messageType">Tipo de Mensagem</Label>
+                <Select value={templateType} onValueChange={setTemplateType}>
+                  <SelectTrigger id="messageType">
+                    <SelectValue placeholder="Selecione um tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="promocao">Promoção</SelectItem>
+                    <SelectItem value="evento">Evento</SelectItem>
+                    <SelectItem value="boas-vindas">Boas-vindas</SelectItem>
+                    <SelectItem value="pos-venda">Pós-venda</SelectItem>
+                    <SelectItem value="aniversario">Aniversário</SelectItem>
+                    <SelectItem value="reativacao">Reativação de cliente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customPrompt">Detalhes Adicionais</Label>
+                <Textarea
+                  id="customPrompt"
+                  placeholder="Adicione detalhes específicos para personalizar a mensagem..."
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => handleSendMessage({ preventDefault: () => {} } as React.FormEvent)}
+                disabled={!templateType && !customPrompt}
+              >
+                Gerar Mensagem Personalizada
+              </Button>
+            </div>
           </Card>
 
           <Card className="p-4">
@@ -499,6 +734,10 @@ export function PanAIContent() {
               <div className="flex items-center justify-between">
                 <span className="text-sm">Histórico de Conversas</span>
                 <Badge>7 dias</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Modelo de IA</span>
+                <Badge className="bg-blue-500">TogetherAI</Badge>
               </div>
               <div className="mt-4">
                 <Button className="w-full">Configurações Avançadas</Button>
@@ -534,7 +773,19 @@ export function PanAIContent() {
 }
 
 // Componente de item de menu
-function MenuItem({ icon, label, indent = false, onClick, isActive = false }) {
+function MenuItem({
+  icon,
+  label,
+  indent = false,
+  onClick,
+  isActive = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  indent?: boolean
+  onClick?: () => void
+  isActive?: boolean
+}) {
   return (
     <button
       className={`flex items-center gap-2 w-full p-2 rounded-md hover:bg-gray-100 ${indent ? "text-xs" : "text-sm"} ${isActive ? "bg-blue-50 text-blue-600 font-medium" : ""}`}
@@ -546,16 +797,32 @@ function MenuItem({ icon, label, indent = false, onClick, isActive = false }) {
   )
 }
 
-function TemplateCard({ title, description }) {
+function TemplateCard({
+  title,
+  description,
+  onClick,
+}: {
+  title: string
+  description: string
+  onClick: () => void
+}) {
   return (
-    <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+    <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer" onClick={onClick}>
       <h3 className="font-medium text-sm">{title}</h3>
       <p className="text-xs text-gray-500">{description}</p>
     </div>
   )
 }
 
-function ContactInfoItem({ icon, label, value }) {
+function ContactInfoItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+}) {
   return (
     <div className="flex items-start gap-3">
       <div className="h-5 w-5 mt-0.5 text-gray-500">{icon}</div>
