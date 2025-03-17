@@ -1,27 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import Loja from "@/lib/models/loja"
 import { connectToDatabase } from "@/lib/mongodb"
+import Loja from "@/lib/models/loja"
 
-// Rota para obter o perfil da loja do usuário logado
 export async function GET(req: NextRequest) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
-
+    console.log("GET /api/loja/perfil - Starting request")
     const session = await getServerSession(authOptions)
-
     if (!session) {
+      console.log("GET /api/loja/perfil - No session found")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    console.log(`GET /api/loja/perfil - Session found for user: ${session.user.id}`)
+    await connectToDatabase()
+
+    // Buscar a loja diretamente pelo proprietarioId
     const loja = await Loja.findOne({ proprietarioId: session.user.id })
 
     if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+      console.log(`GET /api/loja/perfil - No store found for user: ${session.user.id}`)
+      return NextResponse.json({})
     }
 
+    console.log(`GET /api/loja/perfil - Store found: ${loja._id}`)
     return NextResponse.json(loja)
   } catch (error) {
     console.error("Erro ao buscar perfil da loja:", error)
@@ -29,95 +32,93 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Rota para atualizar o perfil da loja
-export async function PUT(req: NextRequest) {
-  try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
-
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    const dadosAtualizacao = await req.json()
-    console.log("Dados recebidos para atualização:", JSON.stringify(dadosAtualizacao, null, 2))
-
-    let loja = await Loja.findOne({ proprietarioId: session.user.id })
-
-    if (!loja) {
-      // Se a loja não existir, criar uma nova
-      console.log("Criando nova loja para o usuário:", session.user.id)
-      loja = new Loja({
-        ...dadosAtualizacao,
-        proprietarioId: session.user.id,
-      })
-      await loja.save()
-    } else {
-      // Atualizar a loja existente
-      console.log("Atualizando loja existente:", loja._id)
-      loja = await Loja.findByIdAndUpdate(loja._id, { $set: dadosAtualizacao }, { new: true, runValidators: true })
-    }
-
-    return NextResponse.json(loja)
-  } catch (error) {
-    console.error("Erro ao atualizar perfil da loja:", error)
-    // Retornar mensagem de erro mais detalhada
-    return NextResponse.json(
-      {
-        error: "Erro ao atualizar perfil da loja",
-        message: error instanceof Error ? error.message : "Erro desconhecido",
-        details: error,
-      },
-      { status: 500 },
-    )
-  }
-}
-
-// Rota para criar ou atualizar o perfil da loja (POST)
 export async function POST(req: NextRequest) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
-
+    console.log("POST /api/loja/perfil - Starting request")
     const session = await getServerSession(authOptions)
-
     if (!session) {
+      console.log("POST /api/loja/perfil - No session found")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const dadosLoja = await req.json()
-    console.log("Dados recebidos via POST:", JSON.stringify(dadosLoja, null, 2))
+    console.log(`POST /api/loja/perfil - Session found for user: ${session.user.id}`)
+    const data = await req.json()
+    console.log("POST /api/loja/perfil - Received data:", JSON.stringify(data, null, 2))
 
-    let loja = await Loja.findOne({ proprietarioId: session.user.id })
+    await connectToDatabase()
 
-    if (!loja) {
-      // Se a loja não existir, criar uma nova
-      console.log("Criando nova loja para o usuário:", session.user.id)
-      loja = new Loja({
-        ...dadosLoja,
-        proprietarioId: session.user.id,
-      })
-    } else {
-      // Atualizar a loja existente
-      console.log("Atualizando loja existente:", loja._id)
-      Object.assign(loja, dadosLoja)
+    // Validar os dados obrigatórios
+    if (!data.nome) {
+      return NextResponse.json({ error: "Nome da loja é obrigatório" }, { status: 400 })
     }
 
-    await loja.save()
+    if (
+      !data.endereco ||
+      !data.endereco.rua ||
+      !data.endereco.numero ||
+      !data.endereco.bairro ||
+      !data.endereco.cidade ||
+      !data.endereco.estado ||
+      !data.endereco.cep
+    ) {
+      return NextResponse.json({ error: "Todos os campos de endereço são obrigatórios" }, { status: 400 })
+    }
+
+    if (!data.contato || !data.contato.telefone || !data.contato.email) {
+      return NextResponse.json({ error: "Telefone e email são obrigatórios" }, { status: 400 })
+    }
+
+    // Prepare data for MongoDB
+    const lojaData = {
+      nome: data.nome,
+      descricao: data.descricao || "",
+      cnpj: data.cnpj || "",
+      logo: data.logo || "",
+      banner: data.banner || "",
+      endereco: {
+        rua: data.endereco.rua || "",
+        numero: data.endereco.numero || "",
+        complemento: data.endereco.complemento || "",
+        bairro: data.endereco.bairro || "",
+        cidade: data.endereco.cidade || "",
+        estado: data.endereco.estado || "",
+        cep: data.endereco.cep || "",
+      },
+      contato: {
+        telefone: data.contato.telefone || "",
+        email: data.contato.email || "",
+        whatsapp: data.contato.whatsapp || "",
+        instagram: data.contato.instagram || "",
+        facebook: data.contato.facebook || "",
+        site: data.contato.site || "",
+      },
+      categorias: data.categorias || [],
+      status: "ativo", // Set status to active by default
+    }
+
+    // Buscar a loja existente
+    let loja = await Loja.findOne({ proprietarioId: session.user.id })
+
+    if (loja) {
+      console.log(`POST /api/loja/perfil - Updating existing store: ${loja._id}`)
+      // Atualizar a loja existente
+      Object.assign(loja, lojaData)
+      await loja.save()
+    } else {
+      console.log(`POST /api/loja/perfil - Creating new store for user: ${session.user.id}`)
+      // Criar uma nova loja
+      loja = new Loja({
+        proprietarioId: session.user.id,
+        ...lojaData,
+      })
+      await loja.save()
+    }
+
+    console.log(`POST /api/loja/perfil - Store saved successfully: ${loja._id}`)
     return NextResponse.json(loja)
   } catch (error) {
     console.error("Erro ao salvar perfil da loja:", error)
-    // Retornar mensagem de erro mais detalhada
-    return NextResponse.json(
-      {
-        error: "Erro ao salvar perfil da loja",
-        message: error instanceof Error ? error.message : "Erro desconhecido",
-        details: error,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: `Erro ao salvar perfil da loja: ${error.message}` }, { status: 500 })
   }
 }
 

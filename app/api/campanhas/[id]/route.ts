@@ -1,27 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Campanha from "@/lib/models/campanha"
-import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import Campanha from "@/lib/models/campanha"
+import mongoose from "mongoose"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions)
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
+    const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
     const campanha = await Campanha.findById(id)
-      .populate("responsavel", "nome email")
-      .populate("panfletos", "titulo imagem conteudo")
-      .populate("clientes", "nome empresa email telefone")
 
     if (!campanha) {
       return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 })
@@ -34,30 +35,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions)
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
+    const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const body = await req.json()
+    const data = await request.json()
 
-    const campanha = await Campanha.findById(id)
+    const campanhaAtualizada = await Campanha.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true })
 
-    if (!campanha) {
+    if (!campanhaAtualizada) {
       return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 })
     }
-
-    // Atualizar dados
-    const campanhaAtualizada = await Campanha.findByIdAndUpdate(id, body, { new: true })
 
     return NextResponse.json(campanhaAtualizada)
   } catch (error) {
@@ -66,29 +67,30 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions)
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
+    const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const campanha = await Campanha.findById(id)
+    const campanhaDeletada = await Campanha.findByIdAndDelete(id)
 
-    if (!campanha) {
+    if (!campanhaDeletada) {
       return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 })
     }
 
-    await Campanha.findByIdAndDelete(id)
-
-    return NextResponse.json({ message: "Campanha excluída com sucesso" })
+    return NextResponse.json({ success: true, message: "Campanha excluída com sucesso" })
   } catch (error) {
     console.error("Erro ao excluir campanha:", error)
     return NextResponse.json({ error: "Erro ao excluir campanha" }, { status: 500 })

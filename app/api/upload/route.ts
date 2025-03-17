@@ -1,111 +1,123 @@
-import { NextResponse } from "next/server"
-import { put } from "@vercel/blob"
-import { getServerSession } from "next-auth/next"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { v4 as uuidv4 } from "uuid"
+import { writeFile } from "fs/promises"
 import path from "path"
-import fs from "fs"
-import os from "os"
+import { mkdir } from "fs/promises"
+import { v4 as uuidv4 } from "uuid"
 
-// Função para salvar temporariamente o arquivo no servidor
-async function saveTempFile(file: File): Promise<string> {
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
-  // Criar um nome de arquivo único
-  const tempDir = path.join(os.tmpdir(), "fletoads-uploads")
+// Ensure temp directory exists
+const ensureTempDir = async (userId: string, tipo: string) => {
+  const tempDir = path.join(process.cwd(), "public", "temp-uploads", userId, tipo)
 
-  // Garantir que o diretório existe
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true })
+  try {
+    await mkdir(tempDir, { recursive: true })
+    console.log("Temp directory created or already exists:", tempDir)
+  } catch (error) {
+    console.error("Error creating temp directory:", error)
   }
 
-  const filename = path.join(tempDir, `${uuidv4()}-${file.name}`)
-  fs.writeFileSync(filename, buffer)
-
-  return filename
+  return tempDir
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    const formData = await req.formData()
     const file = formData.get("file") as File
+    const tipo = formData.get("tipo") as string // 'logo', 'banner' ou 'produto'
+
+    // Log received data for debugging
+    console.log("Upload request received:", {
+      fileExists: !!file,
+      tipo,
+      fileType: file?.type,
+      fileSize: file?.size,
+    })
 
     if (!file) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
     }
 
+    if (!tipo || !["logo", "banner", "produto"].includes(tipo)) {
+      return NextResponse.json({ error: "Tipo de imagem inválido" }, { status: 400 })
+    }
+
     // Verificar tipo de arquivo
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "Tipo de arquivo não permitido. Use JPEG, PNG, WEBP ou GIF." }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: `Tipo de arquivo não permitido. Use JPEG, PNG, WEBP ou GIF. Tipo recebido: ${file.type}`,
+        },
+        { status: 400 },
+      )
     }
 
-    // Verificar tamanho do arquivo (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
+    // Verificar tamanho do arquivo (limite de 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
       return NextResponse.json({ error: "Arquivo muito grande. O tamanho máximo é 5MB." }, { status: 400 })
     }
 
-    // Gerar nome de arquivo único
-    const ext = file.name.split(".").pop()
-    const filename = `${session.user.id}-${uuidv4()}.${ext}`
+    // Criar um nome de arquivo único
+    const userId = session.user.id
+    const timestamp = Date.now()
+    const fileExtension = file.name.split(".").pop() || "jpg"
+    const uniqueId = uuidv4().substring(0, 8)
+    const filename = `${userId}_${tipo}_${timestamp}_${uniqueId}.${fileExtension}`
 
-    let url = ""
-    let isTempUrl = false
-
+    // Usar diretamente o armazenamento local
     try {
-      // Tentar fazer upload para o Vercel Blob
-      console.log("Tentando fazer upload para o Vercel Blob...")
-      const blob = await put(filename, file, {
-        access: "public",
-        contentType: file.type,
-        metadata: {
-          userId: session.user.id,
-          originalName: file.name,
-        },
+      // Convert File to Buffer
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      // Ensure temp directory exists
+      const tempDir = await ensureTempDir(userId, tipo)
+      const filePath = path.join(tempDir, filename)
+
+      // Save file to disk
+      await writeFile(filePath, buffer)
+      console.log("File saved to:", filePath)
+
+      // Generate URL for the saved file
+      const baseUrl = process.env.NEXTAUTH_URL || req.headers.get("origin") || "http://localhost:3000"
+      const fileUrl = `${baseUrl}/temp-uploads/${userId}/${tipo}/${filename}`
+
+      console.log("Local storage successful:", { fileUrl })
+
+      return NextResponse.json({
+        success: true,
+        url: fileUrl,
       })
-
-      url = blob.url
-      console.log("Upload para o Vercel Blob concluído com sucesso:", url)
     } catch (error) {
-      console.error("Erro ao fazer upload para o Vercel Blob:", error)
-
-      // Fallback: salvar localmente e servir via API
-      console.log("Usando fallback para armazenamento local...")
-      const tempFilePath = await saveTempFile(file)
-      const tempFileName = path.basename(tempFilePath)
-      url = `${request.headers.get("origin")}/api/temp-images/${tempFileName}`
-      isTempUrl = true
-
-      console.log("Arquivo salvo localmente:", tempFilePath)
-      console.log("URL temporária:", url)
+      console.error("Local storage failed:", error)
+      return NextResponse.json(
+        {
+          error: "Falha no sistema de armazenamento",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 },
+      )
     }
-
-    return NextResponse.json({
-      success: true,
-      url,
-      isTempUrl,
-      message: isTempUrl
-        ? "Imagem salva temporariamente. Considere configurar o Vercel Blob para armazenamento permanente."
-        : "Upload concluído com sucesso!",
-    })
   } catch (error) {
-    console.error("Erro no processamento do upload:", error)
+    console.error("Erro ao fazer upload da imagem:", error)
     return NextResponse.json(
-      { error: `Erro ao processar o upload: ${error instanceof Error ? error.message : "Erro desconhecido"}` },
+      {
+        error: "Erro ao processar o upload da imagem",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     )
   }
-}
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
 }
 

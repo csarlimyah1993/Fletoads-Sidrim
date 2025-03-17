@@ -1,4 +1,4 @@
-import mongoose, { Schema, type Document, type Model } from "mongoose"
+import mongoose, { Schema, type Document } from "mongoose"
 
 export interface IProduto extends Document {
   nome: string
@@ -8,12 +8,12 @@ export interface IProduto extends Document {
   categoria: string
   sku: string
   estoque: number
-  imagens: string[]
   destaque: boolean
   ativo: boolean
+  imagens: string[]
   lojaId: mongoose.Types.ObjectId
-  criadoEm: Date
-  atualizadoEm: Date
+  dataCriacao: Date
+  dataAtualizacao: Date
 }
 
 const ProdutoSchema = new Schema<IProduto>(
@@ -25,28 +25,26 @@ const ProdutoSchema = new Schema<IProduto>(
     categoria: { type: String, required: true },
     sku: { type: String, required: true },
     estoque: { type: Number, required: true, default: 0 },
-    imagens: { type: [String], default: [] },
     destaque: { type: Boolean, default: false },
     ativo: { type: Boolean, default: true },
+    imagens: { type: [String], default: [] },
     lojaId: { type: Schema.Types.ObjectId, ref: "Loja", required: true },
-    criadoEm: { type: Date, default: Date.now },
-    atualizadoEm: { type: Date, default: Date.now },
+    dataCriacao: { type: Date, default: Date.now },
+    dataAtualizacao: { type: Date, default: Date.now },
   },
   {
-    timestamps: { createdAt: "criadoEm", updatedAt: "atualizadoEm" },
+    timestamps: {
+      createdAt: "dataCriacao",
+      updatedAt: "dataAtualizacao",
+    },
   },
 )
 
 // Índices para melhorar a performance das consultas
 ProdutoSchema.index({ nome: 1 })
 ProdutoSchema.index({ categoria: 1 })
-ProdutoSchema.index({ sku: 1 }, { unique: true })
 ProdutoSchema.index({ lojaId: 1 })
-ProdutoSchema.index({ destaque: 1 })
-ProdutoSchema.index({ ativo: 1 })
+ProdutoSchema.index({ sku: 1 }, { unique: true })
 
-// Verificar se o modelo já existe para evitar redefinição
-const Produto: Model<IProduto> = mongoose.models.Produto || mongoose.model<IProduto>("Produto", ProdutoSchema)
-
-export default Produto
+export default mongoose.models.Produto || mongoose.model<IProduto>("Produto", ProdutoSchema)
 

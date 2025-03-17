@@ -10,6 +10,16 @@ export interface IUsuario extends Document {
   dataCriacao: Date
   ultimoLogin: Date
   ativo: boolean
+  lojaId?: mongoose.Types.ObjectId
+  stripeCustomerId?: string
+  cpf: string // Add CPF field
+  metodosPagemento?: {
+    pix?: Array<{
+      chave: string
+      tipo: string
+      nome: string
+    }>
+  }
   perfil: {
     foto: string
     telefone: string
@@ -48,6 +58,18 @@ const UsuarioSchema: Schema = new Schema(
     dataCriacao: { type: Date, default: Date.now },
     ultimoLogin: { type: Date },
     ativo: { type: Boolean, default: true },
+    lojaId: { type: Schema.Types.ObjectId, ref: "Loja" },
+    stripeCustomerId: { type: String },
+    cpf: { type: String, required: true }, // Add CPF field as required
+    metodosPagemento: {
+      pix: [
+        {
+          chave: { type: String },
+          tipo: { type: String },
+          nome: { type: String },
+        },
+      ],
+    },
     perfil: {
       foto: { type: String, default: "" },
       telefone: { type: String, default: "" },
@@ -85,7 +107,7 @@ UsuarioSchema.pre("save", async function (next) {
 
   try {
     const salt = await bcrypt.genSalt(10)
-    this.senha = await bcrypt.hash(this.senha, salt)
+    this.senha = await bcrypt.hash(this.senha as string, salt)
     next()
   } catch (error) {
     next(error as Error)

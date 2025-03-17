@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,6 +40,9 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function VendaDetalhesPage({ params }: { params: { id: string } }) {
+  // Unwrap params usando React.use()
+  const unwrappedParams = React.use(params)
+  const vendaId = unwrappedParams.id
   const router = useRouter()
   const [venda, setVenda] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -53,7 +56,7 @@ export default function VendaDetalhesPage({ params }: { params: { id: string } }
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/vendas/${params.id}`)
+        const response = await fetch(`/api/vendas/${vendaId}`)
 
         if (!response.ok) {
           const errorData = await response.json()
@@ -72,14 +75,14 @@ export default function VendaDetalhesPage({ params }: { params: { id: string } }
     }
 
     fetchVenda()
-  }, [params.id])
+  }, [vendaId])
 
   // Função para cancelar a venda
   const cancelarVenda = async () => {
     try {
       setIsCanceling(true)
 
-      const response = await fetch(`/api/vendas/${params.id}`, {
+      const response = await fetch(`/api/vendas/${vendaId}`, {
         method: "DELETE",
       })
 
@@ -238,7 +241,7 @@ export default function VendaDetalhesPage({ params }: { params: { id: string } }
             <Printer className="h-4 w-4 mr-2" />
             Imprimir
           </Button>
-          <Button variant="outline" onClick={() => router.push(`/dashboard/vendas/editar/${params.id}`)}>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/vendas/editar/${vendaId}`)}>
             <Edit className="h-4 w-4 mr-2" />
             Editar
           </Button>

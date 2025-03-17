@@ -1,8 +1,9 @@
 import type React from "react"
-import { Providers } from "@/app/providers"
+import { Providers } from "./providers"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { WhatsAppButton } from "@/components/whatsapp-button"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -19,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <WhatsAppButton />
+        </Providers>
       </body>
     </html>
   )

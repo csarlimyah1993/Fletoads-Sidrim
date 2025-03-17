@@ -1,36 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Venda from "@/lib/models/venda"
-import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Loja from "@/lib/models/loja"
+import Venda from "@/lib/models/venda"
+import mongoose from "mongoose"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada para este usuário" }, { status: 404 })
-    }
-
-    const venda = await Venda.findOne({ _id: id, lojaId: loja._id }).populate("cliente", "nome email telefone empresa")
+    const venda = await Venda.findById(id)
+      .populate("cliente", "nome email telefone")
+      .populate("produtos.produto", "nome preco")
 
     if (!venda) {
       return NextResponse.json({ error: "Venda não encontrada" }, { status: 404 })
@@ -43,59 +37,32 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
+    const data = await request.json()
 
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada para este usuário" }, { status: 404 })
-    }
+    const vendaAtualizada = await Venda.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true })
+      .populate("cliente", "nome email telefone")
+      .populate("produtos.produto", "nome preco")
 
-    const body = await req.json()
-
-    const venda = await Venda.findOne({ _id: id, lojaId: loja._id })
-
-    if (!venda) {
+    if (!vendaAtualizada) {
       return NextResponse.json({ error: "Venda não encontrada" }, { status: 404 })
     }
-
-    // Se os produtos foram atualizados, recalcular o valor total
-    if (body.produtos) {
-      // Calcular o subtotal para cada produto
-      const produtosComSubtotal = body.produtos.map((produto: { quantidade: number; precoUnitario: number }) => ({
-        ...produto,
-        subtotal: produto.quantidade * produto.precoUnitario,
-      }))
-
-      body.produtos = produtosComSubtotal
-      body.valorTotal = produtosComSubtotal.reduce(
-        (total: number, produto: { subtotal: number }) => total + produto.subtotal,
-        0,
-      )
-    }
-
-    // Atualizar dados
-    const vendaAtualizada = await Venda.findByIdAndUpdate(
-      id,
-      { ...body, dataAtualizacao: new Date() },
-      { new: true },
-    ).populate("cliente", "nome email telefone empresa")
 
     return NextResponse.json(vendaAtualizada)
   } catch (error) {
@@ -104,43 +71,33 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
+    const vendaDeletada = await Venda.findByIdAndDelete(id)
 
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada para este usuário" }, { status: 404 })
-    }
-
-    const venda = await Venda.findOne({ _id: id, lojaId: loja._id })
-
-    if (!venda) {
+    if (!vendaDeletada) {
       return NextResponse.json({ error: "Venda não encontrada" }, { status: 404 })
     }
 
-    // Em vez de excluir, atualizar o status para cancelado
-    await Venda.findByIdAndUpdate(id, { status: "cancelado", dataAtualizacao: new Date() })
-
-    return NextResponse.json({ message: "Venda cancelada com sucesso" })
+    return NextResponse.json({ success: true, message: "Venda excluída com sucesso" })
   } catch (error) {
-    console.error("Erro ao cancelar venda:", error)
-    return NextResponse.json({ error: "Erro ao cancelar venda" }, { status: 500 })
+    console.error("Erro ao excluir venda:", error)
+    return NextResponse.json({ error: "Erro ao excluir venda" }, { status: 500 })
   }
 }
 

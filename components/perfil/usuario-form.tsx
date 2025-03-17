@@ -28,8 +28,10 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3, de
   }
 }
 
+// Update the schema to include CPF
 const perfilSchema = z.object({
   nome: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
+  cpf: z.string().min(11, { message: "CPF deve ter 11 dígitos" }).max(14),
   perfil: z
     .object({
       foto: z.string().optional(),
@@ -67,108 +69,140 @@ const perfilSchema = z.object({
 
 type PerfilFormValues = z.infer<typeof perfilSchema>
 
-interface UsuarioFormProps {
-  initialData?: any
-}
-
-export function UsuarioPerfilForm({ initialData }: UsuarioFormProps = {}) {
+export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
   const [isLoading, setIsLoading] = useState(false)
-  const [usuario, setUsuario] = useState<any>(initialData || null)
+  const [usuario, setUsuario] = useState<any>(null)
 
+  // Update the defaultValues to include CPF
   const form = useForm<PerfilFormValues>({
     resolver: zodResolver(perfilSchema),
     defaultValues: {
-      nome: initialData?.nome || "",
+      nome: "",
+      cpf: "",
       perfil: {
-        foto: initialData?.perfil?.foto || "",
-        telefone: initialData?.perfil?.telefone || "",
-        bio: initialData?.perfil?.bio || "",
+        foto: "",
+        telefone: "",
+        bio: "",
         endereco: {
-          rua: initialData?.perfil?.endereco?.rua || "",
-          numero: initialData?.perfil?.endereco?.numero || "",
-          complemento: initialData?.perfil?.endereco?.complemento || "",
-          bairro: initialData?.perfil?.endereco?.bairro || "",
-          cidade: initialData?.perfil?.endereco?.cidade || "",
-          estado: initialData?.perfil?.endereco?.estado || "",
-          cep: initialData?.perfil?.endereco?.cep || "",
+          rua: "",
+          numero: "",
+          complemento: "",
+          bairro: "",
+          cidade: "",
+          estado: "",
+          cep: "",
         },
         redesSociais: {
-          instagram: initialData?.perfil?.redesSociais?.instagram || "",
-          facebook: initialData?.perfil?.redesSociais?.facebook || "",
-          linkedin: initialData?.perfil?.redesSociais?.linkedin || "",
-          twitter: initialData?.perfil?.redesSociais?.twitter || "",
+          instagram: "",
+          facebook: "",
+          linkedin: "",
+          twitter: "",
         },
         preferencias: {
-          notificacoes: initialData?.perfil?.preferencias?.notificacoes ?? true,
-          temaEscuro: initialData?.perfil?.preferencias?.temaEscuro ?? false,
-          idioma: initialData?.perfil?.preferencias?.idioma || "pt-BR",
+          notificacoes: true,
+          temaEscuro: false,
+          idioma: "pt-BR",
         },
       },
     },
   })
 
-  // Buscar dados do usuário se não tiver initialData
+  // Initialize form with data if provided
+  // Update the useEffect to include CPF
   useEffect(() => {
     if (initialData) {
       setUsuario(initialData)
-      return
-    }
 
-    const fetchUsuario = async () => {
-      try {
-        setIsLoading(true)
-        const response = await fetchWithRetry("/api/usuario/perfil", {}, 3, 1000)
-
-        if (response.status === 404) {
-          // Usuário não encontrado, usar valores padrão
-          return
-        }
-
-        if (!response.ok) {
-          throw new Error("Falha ao buscar dados do usuário")
-        }
-
-        const data = await response.json()
-        setUsuario(data)
-
-        // Preencher o formulário com os dados do usuário
-        form.reset({
-          nome: data.nome,
-          perfil: {
-            foto: data.perfil?.foto || "",
-            telefone: data.perfil?.telefone || "",
-            bio: data.perfil?.bio || "",
-            endereco: {
-              rua: data.perfil?.endereco?.rua || "",
-              numero: data.perfil?.endereco?.numero || "",
-              complemento: data.perfil?.endereco?.complemento || "",
-              bairro: data.perfil?.endereco?.bairro || "",
-              cidade: data.perfil?.endereco?.cidade || "",
-              estado: data.perfil?.endereco?.estado || "",
-              cep: data.perfil?.endereco?.cep || "",
-            },
-            redesSociais: {
-              instagram: data.perfil?.redesSociais?.instagram || "",
-              facebook: data.perfil?.redesSociais?.facebook || "",
-              linkedin: data.perfil?.redesSociais?.linkedin || "",
-              twitter: data.perfil?.redesSociais?.twitter || "",
-            },
-            preferencias: {
-              notificacoes: data.perfil?.preferencias?.notificacoes ?? true,
-              temaEscuro: data.perfil?.preferencias?.temaEscuro ?? false,
-              idioma: data.perfil?.preferencias?.idioma || "pt-BR",
-            },
+      // Preencher o formulário com os dados do usuário
+      form.reset({
+        nome: initialData.nome || "",
+        cpf: initialData.cpf || "",
+        perfil: {
+          foto: initialData.perfil?.foto || "",
+          telefone: initialData.perfil?.telefone || "",
+          bio: initialData.perfil?.bio || "",
+          endereco: {
+            rua: initialData.perfil?.endereco?.rua || "",
+            numero: initialData.perfil?.endereco?.numero || "",
+            complemento: initialData.perfil?.endereco?.complemento || "",
+            bairro: initialData.perfil?.endereco?.bairro || "",
+            cidade: initialData.perfil?.endereco?.cidade || "",
+            estado: initialData.perfil?.endereco?.estado || "",
+            cep: initialData.perfil?.endereco?.cep || "",
           },
-        })
-      } catch (error) {
-        console.error("Erro ao buscar perfil:", error)
-        toast.error("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
+          redesSociais: {
+            instagram: initialData.perfil?.redesSociais?.instagram || "",
+            facebook: initialData.perfil?.redesSociais?.facebook || "",
+            linkedin: initialData.perfil?.redesSociais?.linkedin || "",
+            twitter: initialData.perfil?.redesSociais?.twitter || "",
+          },
+          preferencias: {
+            notificacoes: initialData.perfil?.preferencias?.notificacoes ?? true,
+            temaEscuro: initialData.perfil?.preferencias?.temaEscuro ?? false,
+            idioma: initialData.perfil?.preferencias?.idioma || "pt-BR",
+          },
+        },
+      })
+      setIsLoading(false)
+    } else {
+      // If no initialData, fetch from API
+      const fetchUsuario = async () => {
+        try {
+          setIsLoading(true)
+          const response = await fetchWithRetry("/api/usuario/perfil", {}, 3, 1000)
 
-    fetchUsuario()
+          if (response.status === 404) {
+            // Usuário não encontrado, usar valores padrão
+            return
+          }
+
+          if (!response.ok) {
+            throw new Error("Falha ao buscar dados do usuário")
+          }
+
+          const data = await response.json()
+          setUsuario(data)
+
+          // Preencher o formulário com os dados do usuário
+          form.reset({
+            nome: data.nome,
+            cpf: data.cpf || "",
+            perfil: {
+              foto: data.perfil?.foto || "",
+              telefone: data.perfil?.telefone || "",
+              bio: data.perfil?.bio || "",
+              endereco: {
+                rua: data.perfil?.endereco?.rua || "",
+                numero: data.perfil?.endereco?.numero || "",
+                complemento: data.perfil?.endereco?.complemento || "",
+                bairro: data.perfil?.endereco?.bairro || "",
+                cidade: data.perfil?.endereco?.cidade || "",
+                estado: data.perfil?.endereco?.estado || "",
+                cep: data.perfil?.endereco?.cep || "",
+              },
+              redesSociais: {
+                instagram: data.perfil?.redesSociais?.instagram || "",
+                facebook: data.perfil?.redesSociais?.facebook || "",
+                linkedin: data.perfil?.redesSociais?.linkedin || "",
+                twitter: data.perfil?.redesSociais?.twitter || "",
+              },
+              preferencias: {
+                notificacoes: data.perfil?.preferencias?.notificacoes ?? true,
+                temaEscuro: data.perfil?.preferencias?.temaEscuro ?? false,
+                idioma: data.perfil?.preferencias?.idioma || "pt-BR",
+              },
+            },
+          })
+        } catch (error) {
+          console.error("Erro ao buscar perfil:", error)
+          toast.error("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
+        } finally {
+          setIsLoading(false)
+        }
+      }
+
+      fetchUsuario()
+    }
   }, [form, initialData])
 
   async function onSubmit(values: PerfilFormValues) {
@@ -203,7 +237,7 @@ export function UsuarioPerfilForm({ initialData }: UsuarioFormProps = {}) {
     }
   }
 
-  if (isLoading && !usuario && !initialData) {
+  if (isLoading && !usuario) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -256,6 +290,22 @@ export function UsuarioPerfilForm({ initialData }: UsuarioFormProps = {}) {
                     <FormLabel>Nome Completo</FormLabel>
                     <FormControl>
                       <Input placeholder="Seu nome completo" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Add the CPF field to the form */}
+              {/* Inside the CardContent after the nome field */}
+              <FormField
+                control={form.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
+                    <FormControl>
+                      <Input placeholder="000.000.000-00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

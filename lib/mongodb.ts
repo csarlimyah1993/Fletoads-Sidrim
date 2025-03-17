@@ -29,6 +29,11 @@ let cachedDb: any = null
 
 // Função para conectar ao MongoDB
 export async function connectToDatabase() {
+  // Verificar se estamos no servidor
+  if (typeof window !== "undefined") {
+    throw new Error("Esta função só pode ser chamada no servidor")
+  }
+
   if (isConnected && cachedClient && cachedDb) {
     console.log("=> Usando conexão existente com MongoDB")
     return { client: cachedClient, db: cachedDb }
@@ -73,25 +78,36 @@ mongoose.connection.on("disconnected", () => {
 })
 
 // Exportar o cliente do MongoDB para uso direto quando necessário
-let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
-if (process.env.NODE_ENV === "development") {
-  // Em desenvolvimento, use uma variável global para que a conexão
-  // seja mantida entre recarregamentos de página
-  const globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>
-  }
+// Verificar se estamos no servidor
+if (typeof window === "undefined") {
+  // Código do lado do servidor
+  let client: MongoClient
 
-  if (!globalWithMongo._mongoClientPromise) {
+  if (process.env.NODE_ENV === "development") {
+    // Em desenvolvimento, use uma variável global para que a conexão
+    // seja mantida entre recarregamentos de página
+    const globalWithMongo = global as typeof globalThis & {
+      _mongoClientPromise?: Promise<MongoClient>
+    }
+
+    if (!globalWithMongo._mongoClientPromise) {
+      client = new MongoClient(uri, options)
+      globalWithMongo._mongoClientPromise = client.connect()
+    }
+    clientPromise = globalWithMongo._mongoClientPromise
+  } else {
+    // Em produção, é melhor não usar uma variável global
     client = new MongoClient(uri, options)
-    globalWithMongo._mongoClientPromise = client.connect()
+    clientPromise = client.connect()
   }
-  clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  // Em produção, é melhor não usar uma variável global
-  client = new MongoClient(uri, options)
-  clientPromise = client.connect()
+  // No cliente, retornamos uma promessa que nunca resolve
+  // Isso evita erros, mas o código cliente nunca deve chamar isso
+  clientPromise = new Promise(() => {
+    console.error("Tentativa de usar MongoDB no cliente")
+  }) as any
 }
 
 export default clientPromise

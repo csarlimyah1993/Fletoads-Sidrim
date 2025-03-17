@@ -3,27 +3,29 @@ import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
+  const { pathname } = request.nextUrl
 
-  // Verificar se o usuário está autenticado
-  if (!token) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", request.nextUrl.pathname)
-    return NextResponse.redirect(url)
+  // Protect dashboard routes
+  if (pathname.startsWith("/dashboard")) {
+    const token = await getToken({ req: request })
+
+    if (!token) {
+      const url = new URL("/login", request.url)
+      url.searchParams.set("callbackUrl", encodeURI(request.url))
+      return NextResponse.redirect(url)
+    }
   }
 
-  // Verificar permissões para rotas administrativas
-  if (request.nextUrl.pathname.startsWith("/admin") && !token.permissoes.includes("admin")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Allow access to temp-uploads for authenticated users
+  if (pathname.startsWith("/temp-uploads")) {
+    // Continue to static file serving
+    return NextResponse.next()
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/campanhas/:path*", "/panfletos/:path*", "/clientes/:path*"],
+  matcher: ["/dashboard/:path*", "/temp-uploads/:path*"],
 }
 

@@ -1,40 +1,68 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Notificacao from "@/lib/models/notificacao"
-import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
+import Notificacao from "@/lib/models/notificacao"
+import mongoose from "mongoose"
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const body = await req.json()
-
-    const notificacao = await Notificacao.findOne({
-      _id: id,
-      usuario: session.user.id,
-    })
+    const notificacao = await Notificacao.findById(id)
 
     if (!notificacao) {
       return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
     }
 
-    // Atualizar dados
-    const notificacaoAtualizada = await Notificacao.findByIdAndUpdate(id, { $set: body }, { new: true })
+    return NextResponse.json(notificacao)
+  } catch (error) {
+    console.error("Erro ao buscar notificação:", error)
+    return NextResponse.json({ error: "Erro ao buscar notificação" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const resolvedParams = await params
+    const id = resolvedParams.id
+
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    await connectToDatabase()
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
+
+    const data = await request.json()
+
+    const notificacaoAtualizada = await Notificacao.findByIdAndUpdate(
+      id,
+      { $set: data },
+      { new: true, runValidators: true },
+    )
+
+    if (!notificacaoAtualizada) {
+      return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
+    }
 
     return NextResponse.json(notificacaoAtualizada)
   } catch (error) {
@@ -43,35 +71,30 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    await connectToDatabase()
 
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const notificacao = await Notificacao.findOne({
-      _id: id,
-      usuario: session.user.id,
-    })
+    const notificacaoDeletada = await Notificacao.findByIdAndDelete(id)
 
-    if (!notificacao) {
+    if (!notificacaoDeletada) {
       return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
     }
 
-    await Notificacao.findByIdAndDelete(id)
-
-    return NextResponse.json({ message: "Notificação excluída com sucesso" })
+    return NextResponse.json({ success: true, message: "Notificação excluída com sucesso" })
   } catch (error) {
     console.error("Erro ao excluir notificação:", error)
     return NextResponse.json({ error: "Erro ao excluir notificação" }, { status: 500 })

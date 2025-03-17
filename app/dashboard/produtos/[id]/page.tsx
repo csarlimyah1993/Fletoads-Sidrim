@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, ArrowLeft, Save, Trash2, AlertCircle } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Trash2, AlertCircle, X } from "lucide-react"
 import { toast } from "sonner"
+import { ImageUpload } from "@/components/ui/image-upload"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +24,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { use } from "react"
 
-export default function ProdutoDetalhesPage({ params }: { params: { id: string } }) {
+export default function ProdutoDetalhesPage({ params }: { params: Promise<{ id: string }> }) {
+  // Usar o hook 'use' do React para resolver a Promise de params
+  const { id } = use(params)
+
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -40,6 +45,7 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
     estoque: "0",
     destaque: false,
     ativo: true,
+    imagens: [] as string[],
   })
 
   // Buscar dados do produto
@@ -49,26 +55,27 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/produtos/${params.id}`)
+        const response = await fetch(`/api/produtos/${id}`)
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Erro ao buscar produto")
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `Erro ao buscar produto: ${response.status}`)
         }
 
         const produto = await response.json()
 
         // Converter valores para string para o formulário
         setFormData({
-          nome: produto.nome,
-          descricao: produto.descricao,
-          preco: produto.preco.toString(),
+          nome: produto.nome || "",
+          descricao: produto.descricao || "",
+          preco: produto.preco?.toString() || "0",
           precoPromocional: produto.precoPromocional ? produto.precoPromocional.toString() : "",
-          categoria: produto.categoria,
-          sku: produto.sku,
-          estoque: produto.estoque.toString(),
-          destaque: produto.destaque,
-          ativo: produto.ativo,
+          categoria: produto.categoria || "",
+          sku: produto.sku || "",
+          estoque: produto.estoque?.toString() || "0",
+          destaque: produto.destaque || false,
+          ativo: produto.ativo !== undefined ? produto.ativo : true,
+          imagens: produto.imagens || [],
         })
       } catch (error) {
         console.error("Erro ao buscar produto:", error)
@@ -80,7 +87,7 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
     }
 
     fetchProduto()
-  }, [params.id])
+  }, [id])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -89,6 +96,20 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
 
   const handleSwitchChange = (name: string, checked: boolean) => {
     setFormData((prev) => ({ ...prev, [name]: checked }))
+  }
+
+  const handleImageUpload = (url: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      imagens: [...prev.imagens, url],
+    }))
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      imagens: prev.imagens.filter((_, i) => i !== index),
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +133,7 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
       }
 
       // Enviar dados para a API
-      const response = await fetch(`/api/produtos/${params.id}`, {
+      const response = await fetch(`/api/produtos/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -121,11 +142,14 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || "Erro ao atualizar produto")
       }
 
       toast.success("Produto atualizado com sucesso!")
+
+      // Redirecionar para a página de listagem após salvar
+      router.push("/dashboard/produtos")
     } catch (error) {
       console.error("Erro ao atualizar produto:", error)
       toast.error(error instanceof Error ? error.message : "Erro ao atualizar produto")
@@ -138,12 +162,12 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
     try {
       setIsDeleting(true)
 
-      const response = await fetch(`/api/produtos/${params.id}`, {
+      const response = await fetch(`/api/produtos/${id}`, {
         method: "DELETE",
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || "Erro ao excluir produto")
       }
 
@@ -155,6 +179,11 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  // Função para voltar para a página de listagem de produtos
+  const handleVoltar = () => {
+    router.push("/dashboard/produtos")
   }
 
   if (isLoading) {
@@ -174,7 +203,7 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
           <CardContent className="flex flex-col items-center justify-center h-64">
             <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
             <p className="text-lg font-medium text-center">{error}</p>
-            <Button onClick={() => router.push("/dashboard/produtos")} className="mt-4">
+            <Button onClick={handleVoltar} className="mt-4">
               Voltar para Produtos
             </Button>
           </CardContent>
@@ -188,12 +217,7 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/dashboard/produtos")}
-              disabled={isSaving || isDeleting}
-            >
+            <Button variant="ghost" size="sm" onClick={handleVoltar} disabled={isSaving || isDeleting} type="button">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-2xl font-bold tracking-tight">{formData.nome}</h2>
@@ -361,16 +385,53 @@ export default function ProdutoDetalhesPage({ params }: { params: { id: string }
               </div>
             </CardContent>
           </Card>
+
+          {/* Nova seção para imagens */}
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle>Imagens do Produto</CardTitle>
+              <CardDescription>Adicione imagens para mostrar seu produto</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Galeria de imagens */}
+                {formData.imagens.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
+                    {formData.imagens.map((imagem, index) => (
+                      <div key={index} className="relative group aspect-square rounded-md overflow-hidden border">
+                        <div className="w-full h-full bg-gray-100 dark:bg-gray-800">
+                          <img
+                            src={imagem || "/placeholder.svg"}
+                            alt={`Imagem ${index + 1} do produto`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveImage(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload de nova imagem */}
+                <div className="mt-4">
+                  <Label>Adicionar Nova Imagem</Label>
+                  <ImageUpload value="" onChange={handleImageUpload} tipo="produto" className="mt-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="mt-6 flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/dashboard/produtos")}
-            className="mr-2"
-            disabled={isSaving}
-          >
+          <Button type="button" variant="outline" onClick={handleVoltar} className="mr-2" disabled={isSaving}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isSaving}>

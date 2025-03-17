@@ -23,7 +23,7 @@ export default function PerfilEditorClient({
       </TabsList>
       <TabsContent value="usuario" className="space-y-4">
         <Card className="p-6">
-          <UsuarioPerfilForm />
+          <UsuarioPerfilForm initialData={initialUsuario} />
         </Card>
       </TabsContent>
       <TabsContent value="loja" className="space-y-4">

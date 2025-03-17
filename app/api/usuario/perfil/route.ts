@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Rota para atualizar o perfil do usuário logado
+// Update the PUT method to handle CPF
 export async function PUT(req: NextRequest) {
   try {
     // Garantir que estamos conectados ao banco de dados
@@ -48,6 +48,9 @@ export async function PUT(req: NextRequest) {
     delete dadosAtualizacao.email
     delete dadosAtualizacao.cargo
     delete dadosAtualizacao.permissoes
+
+    // CPF pode ser atualizado
+    // Não remover o CPF do objeto de atualização
 
     const usuario = await Usuario.findByIdAndUpdate(
       session.user.id,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,7 +28,10 @@ const integracaoSchema = z.object({
 
 type IntegracaoFormValues = z.infer<typeof integracaoSchema>
 
-export default function EditarIntegracaoPage({ params }: { params: { id: string } }) {
+export default function IntegracaoDetalhesPage({ params }: { params: { id: string } }) {
+  // Unwrap params usando React.use()
+  const unwrappedParams = React.use(params)
+  const integracaoId = unwrappedParams.id
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -53,7 +56,7 @@ export default function EditarIntegracaoPage({ params }: { params: { id: string 
   const fetchIntegracao = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/integracoes/${params.id}`)
+      const response = await fetch(`/api/integracoes/${integracaoId}`)
 
       if (!response.ok) {
         throw new Error("Erro ao buscar integração")
@@ -100,7 +103,7 @@ export default function EditarIntegracaoPage({ params }: { params: { id: string 
   useEffect(() => {
     fetchIntegracao()
     fetchTiposIntegracao()
-  }, [params.id])
+  }, [integracaoId])
 
   // Efeito para configurar tipo e provedor quando os dados estiverem carregados
   useEffect(() => {
@@ -127,7 +130,7 @@ export default function EditarIntegracaoPage({ params }: { params: { id: string 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          integracaoId: params.id,
+          integracaoId: integracaoId,
           credenciais: form.getValues("credenciais"),
         }),
       })
@@ -153,7 +156,7 @@ export default function EditarIntegracaoPage({ params }: { params: { id: string 
     try {
       setIsSaving(true)
 
-      const response = await fetch(`/api/integracoes/${params.id}`, {
+      const response = await fetch(`/api/integracoes/${integracaoId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

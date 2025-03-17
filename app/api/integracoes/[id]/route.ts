@@ -3,30 +3,26 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Integracao from "@/lib/models/integracao"
-import Loja from "@/lib/models/loja"
+import mongoose from "mongoose"
 
-// Obter detalhes de uma integração
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    await connectToDatabase()
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Buscar integração
-    const integracao = await Integracao.findOne({
-      _id: params.id,
-      lojaId: loja._id,
-    })
-
+    const integracao = await Integracao.findById(id)
     if (!integracao) {
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
@@ -38,69 +34,71 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// Atualizar integração
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    await connectToDatabase()
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const dados = await req.json()
+    const data = await request.json()
 
-    // Atualizar integração
-    const integracao = await Integracao.findOneAndUpdate(
-      { _id: params.id, lojaId: loja._id },
-      { $set: dados },
+    // Validar dados obrigatórios
+    if (!data.nome || !data.tipo) {
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
+    }
+
+    const integracaoAtualizada = await Integracao.findByIdAndUpdate(
+      id,
+      { $set: data },
       { new: true, runValidators: true },
     )
 
-    if (!integracao) {
+    if (!integracaoAtualizada) {
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(integracao)
+    return NextResponse.json(integracaoAtualizada)
   } catch (error) {
     console.error("Erro ao atualizar integração:", error)
     return NextResponse.json({ error: "Erro ao atualizar integração" }, { status: 500 })
   }
 }
 
-// Excluir integração
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await connectToDatabase()
+    const resolvedParams = await params
+    const id = resolvedParams.id
 
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    await connectToDatabase()
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Excluir integração
-    const resultado = await Integracao.findOneAndDelete({
-      _id: params.id,
-      lojaId: loja._id,
-    })
+    const integracaoDeletada = await Integracao.findByIdAndDelete(id)
 
-    if (!resultado) {
+    if (!integracaoDeletada) {
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: "Integração excluída com sucesso" })
   } catch (error) {
     console.error("Erro ao excluir integração:", error)
     return NextResponse.json({ error: "Erro ao excluir integração" }, { status: 500 })

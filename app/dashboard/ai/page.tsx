@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GeradorConteudo } from "@/components/gerador-conteudo"
-import { AnalisadorConteudo } from "@/components/analisador-conteudo"
-import { SugestorMelhorias } from "@/components/sugestor-melhorias"
+import { GeradorConteudo } from "@/components/ai/gerador-conteudo"
+import { AnalisadorConteudo } from "@/components/ai/analisador-conteudo"
+import { SugestorMelhorias } from "@/components/ai/sugestor-melhorias"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -12,10 +12,14 @@ export default function AIPage() {
   const [apiKeyConfigured, setApiKeyConfigured] = useState(true) // Assumimos que está configurado inicialmente
 
   // Verificar se a API key está configurada ao carregar a página
-  useState(() => {
+  useEffect(() => {
     const checkApiKey = async () => {
       try {
-        const response = await fetch("/api/ai/gerar-conteudo", {
+        // Use window.location.origin to get the base URL
+        const baseUrl = window.location.origin
+        const apiUrl = `${baseUrl}/api/ai/gerar-conteudo`
+
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -33,11 +37,12 @@ export default function AIPage() {
         }
       } catch (error) {
         console.error("Erro ao verificar API key:", error)
+        setApiKeyConfigured(false)
       }
     }
 
     checkApiKey()
-  })
+  }, []) // Empty dependency array to run only once on mount
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -66,9 +71,6 @@ export default function AIPage() {
           <GeradorConteudo />
         </TabsContent>
         <TabsContent value="analisador" className="space-y-4">
-          <AnalisadorConteudo />
-        </TabsContent>
-        <TabsContent className="space-y-4">
           <AnalisadorConteudo />
         </TabsContent>
         <TabsContent value="sugestor" className="space-y-4">

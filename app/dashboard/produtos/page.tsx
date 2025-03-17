@@ -1,449 +1,259 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import { Package, Plus, Search, Loader2, AlertCircle, Tag, DollarSign } from "lucide-react"
-import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Loader2, Plus, Search, Tag, Package, DollarSign, Edit, Eye, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import Image from "next/image"
+
+interface Produto {
+  _id: string
+  nome: string
+  preco: number
+  precoPromocional?: number
+  categoria: string
+  sku: string
+  estoque: number
+  destaque: boolean
+  ativo: boolean
+  imagens: string[]
+  dataCriacao: string
+}
 
 export default function ProdutosPage() {
   const router = useRouter()
-  const [busca, setBusca] = useState("")
-  const [categoria, setCategoria] = useState("")
-  const [ativo, setAtivo] = useState("")
-  const [produtos, setProdutos] = useState<any[]>([])
-  const [categorias, setCategorias] = useState<string[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: 10,
-    pages: 1,
-  })
+  const [searchTerm, setSearchTerm] = useState("")
 
-  // Função para criar uma loja padrão se necessário
-  const criarLojaPadrao = async () => {
-    try {
-      const response = await fetch("/api/loja/criar-padrao", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        console.log("Loja padrão criada ou já existente")
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error("Erro ao criar loja padrão:", error)
-      return false
-    }
-  }
-
-  // Buscar produtos
-  const fetchProdutos = async (page = 1, ativoFilter = ativo, categoriaFilter = categoria) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Tentar criar uma loja padrão primeiro
-      await criarLojaPadrao()
-
-      let url = `/api/produtos?page=${page}&limit=${pagination.limit}`
-      if (ativoFilter) url += `&ativo=${ativoFilter}`
-      if (categoriaFilter) url += `&categoria=${categoriaFilter}`
-      if (busca) url += `&busca=${encodeURIComponent(busca)}`
-
-      const response = await fetch(url)
-      const data = await response.json()
-
-      if (!response.ok) {
-        // Tratamento de erro mais robusto
-        console.error("Erro na API:", data)
-        setError(data.error || "Erro ao buscar produtos")
-        toast.error(data.error || "Erro ao carregar produtos")
-        return
-      }
-
-      setProdutos(data.produtos || [])
-      setPagination(
-        data.pagination || {
-          total: 0,
-          page: 1,
-          limit: 10,
-          pages: 1,
-        },
-      )
-    } catch (error) {
-      console.error("Erro ao buscar produtos:", error)
-      setError(error instanceof Error ? error.message : "Erro ao buscar produtos")
-      toast.error("Erro ao carregar produtos")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Buscar categorias
-  const fetchCategorias = async () => {
-    try {
-      const response = await fetch("/api/produtos/categorias")
-
-      if (response.ok) {
-        const data = await response.json()
-        setCategorias(data.categorias || [])
-      }
-    } catch (error) {
-      console.error("Erro ao buscar categorias:", error)
-    }
-  }
-
-  // Buscar dados ao carregar a página
   useEffect(() => {
+    const fetchProdutos = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await fetch("/api/produtos")
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Erro ao buscar produtos")
+        }
+
+        const data = await response.json()
+        // Verificar a estrutura da resposta e extrair o array de produtos
+        const produtosArray = Array.isArray(data) ? data : data.produtos ? data.produtos : []
+
+        setProdutos(produtosArray)
+      } catch (error) {
+        console.error("Erro ao buscar produtos:", error)
+        setError(error instanceof Error ? error.message : "Erro ao buscar produtos")
+        toast.error("Erro ao carregar produtos")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     fetchProdutos()
-    fetchCategorias()
   }, [])
 
-  // Buscar produtos quando os filtros mudarem
-  useEffect(() => {
-    fetchProdutos(1, ativo, categoria)
-  }, [ativo, categoria])
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value)
+  }
 
-  // Debounce para a busca
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (busca !== "") {
-        fetchProdutos(1, ativo, categoria)
-      }
-    }, 500)
+  // Garantir que produtos é sempre um array antes de chamar filter
+  const filteredProdutos = Array.isArray(produtos)
+    ? produtos.filter(
+        (produto) =>
+          produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          produto.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          produto.sku.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    : []
 
-    return () => clearTimeout(timer)
-  }, [busca])
-
-  // Função para formatar o valor em reais
-  const formatarValor = (valor: number) => {
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(valor)
+    }).format(value)
   }
 
-  // Filtrar produtos com base na busca
-  const produtosFiltrados = produtos.filter((produto) => {
-    const matchBusca = busca
-      ? produto.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        produto.descricao.toLowerCase().includes(busca.toLowerCase()) ||
-        produto.sku.toLowerCase().includes(busca.toLowerCase())
-      : true
+  if (isLoading) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
 
-    return matchBusca
-  })
+  if (error) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-64">
+            <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
+            <p className="text-lg font-medium text-center">{error}</p>
+            <Button onClick={() => router.refresh()} className="mt-4">
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Produtos</h2>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Produtos</h2>
+          <p className="text-muted-foreground">Gerencie os produtos da sua loja</p>
+        </div>
         <Button onClick={() => router.push("/dashboard/produtos/novo")}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Produto
         </Button>
       </div>
 
-      <div className="flex flex-col space-y-4 md:flex-row md:space-x-4 md:space-y-0">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar produtos por nome, descrição ou SKU..."
-              className="pl-8"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 md:w-[400px]">
-          <Select value={categoria} onValueChange={setCategoria}>
-            <SelectTrigger>
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {categorias.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={ativo} onValueChange={setAtivo}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="true">Ativo</SelectItem>
-              <SelectItem value="false">Inativo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <Tabs defaultValue="todos" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="todos">Todos</TabsTrigger>
-          <TabsTrigger value="ativos">Ativos</TabsTrigger>
-          <TabsTrigger value="inativos">Inativos</TabsTrigger>
-          <TabsTrigger value="destaque">Em Destaque</TabsTrigger>
-        </TabsList>
-        <TabsContent value="todos" className="space-y-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Seus Produtos</CardTitle>
+          <CardDescription>
+            Total de {produtos.length} produto{produtos.length !== 1 ? "s" : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar produtos..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={handleSearch}
+              />
             </div>
-          ) : error ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center h-64">
-                <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
-                <p className="text-lg font-medium text-center">{error}</p>
-                <Button onClick={() => fetchProdutos()} className="mt-4">
-                  Tentar novamente
-                </Button>
-              </CardContent>
-            </Card>
-          ) : produtosFiltrados.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center h-64">
-                <Package className="h-10 w-10 text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-center">Nenhum produto encontrado</p>
-                <p className="text-sm text-gray-500 text-center mt-1">
-                  Comece criando um novo produto ou ajuste seus filtros de busca.
-                </p>
+          </div>
+
+          {filteredProdutos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Package className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-lg font-medium">Nenhum produto encontrado</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {searchTerm ? "Tente buscar com outros termos" : "Comece adicionando seu primeiro produto"}
+              </p>
+              {!searchTerm && (
                 <Button onClick={() => router.push("/dashboard/produtos/novo")} className="mt-4">
                   <Plus className="mr-2 h-4 w-4" />
                   Novo Produto
                 </Button>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {produtosFiltrados.map((produto) => (
-                <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead>Estoque</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProdutos.map((produto) => (
+                    <TableRow key={produto._id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-md overflow-hidden bg-muted relative">
+                            {produto.imagens && produto.imagens.length > 0 ? (
+                              <Image
+                                src={produto.imagens[0] || "/placeholder.svg"}
+                                alt={produto.nome}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <Package className="h-6 w-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">{produto.nome}</p>
+                            <p className="text-xs text-muted-foreground">SKU: {produto.sku}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Tag className="h-3 w-3" />
+                          {produto.categoria}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{formatCurrency(produto.preco)}</span>
+                          {produto.precoPromocional && (
+                            <span className="text-xs text-muted-foreground line-through">
+                              {formatCurrency(produto.preco)}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={produto.estoque > 0 ? "outline" : "destructive"}
+                          className="flex items-center gap-1"
+                        >
+                          <DollarSign className="h-3 w-3" />
+                          {produto.estoque > 0 ? `${produto.estoque} unid.` : "Esgotado"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={produto.ativo ? "default" : "secondary"}>
                           {produto.ativo ? "Ativo" : "Inativo"}
                         </Badge>
-                      </div>
-                      <CardDescription>{produto.descricao}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center">
-                            <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                            <span>{produto.categoria}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">
-                              {formatarValor(produto.precoPromocional || produto.preco)}
-                            </span>
-                          </div>
-                        </div>
-                        {produto.precoPromocional && (
-                          <div className="text-xs text-right">
-                            <span className="line-through text-muted-foreground">{formatarValor(produto.preco)}</span>
-                          </div>
+                        {produto.destaque && (
+                          <Badge variant="outline" className="ml-1 bg-amber-100">
+                            Destaque
+                          </Badge>
                         )}
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-between pt-0">
-                      <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                      <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                    </CardFooter>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {/* Paginação */}
-          {pagination.pages > 1 && (
-            <div className="flex justify-center mt-6">
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchProdutos(pagination.page - 1)}
-                  disabled={pagination.page === 1 || isLoading}
-                >
-                  Anterior
-                </Button>
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
-                    <Button
-                      key={page}
-                      variant={pagination.page === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => fetchProdutos(page)}
-                      disabled={isLoading}
-                    >
-                      {page}
-                    </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push(`/dashboard/produtos/${produto._id}`)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => router.push(`/vitrine/${produto._id}`)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Visualizar</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchProdutos(pagination.page + 1)}
-                  disabled={pagination.page === pagination.pages || isLoading}
-                >
-                  Próxima
-                </Button>
-              </div>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </TabsContent>
-        <TabsContent value="ativos" className="space-y-4">
-          {/* Conteúdo similar ao da aba "todos", mas filtrado por ativo=true */}
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {produtosFiltrados
-                .filter((p) => p.ativo)
-                .map((produto) => (
-                  <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                ))}
-            </div>
-          )}
-        </TabsContent>
-        <TabsContent value="inativos" className="space-y-4">
-          {/* Conteúdo similar ao da aba "todos", mas filtrado por ativo=false */}
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {produtosFiltrados
-                .filter((p) => !p.ativo)
-                .map((produto) => (
-                  <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                ))}
-            </div>
-          )}
-        </TabsContent>
-        <TabsContent value="destaque" className="space-y-4">
-          {/* Conteúdo similar ao da aba "todos", mas filtrado por destaque=true */}
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {produtosFiltrados
-                .filter((p) => p.destaque)
-                .map((produto) => (
-                  <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }
