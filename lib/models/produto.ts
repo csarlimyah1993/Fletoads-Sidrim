@@ -5,46 +5,29 @@ export interface IProduto extends Document {
   descricao: string
   preco: number
   precoPromocional?: number
+  imagem: string
   categoria: string
-  sku: string
   estoque: number
-  destaque: boolean
   ativo: boolean
-  imagens: string[]
-  lojaId: mongoose.Types.ObjectId
-  dataCriacao: Date
-  dataAtualizacao: Date
+  usuario: mongoose.Types.ObjectId
+  createdAt: Date
+  updatedAt: Date
 }
 
-const ProdutoSchema = new Schema<IProduto>(
+const ProdutoSchema = new Schema(
   {
     nome: { type: String, required: true },
     descricao: { type: String, required: true },
     preco: { type: Number, required: true },
     precoPromocional: { type: Number },
+    imagem: { type: String, required: true },
     categoria: { type: String, required: true },
-    sku: { type: String, required: true },
-    estoque: { type: Number, required: true, default: 0 },
-    destaque: { type: Boolean, default: false },
+    estoque: { type: Number, default: 0 },
     ativo: { type: Boolean, default: true },
-    imagens: { type: [String], default: [] },
-    lojaId: { type: Schema.Types.ObjectId, ref: "Loja", required: true },
-    dataCriacao: { type: Date, default: Date.now },
-    dataAtualizacao: { type: Date, default: Date.now },
+    usuario: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
   },
-  {
-    timestamps: {
-      createdAt: "dataCriacao",
-      updatedAt: "dataAtualizacao",
-    },
-  },
+  { timestamps: true },
 )
 
-// Índices para melhorar a performance das consultas
-ProdutoSchema.index({ nome: 1 })
-ProdutoSchema.index({ categoria: 1 })
-ProdutoSchema.index({ lojaId: 1 })
-ProdutoSchema.index({ sku: 1 }, { unique: true })
-
-export default mongoose.models.Produto || mongoose.model<IProduto>("Produto", ProdutoSchema)
+export const Produto = mongoose.models.Produto || mongoose.model<IProduto>("Produto", ProdutoSchema)
 

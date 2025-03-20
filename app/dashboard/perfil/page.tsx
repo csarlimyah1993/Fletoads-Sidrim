@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { Loader2, Edit, Printer, Globe, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PlanoDashboardCard } from "@/components/perfil/plano-dashboard-card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { getServerSession } from "next-auth/next"
@@ -153,7 +154,7 @@ async function PerfilLojaContent() {
                 <CardDescription className="mt-1 text-sm">
                   {loja.categorias && loja.categorias.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {loja.categorias.map((categoria) => (
+                      {loja.categorias.map((categoria: any) => (
                         <Badge key={categoria} variant="outline" className="text-xs">
                           {categoria}
                         </Badge>
@@ -344,66 +345,7 @@ async function PerfilLojaContent() {
           </Card>
 
           {/* Pacote/Plano */}
-          <Card className="md:col-span-2 lg:col-span-3">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-semibold">Pacote Prata</CardTitle>
-                <CardDescription>Gerencie seu plano e recursos disponíveis</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">
-                Ver Detalhes
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="flex items-center gap-4">
-                  <div className="relative w-32 h-32">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold">182</span>
-                    </div>
-                    <svg className="w-full h-full" viewBox="0 0 100 100">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="10"
-                        className="text-secondary"
-                      />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="10"
-                        strokeDasharray="283"
-                        strokeDashoffset={283 - (283 * 182) / 365}
-                        className="text-primary transform -rotate-90 origin-center"
-                      />
-                    </svg>
-                    <div className="absolute bottom-0 w-full text-center text-sm text-muted-foreground">/365</div>
-                    <div className="absolute -bottom-6 w-full text-center text-xs text-muted-foreground">
-                      Dias restantes
-                    </div>
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <PlanMetric label="Panfletos Ativos" current={0} total={10} />
-                    <PlanMetric label="Panfletos Programados" current={0} total={10} />
-                    <PlanMetric label="Hotpromos Diários" current={3} total={10} />
-                    <PlanMetric label="Cupons" current={6} total={10} />
-                  </div>
-                </div>
-                <div className="flex items-center justify-center md:justify-end">
-                  <Button size="lg" className="w-full md:w-auto">
-                    Aprimorar Seu Plano
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PlanoDashboardCard />
         </div>
       </div>
     )

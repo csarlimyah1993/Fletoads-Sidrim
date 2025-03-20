@@ -149,7 +149,7 @@ async function PerfilLojaContent() {
               <CardDescription className="mt-1 text-sm">
                 {loja.categorias && loja.categorias.length > 0 ? (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {loja.categorias.map((categoria) => (
+                    {loja.categorias.map((categoria: any) => (
                       <Badge key={categoria} variant="outline" className="text-xs">
                         {categoria}
                       </Badge>

@@ -4,26 +4,46 @@ declare module "next-auth" {
   interface User {
     id: string
     nome: string
-    cargo: string
-    permissoes: string[]
-  }
-
-  interface Session {
-    user: {
+    email: string
+    role?: string
+    plano?: {
       id: string
       nome: string
-      cargo: string
-      permissoes: string[]
-    } & DefaultSession["user"]
+      slug: string
+      ativo: boolean
+      dataInicio?: string | Date
+      dataFim?: string | Date
+    }
+  }
+
+  interface Session extends DefaultSession {
+    user: User & {
+      id: string
+      role?: string
+      plano?: {
+        id: string
+        nome: string
+        slug: string
+        ativo: boolean
+        dataInicio?: string | Date
+        dataFim?: string | Date
+      }
+    }
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     id: string
-    nome: string
-    cargo: string
-    permissoes: string[]
+    role?: string
+    plano?: {
+      id: string
+      nome: string
+      slug: string
+      ativo: boolean
+      dataInicio?: string | Date
+      dataFim?: string | Date
+    }
   }
 }
 

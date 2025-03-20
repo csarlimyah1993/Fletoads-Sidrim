@@ -3,6 +3,7 @@ import Notificacao from "@/lib/models/notificacao"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,36 @@ export async function GET(req: NextRequest) {
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
     const page = Number.parseInt(url.searchParams.get("page") || "1")
 
-    const query: any = { usuario: session.user.id }
+    // Verificar se o ID do usuário é um ObjectId válido
+    const query: any = {}
+
+    if (session.user.id) {
+      // Verificar se o ID é um ObjectId válido
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        query.usuario = session.user.id
+      } else {
+        // Se não for um ObjectId válido, podemos usar uma condição que nunca será verdadeira
+        // para usuários com IDs especiais como "admin-id"
+        // Ou podemos criar uma lógica especial para administradores
+        if (session.user.id === "admin-id") {
+          // Para admin, podemos retornar todas as notificações ou um conjunto específico
+          // Aqui, optamos por retornar um array vazio de notificações
+          return NextResponse.json({
+            notificacoes: [],
+            naoLidas: 0,
+            pagination: {
+              total: 0,
+              page,
+              limit,
+              pages: 0,
+            },
+          })
+        } else {
+          // Para outros IDs não válidos, usamos uma condição que nunca será verdadeira
+          query.usuario = new mongoose.Types.ObjectId("000000000000000000000000")
+        }
+      }
+    }
 
     if (lida !== null) {
       query.lida = lida === "true"
@@ -32,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     const total = await Notificacao.countDocuments(query)
     const naoLidas = await Notificacao.countDocuments({
-      usuario: session.user.id,
+      ...query,
       lida: false,
     })
 
@@ -65,9 +95,23 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
 
+    // Verificar se o ID do usuário é um ObjectId válido
+    let usuarioId = session.user.id
+
+    if (!mongoose.Types.ObjectId.isValid(usuarioId)) {
+      // Se não for um ObjectId válido, podemos usar um ID padrão ou gerar um novo
+      // Aqui, optamos por não criar a notificação para usuários com IDs especiais
+      if (usuarioId === "admin-id") {
+        return NextResponse.json({ message: "Notificações não são criadas para admin" }, { status: 200 })
+      } else {
+        // Para outros IDs não válidos, podemos gerar um novo ObjectId
+        usuarioId = new mongoose.Types.ObjectId().toString()
+      }
+    }
+
     const novaNotificacao = new Notificacao({
       ...body,
-      usuario: session.user.id,
+      usuario: usuarioId,
     })
 
     await novaNotificacao.save()

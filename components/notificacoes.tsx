@@ -25,7 +25,9 @@ export function Notificacoes() {
       const response = await fetch("/api/notificacoes?limit=10")
 
       if (!response.ok) {
-        throw new Error("Erro ao buscar notificações")
+        const errorData = await response.json()
+        console.error("Erro na resposta da API:", errorData)
+        throw new Error(errorData.error || "Erro ao buscar notificações")
       }
 
       const data = await response.json()
@@ -33,6 +35,7 @@ export function Notificacoes() {
       setNaoLidas(data.naoLidas || 0)
     } catch (error) {
       console.error("Erro ao buscar notificações:", error)
+      // Não mostrar toast de erro para evitar spam ao usuário
     } finally {
       setIsLoading(false)
     }

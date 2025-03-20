@@ -1,29 +1,35 @@
 import type React from "react"
-import { Providers } from "./providers"
-import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { WhatsAppButton } from "@/components/whatsapp-button"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { SessionProvider } from "@/components/session-provider"
+import { NewSidebar } from "@/components/new-sidebar"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Fletoads - Sistema de Gestão de Panfletos",
-  description: "Plataforma para criação e gestão de campanhas de panfletos",
+  title: "FletoAds",
+  description: "Plataforma de marketing para pequenos negócios",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
+  const session = await getServerSession(authOptions)
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          {children}
-          <WhatsAppButton />
-        </Providers>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <SessionProvider session={session}>
+            <NewSidebar>{children}</NewSidebar>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

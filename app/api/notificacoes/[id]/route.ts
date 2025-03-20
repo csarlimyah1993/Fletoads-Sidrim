@@ -1,28 +1,44 @@
 import { type NextRequest, NextResponse } from "next/server"
+import Notificacao from "@/lib/models/notificacao"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Notificacao from "@/lib/models/notificacao"
 import mongoose from "mongoose"
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
+    // Garantir que estamos conectados ao banco de dados
+    await connectToDatabase()
 
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    await connectToDatabase()
+    const id = params.id
 
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    // Verificar se o ID do usuário é um ObjectId válido
+    const query: any = { _id: id }
+
+    if (session.user.id) {
+      // Verificar se o ID é um ObjectId válido
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        query.usuario = session.user.id
+      } else {
+        // Se não for um ObjectId válido, podemos usar uma condição que nunca será verdadeira
+        // para usuários com IDs especiais como "admin-id"
+        if (session.user.id === "admin-id") {
+          // Para admin, não filtramos por usuário
+          delete query.usuario
+        } else {
+          // Para outros IDs não válidos, usamos uma condição que nunca será verdadeira
+          query.usuario = new mongoose.Types.ObjectId("000000000000000000000000")
+        }
+      }
     }
 
-    const notificacao = await Notificacao.findById(id)
+    const notificacao = await Notificacao.findOne(query)
 
     if (!notificacao) {
       return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
@@ -35,66 +51,46 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
+    // Garantir que estamos conectados ao banco de dados
+    await connectToDatabase()
 
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    await connectToDatabase()
+    const id = params.id
 
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    // Verificar se o ID do usuário é um ObjectId válido
+    const query: any = { _id: id }
+
+    if (session.user.id) {
+      // Verificar se o ID é um ObjectId válido
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        query.usuario = session.user.id
+      } else {
+        // Se não for um ObjectId válido, podemos usar uma condição que nunca será verdadeira
+        // para usuários com IDs especiais como "admin-id"
+        if (session.user.id === "admin-id") {
+          // Para admin, não filtramos por usuário
+          delete query.usuario
+        } else {
+          // Para outros IDs não válidos, usamos uma condição que nunca será verdadeira
+          query.usuario = new mongoose.Types.ObjectId("000000000000000000000000")
+        }
+      }
     }
 
-    const data = await request.json()
+    const notificacao = await Notificacao.findOneAndDelete(query)
 
-    const notificacaoAtualizada = await Notificacao.findByIdAndUpdate(
-      id,
-      { $set: data },
-      { new: true, runValidators: true },
-    )
-
-    if (!notificacaoAtualizada) {
+    if (!notificacao) {
       return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(notificacaoAtualizada)
-  } catch (error) {
-    console.error("Erro ao atualizar notificação:", error)
-    return NextResponse.json({ error: "Erro ao atualizar notificação" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
-
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    await connectToDatabase()
-
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
-    }
-
-    const notificacaoDeletada = await Notificacao.findByIdAndDelete(id)
-
-    if (!notificacaoDeletada) {
-      return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 })
-    }
-
-    return NextResponse.json({ success: true, message: "Notificação excluída com sucesso" })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Erro ao excluir notificação:", error)
     return NextResponse.json({ error: "Erro ao excluir notificação" }, { status: 500 })

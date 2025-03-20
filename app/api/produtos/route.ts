@@ -2,63 +2,60 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Produto from "@/lib/models/produto"
-import Loja from "@/lib/models/loja"
+import { Produto } from "@/lib/models/produto"
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    // Conectar ao banco de dados
     await connectToDatabase()
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    // Parâmetros de consulta
-    const url = new URL(req.url)
-    const categoria = url.searchParams.get("categoria")
-    const ativo = url.searchParams.get("ativo")
-    const destaque = url.searchParams.get("destaque")
-    const busca = url.searchParams.get("busca")
-    const limite = Number.parseInt(url.searchParams.get("limite") || "50")
-    const pagina = Number.parseInt(url.searchParams.get("pagina") || "1")
+    // Obter parâmetros de consulta
+    const searchParams = request.nextUrl.searchParams
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const search = searchParams.get("search") || ""
+    const categoria = searchParams.get("categoria") || ""
+    const userId = session.user.id
 
     // Construir filtro
-    const filtro: any = { lojaId: loja._id }
+    const filtro: any = { userId }
 
-    if (categoria) filtro.categoria = categoria
-    if (ativo !== null) filtro.ativo = ativo === "true"
-    if (destaque !== null) filtro.destaque = destaque === "true"
-    if (busca) {
-      filtro.$or = [
-        { nome: { $regex: busca, $options: "i" } },
-        { descricao: { $regex: busca, $options: "i" } },
-        { sku: { $regex: busca, $options: "i" } },
-      ]
+    if (search) {
+      filtro.$or = [{ nome: { $regex: search, $options: "i" } }, { descricao: { $regex: search, $options: "i" } }]
+    }
+
+    if (categoria) {
+      filtro.categoria = categoria
+    }
+
+    // Calcular skip para paginação
+    const skip = (page - 1) * limit
+
+    // Verificar se o modelo Produto está definido corretamente
+    if (!Produto || typeof Produto.countDocuments !== "function") {
+      console.error("Modelo Produto não está definido corretamente:", Produto)
+      return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
     }
 
     // Contar total de produtos
     const total = await Produto.countDocuments(filtro)
 
     // Buscar produtos paginados
-    const produtos = await Produto.find(filtro)
-      .sort({ dataCriacao: -1 })
-      .skip((pagina - 1) * limite)
-      .limit(limite)
+    const produtos = await Produto.find(filtro).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
 
     return NextResponse.json({
       produtos,
-      paginacao: {
+      pagination: {
         total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     })
   } catch (error) {
@@ -67,52 +64,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    // Conectar ao banco de dados
     await connectToDatabase()
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    const data = await req.json()
-
-    // Validar dados obrigatórios
-    if (!data.nome || !data.descricao || !data.preco || !data.categoria || !data.sku) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
-    }
-
-    // Verificar se já existe um produto com o mesmo SKU
-    const produtoExistente = await Produto.findOne({ sku: data.sku, lojaId: loja._id })
-    if (produtoExistente) {
-      return NextResponse.json({ error: "Já existe um produto com este SKU" }, { status: 400 })
-    }
+    const data = await request.json()
+    const userId = session.user.id
 
     // Criar novo produto
     const novoProduto = new Produto({
-      nome: data.nome,
-      descricao: data.descricao,
-      preco: data.preco,
-      precoPromocional: data.precoPromocional,
-      categoria: data.categoria,
-      sku: data.sku,
-      estoque: data.estoque || 0,
-      destaque: data.destaque || false,
-      ativo: data.ativo !== undefined ? data.ativo : true,
-      imagens: data.imagens || [],
-      lojaId: loja._id,
+      ...data,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     })
 
     await novoProduto.save()
 
-    return NextResponse.json(novoProduto)
+    return NextResponse.json(novoProduto, { status: 201 })
   } catch (error) {
     console.error("Erro ao criar produto:", error)
     return NextResponse.json({ error: "Erro ao criar produto" }, { status: 500 })

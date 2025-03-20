@@ -3,6 +3,7 @@ import Notificacao from "@/lib/models/notificacao"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,29 +16,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const body = await req.json()
-    const { ids, todas = false } = body
+    const { id, todas = false } = await req.json()
+
+    // Verificar se o ID do usuário é um ObjectId válido
+    const query: any = {}
+
+    if (session.user.id) {
+      // Verificar se o ID é um ObjectId válido
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        query.usuario = session.user.id
+      } else {
+        // Se não for um ObjectId válido, podemos usar uma condição que nunca será verdadeira
+        // para usuários com IDs especiais como "admin-id"
+        if (session.user.id === "admin-id") {
+          // Para admin, retornamos sucesso sem fazer alterações
+          return NextResponse.json({ success: true })
+        } else {
+          // Para outros IDs não válidos, usamos uma condição que nunca será verdadeira
+          query.usuario = new mongoose.Types.ObjectId("000000000000000000000000")
+        }
+      }
+    }
 
     if (todas) {
       // Marcar todas as notificações como lidas
-      await Notificacao.updateMany({ usuario: session.user.id, lida: false }, { $set: { lida: true } })
-    } else if (ids && ids.length > 0) {
-      // Marcar notificações específicas como lidas
-      await Notificacao.updateMany(
-        {
-          _id: { $in: ids },
-          usuario: session.user.id,
-        },
-        { $set: { lida: true } },
-      )
-    } else {
-      return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 })
+      await Notificacao.updateMany(query, { lida: true })
+    } else if (id) {
+      // Marcar uma notificação específica como lida
+      query._id = id
+      await Notificacao.findOneAndUpdate(query, { lida: true })
     }
 
-    return NextResponse.json({ message: "Notificações marcadas como lidas com sucesso" })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Erro ao marcar notificações como lidas:", error)
-    return NextResponse.json({ error: "Erro ao marcar notificações como lidas" }, { status: 500 })
+    console.error("Erro ao marcar notificação como lida:", error)
+    return NextResponse.json({ error: "Erro ao marcar notificação como lida" }, { status: 500 })
   }
 }
 
