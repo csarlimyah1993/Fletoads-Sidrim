@@ -1,178 +1,142 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 
-// Tipos de recursos disponíveis
-export type FeatureKey =
-  | "panAssistant"
-  | "clientesProximos"
-  | "integracoes"
-  | "analytics"
-  | "multiUsuarios"
-  | "exportacao"
-  | "suportePrioritario"
-  | "personalizado"
-  | "produtos"
-  | "panfletos"
-  | "hotPromos"
-  | "campanhas"
-  | "clientes"
-  | "sinalizacaoVisual"
-  | "notificacoes"
-  | "vitrine"
-  | "vendas"
-  | "suporte"
-
-// Interface para os recursos
-export interface PlanFeatures {
-  panAssistant: boolean
-  clientesProximos: boolean
-  integracoes: boolean
-  analytics: boolean
-  multiUsuarios: boolean
-  exportacao: boolean
-  suportePrioritario: boolean
-  personalizado: boolean
-  produtos: boolean
-  panfletos: boolean
-  hotPromos: boolean
-  campanhas: boolean
-  clientes: boolean
-  sinalizacaoVisual: boolean
-  notificacoes: boolean
-  vitrine: boolean
-  vendas: boolean
-  suporte: boolean
+// Tipos para os recursos
+export interface Resource {
+  name: string
+  used: number
+  limit: number
+  unit: string
 }
 
-// Configuração dos planos
-const planos = {
+// Tipos para os planos
+export interface Plan {
+  id: string
+  name: string
+  level: string
+  isFreePlan: boolean
+  features: string[]
+  resources: Resource[]
+  maxIntegracoes: number
+  hasAI: boolean
+}
+
+// Dados simulados dos planos
+const plans: Record<string, Plan> = {
   free: {
-    level: "free",
+    id: "free",
     name: "Gratuito",
-    features: {
-      panAssistant: false,
-      clientesProximos: false,
-      integracoes: false,
-      analytics: false,
-      multiUsuarios: false,
-      exportacao: false,
-      suportePrioritario: false,
-      personalizado: false,
-      produtos: true,
-      panfletos: true,
-      hotPromos: false,
-      campanhas: false,
-      clientes: false,
-      sinalizacaoVisual: false,
-      notificacoes: true,
-      vitrine: false,
-      vendas: true,
-      suporte: false,
-    },
+    level: "free",
+    isFreePlan: true,
+    features: ["Até 3 panfletos", "Até 10 produtos", "Suporte básico"],
+    resources: [
+      { name: "Panfletos", used: 2, limit: 3, unit: "panfletos" },
+      { name: "Produtos", used: 5, limit: 10, unit: "produtos" },
+      { name: "Armazenamento", used: 5, limit: 50, unit: "MB" },
+    ],
+    maxIntegracoes: 1,
+    hasAI: false,
   },
   basic: {
-    level: "basic",
+    id: "basic",
     name: "Básico",
-    features: {
-      panAssistant: true,
-      clientesProximos: true,
-      integracoes: false,
-      analytics: false,
-      multiUsuarios: false,
-      exportacao: false,
-      suportePrioritario: false,
-      personalizado: false,
-      produtos: true,
-      panfletos: true,
-      hotPromos: true,
-      campanhas: true,
-      clientes: true,
-      sinalizacaoVisual: true,
-      notificacoes: true,
-      vitrine: true,
-      vendas: true,
-      suporte: true,
-    },
+    level: "basic",
+    isFreePlan: false,
+    features: ["Até 10 panfletos", "Até 50 produtos", "Suporte prioritário", "Análises básicas"],
+    resources: [
+      { name: "Panfletos", used: 5, limit: 10, unit: "panfletos" },
+      { name: "Produtos", used: 20, limit: 50, unit: "produtos" },
+      { name: "Armazenamento", used: 100, limit: 500, unit: "MB" },
+    ],
+    maxIntegracoes: 2,
+    hasAI: false,
   },
   pro: {
-    level: "pro",
+    id: "pro",
     name: "Profissional",
-    features: {
-      panAssistant: true,
-      clientesProximos: true,
-      integracoes: true,
-      analytics: true,
-      multiUsuarios: true,
-      exportacao: true,
-      suportePrioritario: false,
-      personalizado: false,
-      produtos: true,
-      panfletos: true,
-      hotPromos: true,
-      campanhas: true,
-      clientes: true,
-      sinalizacaoVisual: true,
-      notificacoes: true,
-      vitrine: true,
-      vendas: true,
-      suporte: true,
-    },
+    level: "pro",
+    isFreePlan: false,
+    features: ["Panfletos ilimitados", "Até 200 produtos", "Suporte prioritário", "Análises avançadas", "Integrações"],
+    resources: [
+      { name: "Panfletos", used: 15, limit: 999999, unit: "panfletos" },
+      { name: "Produtos", used: 75, limit: 200, unit: "produtos" },
+      { name: "Armazenamento", used: 350, limit: 2000, unit: "MB" },
+    ],
+    maxIntegracoes: 5,
+    hasAI: true,
   },
   enterprise: {
-    level: "enterprise",
+    id: "enterprise",
     name: "Empresarial",
-    features: {
-      panAssistant: true,
-      clientesProximos: true,
-      integracoes: true,
-      analytics: true,
-      multiUsuarios: true,
-      exportacao: true,
-      suportePrioritario: true,
-      personalizado: true,
-      produtos: true,
-      panfletos: true,
-      hotPromos: true,
-      campanhas: true,
-      clientes: true,
-      sinalizacaoVisual: true,
-      notificacoes: true,
-      vitrine: true,
-      vendas: true,
-      suporte: true,
-    },
+    level: "enterprise",
+    isFreePlan: false,
+    features: [
+      "Panfletos ilimitados",
+      "Produtos ilimitados",
+      "Suporte VIP",
+      "Análises avançadas",
+      "Integrações",
+      "API personalizada",
+    ],
+    resources: [
+      { name: "Panfletos", used: 50, limit: 999999, unit: "panfletos" },
+      { name: "Produtos", used: 150, limit: 999999, unit: "produtos" },
+      { name: "Armazenamento", used: 1200, limit: 10000, unit: "MB" },
+    ],
+    maxIntegracoes: 10,
+    hasAI: true,
   },
 }
 
 export function usePlanFeatures() {
-  const { data: session, status } = useSession()
+  // Em um ambiente real, você buscaria isso do backend
+  const [currentPlan, setCurrentPlan] = useState<Plan>(plans.free)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Obtém o plano do usuário da sessão ou usa o plano gratuito como padrão
-  const userPlanSlug = session?.user?.plano?.slug || "free"
-  const planData = planos[userPlanSlug as keyof typeof planos] || planos.free
-
-  // Verifica se o plano tem um recurso específico
-  const hasFeature = (feature: FeatureKey) => {
-    return planData.features[feature] || false
-  }
-
   useEffect(() => {
-    // Quando o status da sessão não é mais "loading", atualizamos nosso estado
-    if (status !== "loading") {
+    // Simulando uma chamada de API
+    const fetchPlan = async () => {
+      setIsLoading(true)
+      // Simular atraso de rede
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Em um ambiente real, você buscaria o plano do usuário do backend
+      // Por enquanto, vamos usar o plano gratuito
+      setCurrentPlan(plans.free)
       setIsLoading(false)
     }
-  }, [status])
+
+    fetchPlan()
+  }, [])
+
+  // Função para verificar se o usuário tem acesso a um recurso específico
+  const hasFeature = (featureName: string) => {
+    return currentPlan.features.includes(featureName)
+  }
+
+  // Propriedades específicas para recursos comuns
+  const hasAnalytics = hasFeature("Análises básicas") || hasFeature("Análises avançadas")
+  const hasIntegrations = hasFeature("Integrações")
+  const hasAPI = hasFeature("API personalizada")
+  const hasPrioritySuppport = hasFeature("Suporte prioritário") || hasFeature("Suporte VIP")
 
   return {
-    planLevel: planData.level,
-    planSlug: userPlanSlug,
-    planName: planData.name,
-    features: planData.features,
-    hasFeature,
+    planId: currentPlan.id,
+    planName: currentPlan.name,
+    planLevel: currentPlan.level,
+    isFreePlan: currentPlan.isFreePlan,
+    features: currentPlan.features,
+    resources: currentPlan.resources,
+    maxIntegracoes: currentPlan.maxIntegracoes,
+    hasAI: currentPlan.hasAI,
     isLoading,
+    hasFeature,
+    // Propriedades específicas
+    hasAnalytics,
+    hasIntegrations,
+    hasAPI,
+    hasPrioritySuppport,
   }
 }
 

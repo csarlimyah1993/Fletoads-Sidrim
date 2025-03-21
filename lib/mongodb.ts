@@ -1,86 +1,49 @@
-import mongoose from "mongoose"
+import { MongoClient, type Db } from "mongodb"
 
-// Define a type for our cached connection
-interface CachedConnection {
-  conn: typeof mongoose | null
-  promise: Promise<typeof mongoose> | null
-}
+const MONGODB_URI = process.env.MONGODB_URI || ""
+const MONGODB_DB = process.env.MONGODB_DB || "fletoads"
 
-// Define a type for the global object with our cached connection
-declare global {
-  var mongoConnection: CachedConnection | undefined
-}
-
-// Use cached connection for development to prevent multiple connections
-const MONGODB_URI = process.env.MONGODB_URI
-
-// Check if MONGODB_URI is defined
+// Verificar se a URI do MongoDB está definida
 if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable inside .env.local")
+  throw new Error("Por favor, defina a variável de ambiente MONGODB_URI")
 }
 
-const cached = global.mongoConnection || { conn: null, promise: null }
-
-if (process.env.NODE_ENV === "development") {
-  global.mongoConnection = cached
+interface MongoConnection {
+  client: MongoClient
+  db: Db
 }
 
-export async function connectToDatabase(): Promise<typeof mongoose> {
-  if (cached.conn) {
-    // Check if the connection is still alive
-    if (mongoose.connection.readyState === 1) {
-      console.log("Using cached database connection")
-      return cached.conn
-    } else {
-      console.log("Cached connection is no longer active, reconnecting...")
-      cached.conn = null
-      cached.promise = null
-    }
+let cachedClient: MongoClient | null = null
+let cachedDb: Db | null = null
+
+export async function connectToDatabase(): Promise<MongoConnection> {
+  // Se já temos uma conexão, retorne-a
+  if (cachedClient && cachedDb) {
+    return { client: cachedClient, db: cachedDb }
   }
 
-  if (!cached.promise) {
-    // TypeScript doesn't recognize that we've already checked MONGODB_URI above
-    // So we need to create a non-null version of it
-    const uri: string = MONGODB_URI! // Non-null assertion
-
-    // Safe to use substring here since we've already checked MONGODB_URI is defined
-    const uriPreview = uri.substring(0, 20) + "..."
-    console.log(`Connecting to MongoDB at ${uriPreview}`)
-
-    const opts = {
-      bufferCommands: false,
-    }
-
-    cached.promise = mongoose
-      .connect(uri, opts)
-      .then((mongoose) => {
-        console.log("Connected to MongoDB successfully")
-        return mongoose
-      })
-      .catch((error) => {
-        console.error("MongoDB connection error:", error)
-        throw error
-      })
-  } else {
-    console.log("Using existing connection promise")
+  // Configurações para evitar timeout
+  const options = {
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 30000,
+    maxPoolSize: 10,
+    minPoolSize: 5,
   }
 
   try {
-    cached.conn = await cached.promise
+    // Conectar ao cliente
+    const client = await MongoClient.connect(MONGODB_URI, options)
+    const db = client.db(MONGODB_DB)
+
+    // Armazenar em cache para reutilização
+    cachedClient = client
+    cachedDb = db
+
+    return { client, db }
   } catch (error) {
-    cached.promise = null
+    console.error("Erro ao conectar ao MongoDB:", error)
     throw error
   }
-
-  // Add connection event listeners to handle reconnection
-  mongoose.connection.on("disconnected", () => {
-    console.log("MongoDB disconnected, will reconnect on next request")
-    cached.conn = null
-    cached.promise = null
-  })
-
-  return cached.conn
 }
-
-export default connectToDatabase
 

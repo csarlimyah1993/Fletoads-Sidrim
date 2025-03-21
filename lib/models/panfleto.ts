@@ -1,31 +1,40 @@
-import mongoose, { Schema, type Document } from "mongoose"
+import mongoose, { Schema } from "mongoose"
 
-export interface IPanfleto extends Document {
-  titulo: string
-  descricao: string
-  imagem: string
-  dataInicio: Date
-  dataFim: Date
-  ativo: boolean
-  usuario: mongoose.Types.ObjectId
-  produtos: mongoose.Types.ObjectId[]
-  createdAt: Date
-  updatedAt: Date
-}
-
-const PanfletoSchema = new Schema(
-  {
-    titulo: { type: String, required: true },
-    descricao: { type: String, required: true },
-    imagem: { type: String, required: true },
-    dataInicio: { type: Date, required: true },
-    dataFim: { type: Date, required: true },
-    ativo: { type: Boolean, default: true },
-    usuario: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
-    produtos: [{ type: Schema.Types.ObjectId, ref: "Produto" }],
+// Define o esquema para o modelo Panfleto
+const PanfletoSchema = new Schema({
+  titulo: {
+    type: String,
+    required: [true, "O título é obrigatório"],
+    trim: true,
   },
-  { timestamps: true },
-)
+  descricao: {
+    type: String,
+    required: [true, "A descrição é obrigatória"],
+    trim: true,
+  },
+  imagem: {
+    type: String,
+    required: [true, "A imagem é obrigatória"],
+  },
+  dataPublicacao: {
+    type: Date,
+    default: Date.now,
+  },
+  dataValidade: {
+    type: Date,
+    required: [true, "A data de validade é obrigatória"],
+  },
+  userId: {
+    type: String,
+    required: [true, "O ID do usuário é obrigatório"],
+  },
+  status: {
+    type: String,
+    enum: ["ativo", "inativo", "expirado"],
+    default: "ativo",
+  },
+})
 
-export const Panfleto = mongoose.models.Panfleto || mongoose.model<IPanfleto>("Panfleto", PanfletoSchema)
+// Verifica se o modelo já existe para evitar recompilação
+export const Panfleto = mongoose.models.Panfleto || mongoose.model("Panfleto", PanfletoSchema)
 

@@ -1,49 +1,35 @@
 import type { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
+  /**
+   * Estendendo a interface User
+   */
   interface User {
     id: string
-    nome: string
+    name: string
     email: string
+    plano?: string
     role?: string
-    plano?: {
-      id: string
-      nome: string
-      slug: string
-      ativo: boolean
-      dataInicio?: string | Date
-      dataFim?: string | Date
-    }
   }
 
-  interface Session extends DefaultSession {
-    user: User & {
+  /**
+   * Estendendo a interface Session
+   */
+  interface Session {
+    user: {
       id: string
+      plano: string
       role?: string
-      plano?: {
-        id: string
-        nome: string
-        slug: string
-        ativo: boolean
-        dataInicio?: string | Date
-        dataFim?: string | Date
-      }
-    }
+    } & DefaultSession["user"]
   }
 }
 
 declare module "next-auth/jwt" {
+  /** Estendendo o token JWT */
   interface JWT {
     id: string
+    plano?: string
     role?: string
-    plano?: {
-      id: string
-      nome: string
-      slug: string
-      ativo: boolean
-      dataInicio?: string | Date
-      dataFim?: string | Date
-    }
   }
 }
 

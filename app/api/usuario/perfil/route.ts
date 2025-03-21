@@ -1,19 +1,23 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import Usuario from "@/lib/models/usuario"
 import { connectToDatabase } from "@/lib/mongodb"
+import { Usuario } from "@/lib/models/usuario"
 
-// Rota para obter o perfil do usuário logado
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    // Garantir que estamos conectados ao banco de dados
     await connectToDatabase()
 
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    // Certifique-se de que session.user.id existe
+    if (!session.user.id) {
+      console.error("ID do usuário não encontrado na sessão:", session)
+      return NextResponse.json({ error: "ID do usuário não encontrado" }, { status: 400 })
     }
 
     const usuario = await Usuario.findById(session.user.id).select("-senha")
@@ -29,32 +33,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Update the PUT method to handle CPF
-export async function PUT(req: NextRequest) {
+export async function PUT(request: Request) {
   try {
-    // Garantir que estamos conectados ao banco de dados
     await connectToDatabase()
 
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const dadosAtualizacao = await req.json()
+    const data = await request.json()
 
-    // Remover campos que não devem ser atualizados diretamente
-    delete dadosAtualizacao.senha
-    delete dadosAtualizacao.email
-    delete dadosAtualizacao.cargo
-    delete dadosAtualizacao.permissoes
-
-    // CPF pode ser atualizado
-    // Não remover o CPF do objeto de atualização
+    // Campos que não podem ser atualizados pelo usuário
+    delete data.email
+    delete data.senha
+    delete data.plano
 
     const usuario = await Usuario.findByIdAndUpdate(
       session.user.id,
-      { $set: dadosAtualizacao },
+      { $set: data },
       { new: true, runValidators: true },
     ).select("-senha")
 

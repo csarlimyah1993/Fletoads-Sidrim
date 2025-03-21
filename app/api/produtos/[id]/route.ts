@@ -1,123 +1,92 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import Produto from "@/lib/models/produto"
-import Loja from "@/lib/models/loja"
-import mongoose from "mongoose"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { ObjectId } from "mongodb"
 
-// GET - Buscar um produto pelo ID
-export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await connectToDatabase()
+    const session = await getServerSession(authOptions)
 
-    // Extrair o ID dos parâmetros
-    const { id } = await context.params
-
-    // Validar ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID de produto inválido" }, { status: 400 })
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar o produto
-    const produto = await Produto.findById(id)
+    const { db } = await connectToDatabase()
+
+    const produto = await db.collection("produtos").findOne({
+      _id: new ObjectId(params.id),
+      userId: session.user.id,
+    })
 
     if (!produto) {
       return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(produto)
+    return NextResponse.json({
+      ...produto,
+      _id: produto._id.toString(),
+    })
   } catch (error) {
     console.error("Erro ao buscar produto:", error)
     return NextResponse.json({ error: "Erro ao buscar produto" }, { status: 500 })
   }
 }
 
-// PUT - Atualizar um produto
-export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await connectToDatabase()
-
-    // Verificar autenticação
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Extrair o ID dos parâmetros
-    const { id } = await context.params
+    const body = await req.json()
 
-    // Validar ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID de produto inválido" }, { status: 400 })
-    }
+    const { db } = await connectToDatabase()
 
-    // Obter dados do corpo da requisição
-    const data = await request.json()
+    const result = await db.collection("produtos").updateOne(
+      {
+        _id: new ObjectId(params.id),
+        userId: session.user.id,
+      },
+      {
+        $set: {
+          ...body,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    )
 
-    // Buscar o produto para verificar permissões
-    const produto = await Produto.findById(id)
-
-    if (!produto) {
+    if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 })
     }
 
-    // Verificar se o usuário é proprietário da loja
-    const loja = await Loja.findById(produto.lojaId)
-
-    if (!loja || loja.proprietarioId.toString() !== session.user.id) {
-      return NextResponse.json({ error: "Você não tem permissão para editar este produto" }, { status: 403 })
-    }
-
-    // Atualizar o produto
-    const produtoAtualizado = await Produto.findByIdAndUpdate(
-      id,
-      { ...data, updatedAt: new Date() },
-      { new: true, runValidators: true },
-    )
-
-    return NextResponse.json(produtoAtualizado)
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Erro ao atualizar produto:", error)
     return NextResponse.json({ error: "Erro ao atualizar produto" }, { status: 500 })
   }
 }
 
-// DELETE - Excluir um produto
-export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await connectToDatabase()
-
-    // Verificar autenticação
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Extrair o ID dos parâmetros
-    const { id } = await context.params
+    const { db } = await connectToDatabase()
 
-    // Validar ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID de produto inválido" }, { status: 400 })
-    }
+    const result = await db.collection("produtos").deleteOne({
+      _id: new ObjectId(params.id),
+      userId: session.user.id,
+    })
 
-    // Buscar o produto para verificar permissões
-    const produto = await Produto.findById(id)
-
-    if (!produto) {
+    if (result.deletedCount === 0) {
       return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 })
     }
-
-    // Verificar se o usuário é proprietário da loja
-    const loja = await Loja.findById(produto.lojaId)
-
-    if (!loja || loja.proprietarioId.toString() !== session.user.id) {
-      return NextResponse.json({ error: "Você não tem permissão para excluir este produto" }, { status: 403 })
-    }
-
-    // Excluir o produto
-    await Produto.findByIdAndDelete(id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

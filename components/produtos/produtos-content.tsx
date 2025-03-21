@@ -41,11 +41,16 @@ export function ProdutosContent() {
         }
 
         const data = await response.json()
-        setProdutos(data)
+        // Verificar a estrutura da resposta e garantir que produtos seja um array
+        const produtosArray = Array.isArray(data) ? data : data.produtos ? data.produtos : []
+
+        setProdutos(produtosArray)
         setError(null)
       } catch (err) {
         console.error("Erro ao buscar produtos:", err)
         setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar produtos")
+        // Garantir que produtos seja um array vazio em caso de erro
+        setProdutos([])
       } finally {
         setIsLoading(false)
       }
@@ -54,9 +59,12 @@ export function ProdutosContent() {
     fetchProdutos()
   }, [])
 
-  const filteredProdutos = produtos.filter(
+  // Garantir que produtos seja sempre um array antes de chamar filter
+  const produtosArray = Array.isArray(produtos) ? produtos : []
+
+  const filteredProdutos = produtosArray.filter(
     (produto) =>
-      produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      produto.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       produto.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       produto.descricao?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -119,7 +127,7 @@ export function ProdutosContent() {
     )
   }
 
-  if (produtos.length === 0) {
+  if (produtosArray.length === 0) {
     return (
       <div className="container mx-auto py-6">
         <div className="flex justify-between items-center mb-6">
@@ -201,7 +209,10 @@ export function ProdutosContent() {
 }
 
 function ProdutosList({ produtos }: { produtos: Produto[] }) {
-  if (produtos.length === 0) {
+  // Garantir que produtos seja sempre um array
+  const produtosArray = Array.isArray(produtos) ? produtos : []
+
+  if (produtosArray.length === 0) {
     return (
       <div className="bg-muted/40 border rounded-lg p-8 text-center">
         <h3 className="text-lg font-medium">Nenhum produto encontrado</h3>
@@ -212,7 +223,7 @@ function ProdutosList({ produtos }: { produtos: Produto[] }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {produtos.map((produto) => (
+      {produtosArray.map((produto) => (
         <Card key={produto._id} className={`overflow-hidden ${!produto.ativo ? "opacity-70" : ""}`}>
           <div className="relative h-40 bg-muted">
             {produto.imagem ? (

@@ -1,24 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
-import mongoose from "mongoose"
-import Usuario from "@/lib/models/usuario"
-import Plano from "@/lib/models/plano"
-
-// Define interfaces for our data structures
-interface MonthlyRegistration {
-  date: string
-  count: number
-}
-
-interface RevenuePlan {
-  plano: string
-  preco: number
-  usuarios: number
-  receita: number
-}
+import { connectToDatabase } from "@/lib/mongodb"
+import { Usuario } from "@/lib/models/usuario"
+import { Plano } from "@/lib/models/plano"
+import { Produto } from "@/lib/models/produto"
+import { Panfleto } from "@/lib/models/panfleto"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    // Verificar se o usuário está autenticado e é admin
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
     await connectToDatabase()
 
     // Get total users
@@ -27,100 +24,62 @@ export async function GET(request: NextRequest) {
     // Get total plans
     const totalPlans = await Plano.countDocuments()
 
-    // Get monthly user registrations for the past 6 months
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    // Get total products
+    const totalProducts = await Produto.countDocuments()
 
-    let monthlyRegistrations: any[] = []
+    // Get total panfletos
+    const totalPanfletos = await Panfleto.countDocuments()
 
-    // Only proceed if connection is established
-    if (mongoose.connection.readyState === 1) {
-      monthlyRegistrations = await Usuario.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: sixMonthsAgo },
-          },
+    // Get users by plan
+    const usersByPlan = await Usuario.aggregate([
+      {
+        $lookup: {
+          from: "planos",
+          localField: "planoId",
+          foreignField: "_id",
+          as: "plano",
         },
-        {
-          $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-            },
-            count: { $sum: 1 },
-          },
+      },
+      {
+        $unwind: {
+          path: "$plano",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $sort: { "_id.year": 1, "_id.month": 1 },
+      },
+      {
+        $group: {
+          _id: "$plano.nome",
+          count: { $sum: 1 },
         },
-      ])
-    }
-
-    // Format the monthly data
-    const monthlyData: MonthlyRegistration[] = monthlyRegistrations.map((item: any) => ({
-      date: `${item._id.year}-${item._id.month.toString().padStart(2, "0")}`,
-      count: item.count,
-    }))
-
-    // Get revenue data (assuming plans have a price field)
-    let revenueData: RevenuePlan[] = []
-
-    // Only proceed if connection is established
-    if (mongoose.connection.readyState === 1) {
-      const planCounts = await Usuario.aggregate([
-        {
-          $lookup: {
-            from: "planos",
-            localField: "plano",
-            foreignField: "_id",
-            as: "planoInfo",
-          },
+      },
+      {
+        $project: {
+          plano: "$_id",
+          count: 1,
+          _id: 0,
         },
-        {
-          $unwind: {
-            path: "$planoInfo",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $group: {
-            _id: "$planoInfo._id",
-            nome: { $first: "$planoInfo.nome" },
-            preco: { $first: "$planoInfo.preco" },
-            count: { $sum: 1 },
-          },
-        },
-      ])
+      },
+    ])
 
-      revenueData = planCounts.map((plan: any) => ({
-        plano: plan.nome || "Sem plano",
-        preco: plan.preco || 0,
-        usuarios: plan.count,
-        receita: (plan.preco || 0) * plan.count,
-      }))
-    }
+    // Get new users in the last 30 days
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    // Calculate total revenue
-    const totalRevenue = revenueData.reduce((sum: number, plan: RevenuePlan) => sum + plan.receita, 0)
+    const newUsers = await Usuario.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo },
+    })
 
     return NextResponse.json({
       totalUsers,
       totalPlans,
-      monthlyRegistrations: monthlyData,
-      revenue: {
-        total: totalRevenue,
-        byPlan: revenueData,
-      },
+      totalProducts,
+      totalPanfletos,
+      usersByPlan,
+      newUsers,
     })
   } catch (error) {
     console.error("Error fetching metrics:", error)
-    return NextResponse.json(
-      {
-        error: "Error fetching metrics",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro ao buscar métricas" }, { status: 500 })
   }
 }
 

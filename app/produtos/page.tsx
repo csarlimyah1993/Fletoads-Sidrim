@@ -1,8 +1,21 @@
-"use client"
+import { Metadata } from "next"
+import { Header } from "@/components/header"
+import { ProdutosList } from "@/components/produtos/produtos-list"
 
-import { ProdutosContent } from "@/components/produtos/produtos-content"
-
-export default function ProdutosPage() {
-  return <ProdutosContent />
+export const metadata: Metadata = {
+  title: "Produtos | FletoAds",
+  description: "Gerencie seus produtos",
 }
 
+export default function ProdutosPage() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header title="Produtos" />
+      <main className="flex-1">
+        <div className="container py-6">
+          <ProdutosList />
+        </div>
+      </main>
+    </div>
+  )
+}

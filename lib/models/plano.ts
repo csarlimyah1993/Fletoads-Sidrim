@@ -1,46 +1,34 @@
-import mongoose, { Schema, type Document } from "mongoose"
-import type { ResourceLimits } from "./resource-limits"
+import mongoose, { Schema } from "mongoose"
 
-export interface IPlano extends Document {
+// Interface para o modelo de Plano
+export interface IPlano {
   nome: string
   descricao: string
   preco: number
-  nivel: "free" | "start" | "pro" | "business" | "enterprise"
-  limites: ResourceLimits
+  recursos: {
+    [key: string]: boolean | number
+  }
+  limites: {
+    [key: string]: number
+  }
+  ativo: boolean
   createdAt: Date
   updatedAt: Date
 }
 
-const PlanoSchema = new Schema(
+// Schema do Plano
+const planoSchema = new Schema<IPlano>(
   {
     nome: { type: String, required: true },
     descricao: { type: String, required: true },
     preco: { type: Number, required: true },
-    nivel: {
-      type: String,
-      enum: ["free", "start", "pro", "business", "enterprise"],
-      default: "free",
-    },
-    limites: {
-      panfletos: { type: Number, required: true },
-      produtos: { type: Number, required: true },
-      campanhas: { type: Number, default: 0 },
-      clientes: { type: Number, default: 0 },
-      integracoes: { type: Number, default: 0 },
-      armazenamento: { type: Number, default: 0 }, // em KB
-      panAssistant: { type: Boolean, default: false },
-      analytics: { type: Boolean, default: false },
-      clientesProximos: { type: Boolean, default: false },
-      sinalizacaoVisual: { type: Boolean, default: false },
-      notificacoes: { type: Boolean, default: false },
-      vitrine: { type: Boolean, default: false },
-      hotPromos: { type: Boolean, default: false },
-      vendas: { type: Boolean, default: false },
-      suporte: { type: Boolean, default: false },
-    },
+    recursos: { type: Schema.Types.Mixed, default: {} },
+    limites: { type: Schema.Types.Mixed, default: {} },
+    ativo: { type: Boolean, default: true },
   },
   { timestamps: true },
 )
 
-export const Plano = mongoose.models.Plano || mongoose.model<IPlano>("Plano", PlanoSchema)
+// Exportar o modelo Plano
+export const Plano = mongoose.models.Plano || mongoose.model<IPlano>("Plano", planoSchema)
 

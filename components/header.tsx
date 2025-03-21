@@ -1,94 +1,98 @@
 "use client"
 
-import { useState } from "react"
-import { useSession } from "next-auth/react"
-import { Bell } from "lucide-react"
+import { Bell, Menu, User } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sidebar } from "@/components/sidebar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { signOut, useSession } from "next-auth/react"
+import { NotificationsDropdown } from './notifications-dropdown'
 
-export default function Header() {
+interface HeaderProps {
+  title?: string
+}
+
+export function Header({ title }: HeaderProps) {
+  const [isMounted, setIsMounted] = useState(false)
+  const pathname = usePathname()
   const { data: session } = useSession()
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "Nova mensagem", read: false },
-    { id: 2, title: "Atualização do sistema", read: false },
-  ])
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) {
+    return null
+  }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
-      <div className="flex flex-1 items-center justify-end gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                  {unreadCount}
-                </span>
-              )}
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 hidden md:flex">
+          <a className="mr-6 flex items-center space-x-2" href="/">
+            <span className="hidden font-bold sm:inline-block">
+              FletoAds
+            </span>
+          </a>
+          <nav className="flex items-center space-x-6 text-sm font-medium">
+            {title && <h1 className="text-lg font-semibold">{title}</h1>}
+          </nav>
+        </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="mr-2 md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle Menu</span>
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="flex items-center justify-between p-2">
-              <h2 className="font-medium">Notificações</h2>
-              <Button variant="ghost" size="sm" className="h-auto p-1 text-xs">
-                Marcar todas como lidas
+          </SheetTrigger>
+          <SheetContent side="left" className="pr-0 sm:max-w-xs">
+            <Sidebar />
+          </SheetContent>
+        </Sheet>
+        {pathname === "/" && (
+          <a
+            className="flex items-center space-x-2 md:hidden"
+            href="/"
+          >
+            <span className="font-bold">FletoAds</span>
+          </a>
+        )}
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          <NotificationsDropdown />
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name || "Avatar"} />
+                  <AvatarFallback>{session?.user?.name?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
               </Button>
-            </div>
-            <DropdownMenuSeparator />
-            {notifications.length > 0 ? (
-              notifications.map((notification) => (
-                <DropdownMenuItem key={notification.id} className="flex flex-col items-start p-3">
-                  <div className="flex w-full justify-between">
-                    <span className="font-medium">{notification.title}</span>
-                    {!notification.read && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
-                  </div>
-                  <span className="text-xs text-muted-foreground">Agora mesmo</span>
-                </DropdownMenuItem>
-              ))
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">Nenhuma notificação</div>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center">Ver todas</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{session?.user?.nome?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <div className="flex items-center justify-start gap-2 p-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{session?.user?.nome?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col space-y-1 leading-none">
-                <p className="font-medium">{session?.user?.nome || "Usuário"}</p>
-                <p className="text-xs text-muted-foreground">{session?.user?.email || ""}</p>
-              </div>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Meu Perfil</DropdownMenuItem>
-            <DropdownMenuItem>Configurações</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">Sair</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a href="/perfil">Perfil</a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href="/configuracoes">Configurações</a>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()}>
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   )
 }
-

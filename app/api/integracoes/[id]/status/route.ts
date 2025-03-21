@@ -1,0 +1,84 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
+
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const { db } = await connectToDatabase()
+    const userId = session.user.id
+    const integracaoId = params.id
+    const { status } = await req.json()
+
+    if (!integracaoId) {
+      return NextResponse.json({ error: "ID da integração não fornecido" }, { status: 400 })
+    }
+
+    if (!["ativa", "inativa"].includes(status)) {
+      return NextResponse.json({ error: "Status inválido" }, { status: 400 })
+    }
+
+    // Criar um filtro adequado para o MongoDB com tipo explícito
+    const userFilter: Record<string, any> = {}
+
+    if (typeof userId === "string" && ObjectId.isValid(userId)) {
+      userFilter.userId = new ObjectId(userId)
+    } else {
+      userFilter.userId = userId
+    }
+
+    // Verificar se a integração existe
+    const integracaoDisponivel = await db.collection("integracoes_disponiveis").findOne({
+      _id: ObjectId.isValid(integracaoId) ? new ObjectId(integracaoId) : integracaoId,
+    } as any)
+
+    if (!integracaoDisponivel) {
+      return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
+    }
+
+    // Verificar se o usuário já tem essa integração
+    const userIntegracao = await db.collection("integracoes").findOne({
+      ...userFilter,
+      integracaoId: ObjectId.isValid(integracaoId) ? new ObjectId(integracaoId) : integracaoId,
+    } as any)
+
+    if (userIntegracao) {
+      // Atualizar integração existente
+      await db.collection("integracoes").updateOne(
+        {
+          ...userFilter,
+          integracaoId: ObjectId.isValid(integracaoId) ? new ObjectId(integracaoId) : integracaoId,
+        } as any,
+        {
+          $set: {
+            status,
+            updatedAt: new Date(),
+          },
+        },
+      )
+    } else {
+      // Criar nova integração para o usuário
+      await db.collection("integracoes").insertOne({
+        userId: typeof userId === "string" && ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
+        integracaoId: ObjectId.isValid(integracaoId) ? new ObjectId(integracaoId) : integracaoId,
+        status,
+        config: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    }
+
+    return NextResponse.json({ success: true, status })
+  } catch (error) {
+    console.error("Erro ao atualizar status da integração:", error)
+    return NextResponse.json({ error: "Erro ao atualizar status da integração" }, { status: 500 })
+  }
+}
+

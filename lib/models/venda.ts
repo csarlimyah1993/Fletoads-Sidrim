@@ -1,97 +1,56 @@
-import mongoose, { Schema, type Document, type Types } from "mongoose"
+import mongoose from "mongoose"
 
-export interface IVenda extends Document {
-  codigo: string
-  cliente: Types.ObjectId
-  produtos: Array<{
-    nome: string
-    quantidade: number
-    precoUnitario: number
-    subtotal: number
-  }>
-  valorTotal: number
-  status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"
-  metodoPagamento: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "transferencia"
-  dataVenda: Date
-  dataAtualizacao: Date
-  observacoes?: string
-  vendedorId: Types.ObjectId
-  lojaId: Types.ObjectId
-}
-
-const VendaSchema: Schema = new Schema(
-  {
-    codigo: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    cliente: {
-      type: Schema.Types.ObjectId,
-      ref: "Cliente",
-      required: true,
-    },
-    produtos: [
-      {
-        nome: { type: String, required: true },
-        quantidade: { type: Number, required: true, min: 1 },
-        precoUnitario: { type: Number, required: true, min: 0 },
-        subtotal: { type: Number, required: true, min: 0 },
+const vendaSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    required: true,
+    index: true,
+  },
+  data: {
+    type: Date,
+    required: true,
+    default: Date.now,
+  },
+  valor: {
+    type: Number,
+    required: true,
+  },
+  cliente: {
+    type: String,
+    required: false,
+  },
+  produtos: [
+    {
+      produtoId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Produto",
       },
-    ],
-    valorTotal: {
-      type: Number,
-      required: true,
-      min: 0,
+      quantidade: {
+        type: Number,
+        required: true,
+        default: 1,
+      },
+      precoUnitario: {
+        type: Number,
+        required: true,
+      },
     },
-    status: {
-      type: String,
-      enum: ["pendente", "pago", "enviado", "entregue", "cancelado"],
-      default: "pendente",
-    },
-    metodoPagamento: {
-      type: String,
-      enum: ["dinheiro", "cartao_credito", "cartao_debito", "pix", "boleto", "transferencia"],
-      required: true,
-    },
-    dataVenda: {
-      type: Date,
-      default: Date.now,
-    },
-    dataAtualizacao: {
-      type: Date,
-      default: Date.now,
-    },
-    observacoes: {
-      type: String,
-    },
-    vendedorId: {
-      type: Schema.Types.ObjectId,
-      ref: "Usuario",
-      required: true,
-    },
-    lojaId: {
-      type: Schema.Types.ObjectId,
-      ref: "Loja",
-      required: true,
-    },
+  ],
+  status: {
+    type: String,
+    enum: ["pendente", "pago", "cancelado"],
+    default: "pendente",
   },
-  {
-    timestamps: {
-      createdAt: "dataVenda",
-      updatedAt: "dataAtualizacao",
-    },
+  metodoPagamento: {
+    type: String,
+    enum: ["dinheiro", "cartao", "pix", "outro"],
+    default: "dinheiro",
   },
-)
-
-// Método para gerar código único para a venda
-VendaSchema.pre("save", async function (next) {
-  if (this.isNew) {
-    const count = await mongoose.models.Venda.countDocuments()
-    this.codigo = `VND-${Date.now().toString().slice(-6)}-${(count + 1).toString().padStart(4, "0")}`
-  }
-  next()
+  observacoes: {
+    type: String,
+  },
 })
 
-export default mongoose.models.Venda || mongoose.model<IVenda>("Venda", VendaSchema)
+// Verificar se o modelo já existe para evitar redefinição
+export const Venda = mongoose.models.Venda || mongoose.model("Venda", vendaSchema)
 

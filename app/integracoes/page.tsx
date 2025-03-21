@@ -1,19 +1,21 @@
-"use client"
+import { Metadata } from "next"
+import { Header } from "@/components/header"
+import { IntegracoesList } from "@/components/integracoes/integracoes-list"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+export const metadata: Metadata = {
+  title: "Integrações | FletoAds",
+  description: "Gerencie suas integrações com outras plataformas",
+}
 
-export default function IntegracaoesRedirect() {
-  const router = useRouter()
-
-  useEffect(() => {
-    router.replace("/dashboard/integracoes")
-  }, [router])
-
+export default function IntegracoesPage() {
   return (
-    <div className="flex items-center justify-center h-screen">
-      <p>Redirecionando...</p>
+    <div className="flex min-h-screen flex-col">
+      <Header title="Integrações" />
+      <main className="flex-1">
+        <div className="container py-6">
+          <IntegracoesList />
+        </div>
+      </main>
     </div>
   )
 }
-

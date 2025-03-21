@@ -17,7 +17,7 @@ import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 
 // Adicione esta função no início do arquivo, após os imports
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000) {
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, delay = 1000) {
   try {
     const response = await fetch(url, options)
     return response

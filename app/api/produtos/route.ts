@@ -2,93 +2,59 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { Produto } from "@/lib/models/produto"
+import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
-    await connectToDatabase()
-
-    // Obter parâmetros de consulta
-    const searchParams = request.nextUrl.searchParams
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const search = searchParams.get("search") || ""
-    const categoria = searchParams.get("categoria") || ""
+    const { db } = await connectToDatabase()
     const userId = session.user.id
 
-    // Construir filtro
-    const filtro: any = { userId }
+    // Criar um filtro adequado para o MongoDB com tipo explícito
+    const userFilter: Record<string, any> = {}
 
-    if (search) {
-      filtro.$or = [{ nome: { $regex: search, $options: "i" } }, { descricao: { $regex: search, $options: "i" } }]
+    if (typeof userId === "string" && ObjectId.isValid(userId)) {
+      userFilter.userId = new ObjectId(userId)
+    } else {
+      userFilter.userId = userId
     }
 
-    if (categoria) {
-      filtro.categoria = categoria
-    }
+    const produtos = await db.collection("produtos").find(userFilter).toArray()
 
-    // Calcular skip para paginação
-    const skip = (page - 1) * limit
-
-    // Verificar se o modelo Produto está definido corretamente
-    if (!Produto || typeof Produto.countDocuments !== "function") {
-      console.error("Modelo Produto não está definido corretamente:", Produto)
-      return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
-    }
-
-    // Contar total de produtos
-    const total = await Produto.countDocuments(filtro)
-
-    // Buscar produtos paginados
-    const produtos = await Produto.find(filtro).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
-
-    return NextResponse.json({
-      produtos,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return NextResponse.json(produtos)
   } catch (error) {
     console.error("Erro ao buscar produtos:", error)
     return NextResponse.json({ error: "Erro ao buscar produtos" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
-    await connectToDatabase()
-
-    const data = await request.json()
+    const { db } = await connectToDatabase()
     const userId = session.user.id
+    const data = await req.json()
 
-    // Criar novo produto
-    const novoProduto = new Produto({
+    const novoProduto = {
       ...data,
-      userId,
+      userId: typeof userId === "string" && ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
       createdAt: new Date(),
       updatedAt: new Date(),
-    })
+    }
 
-    await novoProduto.save()
+    const result = await db.collection("produtos").insertOne(novoProduto)
 
-    return NextResponse.json(novoProduto, { status: 201 })
+    return NextResponse.json({ ...novoProduto, _id: result.insertedId })
   } catch (error) {
     console.error("Erro ao criar produto:", error)
     return NextResponse.json({ error: "Erro ao criar produto" }, { status: 500 })

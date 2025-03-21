@@ -1,98 +1,56 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Integracao from "@/lib/models/integracao"
-import Loja from "@/lib/models/loja"
+import { ObjectId } from "mongodb"
 
-// Listar integrações
 export async function GET(req: NextRequest) {
   try {
-    await connectToDatabase()
-
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    const { db } = await connectToDatabase()
+    const userId = session.user.id
+
+    // Criar um filtro adequado para o MongoDB com tipo explícito
+    const userFilter: Record<string, any> = {}
+
+    if (typeof userId === "string" && ObjectId.isValid(userId)) {
+      userFilter.userId = new ObjectId(userId)
+    } else {
+      userFilter.userId = userId
     }
 
-    // Parâmetros de paginação
-    const searchParams = req.nextUrl.searchParams
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const skip = (page - 1) * limit
-    const tipo = searchParams.get("tipo")
-    const status = searchParams.get("status")
+    // Buscar integrações do usuário
+    const userIntegracoes = await db.collection("integracoes").find(userFilter).toArray()
 
-    // Construir a query
-    const query: any = { lojaId: loja._id }
-    if (tipo) query.tipo = tipo
-    if (status) query.status = status
+    // Buscar todas as integrações disponíveis
+    const todasIntegracoes = await db.collection("integracoes_disponiveis").find({}).toArray()
 
-    // Executar a query
-    const [integracoes, total] = await Promise.all([
-      Integracao.find(query).sort({ dataCriacao: -1 }).skip(skip).limit(limit),
-      Integracao.countDocuments(query),
-    ])
+    // Combinar as integrações disponíveis com as do usuário
+    const integracoesFinais = todasIntegracoes.map((integracao) => {
+      const userIntegracao = userIntegracoes.find(
+        (ui) => ui.integracaoId && ui.integracaoId.toString() === integracao._id.toString(),
+      )
 
-    // Calcular paginação
-    const totalPages = Math.ceil(total / limit)
-
-    return NextResponse.json({
-      integracoes,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
-    })
-  } catch (error) {
-    console.error("Erro ao listar integrações:", error)
-    return NextResponse.json({ error: "Erro ao listar integrações" }, { status: 500 })
-  }
-}
-
-// Criar integração
-export async function POST(req: NextRequest) {
-  try {
-    await connectToDatabase()
-
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    const dados = await req.json()
-
-    // Validar dados
-    if (!dados.nome || !dados.tipo) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
-    }
-
-    // Criar integração
-    const integracao = new Integracao({
-      ...dados,
-      lojaId: loja._id,
+      return {
+        id: integracao._id.toString(),
+        nome: integracao.nome,
+        descricao: integracao.descricao,
+        tipo: integracao.tipo,
+        icone: integracao.icone,
+        status: userIntegracao ? userIntegracao.status : "inativa",
+        config: userIntegracao ? userIntegracao.config : null,
+      }
     })
 
-    await integracao.save()
-
-    return NextResponse.json(integracao, { status: 201 })
+    return NextResponse.json(integracoesFinais)
   } catch (error) {
-    console.error("Erro ao criar integração:", error)
-    return NextResponse.json({ error: "Erro ao criar integração" }, { status: 500 })
+    console.error("Erro ao buscar integrações:", error)
+    return NextResponse.json({ error: "Erro ao buscar integrações" }, { status: 500 })
   }
 }
 

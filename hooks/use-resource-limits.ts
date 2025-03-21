@@ -4,35 +4,33 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 
 export interface ResourceLimit {
-  current: number
-  limit: number
-  remaining: number
-  percentUsed: number
+  max: number
+  used: number
 }
 
 export interface ResourceLimits {
-  panfletos?: ResourceLimit
-  produtos?: ResourceLimit
-  panAssistant?: ResourceLimit
-  hotPromos?: ResourceLimit
-  [key: string]: ResourceLimit | undefined
+  panfletos: ResourceLimit
+  produtos: ResourceLimit
+  armazenamento: ResourceLimit
+  integracoes: ResourceLimit
 }
 
 export function useResourceLimits() {
   const { data: session } = useSession()
-  const [limits, setLimits] = useState<ResourceLimits>({})
-  const [isLoading, setIsLoading] = useState(true)
+  const [limits, setLimits] = useState<ResourceLimits | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchLimits() {
-      if (!session?.user) {
-        setIsLoading(false)
+    const fetchLimits = async () => {
+      if (!session) {
+        setLoading(false)
         return
       }
 
       try {
-        const response = await fetch("/api/user/resource-limits")
+        setLoading(true)
+        const response = await fetch("/api/resource-limits")
 
         if (!response.ok) {
           throw new Error(`Erro ao buscar limites: ${response.status}`)
@@ -40,35 +38,19 @@ export function useResourceLimits() {
 
         const data = await response.json()
         setLimits(data)
+        setError(null)
       } catch (err) {
         console.error("Erro ao buscar limites de recursos:", err)
         setError(err instanceof Error ? err.message : "Erro desconhecido")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     fetchLimits()
   }, [session])
 
-  const hasReachedLimit = (resourceType: keyof ResourceLimits): boolean => {
-    const resource = limits[resourceType]
-    return resource ? resource.current >= resource.limit : false
-  }
-
-  const getUsagePercentage = (resourceType: keyof ResourceLimits): number => {
-    const resource = limits[resourceType]
-    return resource ? resource.percentUsed : 0
-  }
-
-  // Para compatibilidade com o código existente
-  return {
-    limits,
-    isLoading,
-    loading: isLoading, // Alias para compatibilidade
-    error,
-    hasReachedLimit,
-    getUsagePercentage,
-  }
+  // Para compatibilidade com código existente que pode usar isLoading
+  return { limits, loading, isLoading: loading, error }
 }
 
