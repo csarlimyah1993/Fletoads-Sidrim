@@ -17,6 +17,21 @@ export interface PlanoLimites {
   clientesProximos: boolean
   sinalizacaoVisual: boolean
   imagensPorProduto: number
+  // Novas propriedades para personalização da vitrine
+  personalizacaoVitrine: {
+    banner: boolean
+    logo: boolean
+    cores: {
+      primaria: boolean
+      secundaria: boolean
+      texto: boolean
+      destaque: boolean
+    }
+    fontes: boolean
+    layouts: number // Número de layouts disponíveis
+    animacoes: boolean
+    widgets: number // Número de widgets disponíveis
+  }
 }
 
 export const planos: Record<TipoPlano, PlanoLimites> = {
@@ -36,6 +51,21 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: false,
     sinalizacaoVisual: true,
     imagensPorProduto: 1,
+    // Aumentando as opções de personalização para o plano gratuito
+    personalizacaoVitrine: {
+      banner: true, // Agora permitido no plano gratuito
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: false, // Apenas para planos pagos
+      },
+      fontes: false,
+      layouts: 2, // Dois layouts básicos
+      animacoes: false,
+      widgets: 3, // Aumentado para 3 widgets no plano gratuito
+    },
   },
   start: {
     id: "start",
@@ -53,6 +83,20 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: true,
     sinalizacaoVisual: true,
     imagensPorProduto: 2,
+    personalizacaoVitrine: {
+      banner: true,
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: true,
+      },
+      fontes: true,
+      layouts: 4,
+      animacoes: false,
+      widgets: 5,
+    },
   },
   basico: {
     id: "basico",
@@ -71,6 +115,20 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: true,
     sinalizacaoVisual: true,
     imagensPorProduto: 3,
+    personalizacaoVitrine: {
+      banner: true,
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: true,
+      },
+      fontes: true,
+      layouts: 4,
+      animacoes: false,
+      widgets: 5,
+    },
   },
   completo: {
     id: "completo",
@@ -88,6 +146,20 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: true,
     sinalizacaoVisual: true,
     imagensPorProduto: 3,
+    personalizacaoVitrine: {
+      banner: true,
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: true,
+      },
+      fontes: true,
+      layouts: 6,
+      animacoes: true,
+      widgets: 7,
+    },
   },
   premium: {
     id: "premium",
@@ -105,11 +177,25 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: true,
     sinalizacaoVisual: true,
     imagensPorProduto: 5,
+    personalizacaoVitrine: {
+      banner: true,
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: true,
+      },
+      fontes: true,
+      layouts: 8,
+      animacoes: true,
+      widgets: 10,
+    },
   },
   empresarial: {
     id: "empresarial",
     nome: "Empresarial",
-    preco: 5000,
+    preco: 0, // Alterado para 0 para indicar "Entre em contato"
     vitrine: 400,
     panfletos: 200,
     promocoes: 100,
@@ -122,6 +208,20 @@ export const planos: Record<TipoPlano, PlanoLimites> = {
     clientesProximos: true,
     sinalizacaoVisual: true,
     imagensPorProduto: 5,
+    personalizacaoVitrine: {
+      banner: true,
+      logo: true,
+      cores: {
+        primaria: true,
+        secundaria: true,
+        texto: true,
+        destaque: true,
+      },
+      fontes: true,
+      layouts: 12,
+      animacoes: true,
+      widgets: 12,
+    },
   },
 }
 

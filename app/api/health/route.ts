@@ -1,16 +1,30 @@
 import { NextResponse } from "next/server"
-import { checkDatabaseConnection } from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb"
 
 export async function GET() {
   try {
     // Verificar a conexão com o banco de dados
-    const isDbConnected = await checkDatabaseConnection()
+    let isDbConnected = false
+    let errorMessage = ""
+
+    try {
+      const { db } = await connectToDatabase()
+
+      // Tentar uma operação simples para verificar se a conexão está funcionando
+      const result = await db.command({ ping: 1 })
+      isDbConnected = result.ok === 1
+    } catch (dbError) {
+      console.error("Erro ao conectar ao banco de dados:", dbError)
+      errorMessage = dbError instanceof Error ? dbError.message : "Erro desconhecido"
+      isDbConnected = false
+    }
 
     if (!isDbConnected) {
       return NextResponse.json(
         {
           status: "error",
           message: "Não foi possível conectar ao banco de dados",
+          error: errorMessage,
           services: {
             database: "down",
           },
@@ -33,6 +47,9 @@ export async function GET() {
         status: "error",
         message: "Erro ao verificar saúde da aplicação",
         error: error instanceof Error ? error.message : "Erro desconhecido",
+        services: {
+          database: "unknown",
+        },
       },
       { status: 500 },
     )

@@ -8,7 +8,11 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+// Primeiro, importe o hook useTheme e os ícones necessários
+import { useTheme } from "next-themes"
 import {
+  Moon,
+  Sun,
   Home,
   BarChart3,
   ShoppingCart,
@@ -30,6 +34,7 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
+  const { setTheme, theme } = useTheme()
 
   // Verificar se estamos em uma página de vitrine
   const isVitrinePage = pathname.startsWith("/vitrine/")
@@ -45,6 +50,9 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
   // Salvar o estado de colapso da sidebar no localStorage
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", isCollapsed.toString())
+
+    // Disparar um evento de storage para notificar outros componentes
+    window.dispatchEvent(new Event("storage"))
   }, [isCollapsed])
 
   // Não renderizar a sidebar em páginas de vitrine, mas apenas após todos os hooks serem chamados
@@ -228,13 +236,33 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
               {!isCollapsed && <span>Suporte</span>}
             </Link>
           </Button>
-          {!isCollapsed && (
+
+          {isCollapsed ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label="Alternar tema"
+              className="w-full flex justify-center"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+          ) : (
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="icon" asChild>
                 <Link href="/dashboard/configuracoes">
                   <Settings className="h-5 w-5" />
                   <span className="sr-only">Configurações</span>
                 </Link>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label="Alternar tema"
+              >
+                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
             </div>
           )}

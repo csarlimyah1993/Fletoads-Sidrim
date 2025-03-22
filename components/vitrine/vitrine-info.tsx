@@ -1,4 +1,4 @@
-import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook } from "lucide-react"
+import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook, Twitter, Linkedin, Youtube } from "lucide-react"
 import type { Loja } from "@/types/loja"
 
 interface VitrineInfoProps {
@@ -18,8 +18,11 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
     loja.email ||
     loja.website ||
     loja.horarioFuncionamento ||
-    loja.instagram ||
-    loja.facebook
+    loja.redesSociais?.instagram ||
+    loja.redesSociais?.facebook ||
+    loja.redesSociais?.twitter ||
+    loja.redesSociais?.linkedin ||
+    loja.redesSociais?.youtube
 
   if (!loja.descricao && !hasContactInfo) {
     return null
@@ -106,7 +109,7 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                 </div>
               )}
 
-              {isPlanoPago && loja.instagram && (
+              {loja.redesSociais?.instagram && (
                 <div className="flex items-start gap-3">
                   <Instagram
                     className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -116,19 +119,19 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                     <p className="font-medium dark:text-white">Instagram</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       <a
-                        href={`https://instagram.com/${loja.instagram.replace("@", "")}`}
+                        href={`https://instagram.com/${loja.redesSociais.instagram.replace("@", "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:underline"
                       >
-                        {loja.instagram}
+                        {loja.redesSociais.instagram}
                       </a>
                     </p>
                   </div>
                 </div>
               )}
 
-              {isPlanoPago && loja.facebook && (
+              {loja.redesSociais?.facebook && (
                 <div className="flex items-start gap-3">
                   <Facebook
                     className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -137,8 +140,79 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                   <div>
                     <p className="font-medium dark:text-white">Facebook</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a href={loja.facebook} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                        {loja.facebook}
+                      <a
+                        href={loja.redesSociais.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {loja.redesSociais.facebook}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {loja.redesSociais?.twitter && (
+                <div className="flex items-start gap-3">
+                  <Twitter
+                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
+                    style={{ color: corPrimaria }}
+                  />
+                  <div>
+                    <p className="font-medium dark:text-white">Twitter</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <a
+                        href={loja.redesSociais.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {loja.redesSociais.twitter}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {loja.redesSociais?.linkedin && (
+                <div className="flex items-start gap-3">
+                  <Linkedin
+                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
+                    style={{ color: corPrimaria }}
+                  />
+                  <div>
+                    <p className="font-medium dark:text-white">LinkedIn</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <a
+                        href={loja.redesSociais.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {loja.redesSociais.linkedin}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {loja.redesSociais?.youtube && (
+                <div className="flex items-start gap-3">
+                  <Youtube
+                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
+                    style={{ color: corPrimaria }}
+                  />
+                  <div>
+                    <p className="font-medium dark:text-white">YouTube</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <a
+                        href={loja.redesSociais.youtube}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {loja.redesSociais.youtube}
                       </a>
                     </p>
                   </div>

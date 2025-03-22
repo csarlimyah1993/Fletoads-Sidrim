@@ -4,6 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
+  Moon,
+  Sun,
   Home,
   LayoutDashboard,
   ShoppingCart,
@@ -19,10 +21,12 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 
 export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const { setTheme, theme } = useTheme()
 
   // Restaurar o estado de colapso da sidebar do localStorage
   useEffect(() => {
@@ -35,6 +39,9 @@ export function Sidebar() {
   // Salvar o estado de colapso da sidebar no localStorage
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", collapsed.toString())
+
+    // Disparar um evento de storage para notificar outros componentes
+    window.dispatchEvent(new Event("storage"))
   }, [collapsed])
 
   const toggleSidebar = () => {
@@ -157,6 +164,16 @@ export function Sidebar() {
           <HelpCircle className="h-5 w-5 shrink-0" />
           {!collapsed && <span className="ml-3">Suporte</span>}
         </Link>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className={cn("mt-2 text-gray-400 hover:bg-gray-800 hover:text-white", collapsed ? "w-full" : "ml-2")}
+          aria-label="Alternar tema"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
 
         <div className="mt-4 flex items-center">
           <div className="relative h-8 w-8 rounded-full bg-gray-700 overflow-hidden">

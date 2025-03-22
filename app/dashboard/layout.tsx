@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { DatabaseError } from "@/components/ui/database-error"
-import { NewSidebar } from "@/components/new-sidebar"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
@@ -13,9 +12,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex min-h-screen">
-      <NewSidebar />
-      <main className="flex-1 ml-[80px] lg:ml-[280px]">
+    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
+      <main className="flex-1">
         <div className="container py-4">
           <DatabaseError />
           {children}

@@ -53,11 +53,14 @@ async function getLojaDoUsuario(userId: string): Promise<Loja | null> {
       console.error("Erro ao buscar usuário:", error)
     }
 
-    // Serializar o objeto da loja
+    // Garantir que o planoId seja uma string simples
+    const planoId = usuario?.plano || usuario?.metodosPagemento?.plano || "gratis"
+
+    // Serializar o objeto da loja para garantir que seja um objeto simples
     const lojaSerializada = serializeMongoObject<Loja>(loja)
 
-    // Adicionar o planoId como string
-    lojaSerializada.planoId = usuario?.plano || usuario?.metodosPagemento?.plano || "gratis"
+    // Definir o planoId como uma string simples
+    lojaSerializada.planoId = typeof planoId === "object" ? "gratis" : planoId
 
     return lojaSerializada
   } catch (error) {

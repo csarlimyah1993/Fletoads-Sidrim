@@ -4,6 +4,7 @@ import { getPlanoDoUsuario } from "@/lib/planos"
 import type { Loja, Produto } from "@/types/loja"
 import { createIdFilter } from "@/lib/utils/mongodb-helpers"
 import ProdutosPageClient from "./ProdutosPageClient"
+import { notFound } from "next/navigation"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,15 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
     }
 
     if (!loja) return null
+
+    // Imprimir os dados da loja para debug
+    console.log("Dados da loja encontrada (produtos):", {
+      _id: loja._id.toString(),
+      nome: loja.nome,
+      banner: loja.banner,
+      logo: loja.logo,
+      planoId: loja.planoId,
+    })
 
     // Buscar o plano do usuário
     let usuario = null
@@ -61,7 +71,7 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
 
     // Obter o plano do usuário
     const planoId = usuario?.plano || usuario?.metodosPagemento?.plano || "gratis"
-    const plano = getPlanoDoUsuario(planoId)
+    const plano = getPlanoDoUsuario(typeof planoId === "object" ? "gratis" : String(planoId))
 
     // Buscar produtos da loja
     const produtos = await db.collection("produtos").find({ lojaId: loja._id.toString() }).toArray()
@@ -74,6 +84,9 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
       ativo: loja.ativo !== undefined ? loja.ativo : true,
       produtos: produtos.map((p) => ({ ...p, _id: p._id.toString() })) as Produto[],
       plano,
+      planoId: typeof planoId === "object" ? "gratis" : String(planoId),
+      banner: loja.banner || "",
+      logo: loja.logo || "",
     }
 
     return lojaCompleta
@@ -84,7 +97,9 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const loja = await getLojaBySlug(params.slug)
+  // Aguardar os parâmetros antes de usá-los
+  const resolvedParams = await params
+  const loja = await getLojaBySlug(resolvedParams.slug)
 
   if (!loja) {
     return {
@@ -105,7 +120,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function ProdutosPage({ params }: { params: { slug: string } }) {
-  const loja = await getLojaBySlug(params.slug)
+  // Aguardar os parâmetros antes de usá-los
+  const resolvedParams = await params
+  const loja = await getLojaBySlug(resolvedParams.slug)
+
+  if (!loja) {
+    notFound()
+  }
 
   return <ProdutosPageClient loja={loja} />
 }

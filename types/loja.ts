@@ -23,6 +23,7 @@ export interface Loja {
     primaria?: string
     secundaria?: string
     texto?: string
+    destaque?: string
   }
   redesSociais?: {
     instagram?: string
@@ -36,6 +37,11 @@ export interface Loja {
   produtos?: Produto[]
   slug?: string
   nomeNormalizado?: string
+  // Novos campos para personalização da vitrine
+  layout?: string
+  fonte?: string
+  animacoes?: boolean
+  widgets?: string[]
 }
 
 export interface Produto {

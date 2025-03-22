@@ -17,7 +17,7 @@ export function createIdFilter(id: string | ObjectId): Filter<Document> {
     // Se falhar, usar uma condição alternativa
     return {
       $or: [{ _id: id }, { slug: id }, { nomeNormalizado: id.toLowerCase().replace(/\s+/g, "-") }],
-    }
+    } as Filter<Document>
   }
 }
 

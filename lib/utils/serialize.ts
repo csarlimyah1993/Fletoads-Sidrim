@@ -15,7 +15,12 @@ export function serializeMongoObject<T>(obj: any): T {
     } else if (value instanceof Date) {
       serialized[key] = value.toISOString()
     } else if (typeof value === "object" && value !== null) {
-      serialized[key] = serializeMongoObject(value)
+      if (value.buffer) {
+        // Se for um objeto com buffer (como BSON Binary), converter para string
+        serialized[key] = String(value)
+      } else {
+        serialized[key] = serializeMongoObject(value)
+      }
     } else {
       serialized[key] = value
     }

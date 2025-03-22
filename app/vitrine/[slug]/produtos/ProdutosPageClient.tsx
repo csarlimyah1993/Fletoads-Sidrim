@@ -7,6 +7,7 @@ import { VitrineFooter } from "@/components/vitrine/vitrine-footer"
 import { VitrineHeader } from "@/components/vitrine/vitrine-header"
 import { useSession } from "next-auth/react"
 import { notFound } from "next/navigation"
+import { useEffect, useState } from "react"
 
 interface ProdutosPageClientProps {
   loja: Loja
@@ -14,8 +15,16 @@ interface ProdutosPageClientProps {
 
 export default function ProdutosPageClient({ loja }: ProdutosPageClientProps) {
   const { data: session } = useSession()
+  const [mounted, setMounted] = useState(false)
 
-  if (!loja || loja.ativo === false) {
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Garantir que ativo seja um booleano
+  const isAtivo = loja.ativo === true
+
+  if (!loja || !isAtivo) {
     notFound()
   }
 
@@ -32,19 +41,26 @@ export default function ProdutosPageClient({ loja }: ProdutosPageClientProps) {
   const corPrimaria = loja.cores?.primaria || "#4f46e5"
   const isPlanoPago = loja.plano?.id !== "gratis"
 
+  if (!mounted) {
+    return null // Evitar renderização no servidor
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <VitrineHeader loja={loja} isOwner={isOwner} />
 
-      <main className="flex-1">
+      <main className="flex-1 bg-gray-50 dark:bg-gray-800 transition-colors duration-200">
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold mb-6">Todos os Produtos</h1>
+          <h1 className="text-2xl font-bold mb-6 dark:text-white">Todos os Produtos</h1>
 
           {loja.produtos && loja.produtos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {loja.produtos.map((produto) => (
-                <div key={produto._id.toString()} className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                  <div className="aspect-square relative bg-gray-100">
+                <div
+                  key={produto._id.toString()}
+                  className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm"
+                >
+                  <div className="aspect-square relative bg-gray-100 dark:bg-gray-800">
                     {produto.imagens && produto.imagens.length > 0 ? (
                       <img
                         src={produto.imagens[0] || "/placeholder.svg"}
@@ -56,23 +72,25 @@ export default function ProdutosPageClient({ loja }: ProdutosPageClientProps) {
                         }}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-200">
-                        <span className="text-gray-400">Sem imagem</span>
+                      <div className="flex h-full w-full items-center justify-center bg-gray-200 dark:bg-gray-700">
+                        <span className="text-gray-400 dark:text-gray-500">Sem imagem</span>
                       </div>
                     )}
                   </div>
 
                   <div className="p-4">
-                    <h3 className="font-medium mb-1">{produto.nome}</h3>
+                    <h3 className="font-medium mb-1 dark:text-white">{produto.nome}</h3>
 
-                    {produto.categoria && <p className="text-xs text-gray-500 mb-2">{produto.categoria}</p>}
+                    {produto.categoria && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{produto.categoria}</p>
+                    )}
 
                     {produto.descricao && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{produto.descricao}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{produto.descricao}</p>
                     )}
 
                     <div className="flex justify-between items-center mt-2">
-                      <p className="font-bold text-lg">
+                      <p className="font-bold text-lg dark:text-white">
                         {new Intl.NumberFormat("pt-BR", {
                           style: "currency",
                           currency: "BRL",
@@ -91,8 +109,8 @@ export default function ProdutosPageClient({ loja }: ProdutosPageClientProps) {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-              <p className="text-gray-500 mb-4">Nenhum produto disponível no momento.</p>
+            <div className="text-center py-12 bg-white dark:bg-gray-900 dark:border dark:border-gray-700 rounded-lg shadow-sm">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">Nenhum produto disponível no momento.</p>
               <Button onClick={() => window.history.back()} style={{ backgroundColor: corPrimaria }}>
                 Voltar
               </Button>
