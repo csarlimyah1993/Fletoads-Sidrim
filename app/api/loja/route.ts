@@ -1,106 +1,118 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(req: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
     const userId = session.user.id
+    const data = await request.json()
 
-    // Criar um filtro adequado para o MongoDB com tipo explícito
-    const userFilter: Record<string, any> = {}
+    const { db } = await connectToDatabase()
 
-    if (typeof userId === "string" && ObjectId.isValid(userId)) {
-      userFilter.userId = new ObjectId(userId)
-    } else {
-      userFilter.userId = userId
-    }
-
-    console.log("Buscando loja para o usuário:", userFilter)
-
-    const loja = await db.collection("lojas").findOne(userFilter)
+    // Buscar a loja do usuário
+    const loja = await db.collection("lojas").findOne({
+      $or: [{ usuarioId: userId }, { userId: userId }],
+    })
 
     if (!loja) {
-      // Se não encontrar uma loja, retornar um objeto vazio em vez de 404
-      return NextResponse.json({
-        nome: "",
-        descricao: "",
-        endereco: "",
-        telefone: "",
-        email: "",
-        website: "",
-        horarioFuncionamento: "",
-        instagram: "",
-        facebook: "",
-        ativo: true,
-        logo: "",
-      })
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(loja)
+    // Atualizar os dados da loja
+    const resultado = await db
+      .collection("lojas")
+      .updateOne({ _id: new ObjectId(loja._id) }, { $set: { ...data, dataAtualizacao: new Date() } })
+
+    if (!resultado.acknowledged) {
+      return NextResponse.json({ error: "Falha ao atualizar loja" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: "Loja atualizada com sucesso" })
   } catch (error) {
-    console.error("Erro ao buscar loja:", error)
-    return NextResponse.json({ error: "Erro ao buscar loja" }, { status: 500 })
+    console.error("Erro ao atualizar loja:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
 
-export async function PUT(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
     const userId = session.user.id
-    const data = await req.json()
+    const { db } = await connectToDatabase()
 
-    // Criar um filtro adequado para o MongoDB com tipo explícito
-    const userFilter: Record<string, any> = {}
+    // Buscar a loja do usuário
+    const loja = await db.collection("lojas").findOne({
+      $or: [{ usuarioId: userId }, { userId: userId }],
+    })
 
-    if (typeof userId === "string" && ObjectId.isValid(userId)) {
-      userFilter.userId = new ObjectId(userId)
-    } else {
-      userFilter.userId = userId
+    if (!loja) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Verificar se a loja já existe
-    const existingLoja = await db.collection("lojas").findOne(userFilter)
-
-    if (existingLoja) {
-      // Atualizar loja existente
-      const result = await db.collection("lojas").updateOne(userFilter, { $set: { ...data, updatedAt: new Date() } })
-
-      if (result.matchedCount === 0) {
-        return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-      }
-
-      const updatedLoja = await db.collection("lojas").findOne(userFilter)
-      return NextResponse.json(updatedLoja)
-    } else {
-      // Criar nova loja
-      const newLoja = {
-        ...data,
-        userId: typeof userId === "string" && ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      const result = await db.collection("lojas").insertOne(newLoja)
-      return NextResponse.json({ ...newLoja, _id: result.insertedId })
-    }
+    // Converter o ObjectId para string
+    return NextResponse.json({
+      ...loja,
+      _id: loja._id.toString(),
+    })
   } catch (error) {
-    console.error("Erro ao salvar loja:", error)
-    return NextResponse.json({ error: "Erro ao salvar loja" }, { status: 500 })
+    console.error("Erro ao buscar loja:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  }
+}
+
+// Adicione o método POST para criar uma nova loja
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const userId = session.user.id
+    const data = await request.json()
+
+    const { db } = await connectToDatabase()
+
+    // Criar uma nova loja
+    const novaLoja = {
+      ...data,
+      usuarioId: userId,
+      dataCriacao: new Date(),
+      dataAtualizacao: new Date(),
+      ativo: true,
+    }
+
+    const resultado = await db.collection("lojas").insertOne(novaLoja)
+
+    if (!resultado.acknowledged) {
+      return NextResponse.json({ error: "Falha ao criar loja" }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Loja criada com sucesso",
+      loja: {
+        ...novaLoja,
+        _id: resultado.insertedId.toString(),
+      },
+    })
+  } catch (error) {
+    console.error("Erro ao criar loja:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
 

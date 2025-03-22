@@ -1,94 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { Loja } from "@/lib/models/loja"
 
-export async function GET(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.id) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    await connectToDatabase()
+    const userId = session.user.id
+    const data = await request.json()
 
-    const loja = await Loja.findOne({ usuarioId: session.user.id })
-
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    // Validar dados mínimos
+    if (!data.nome) {
+      return NextResponse.json({ error: "Nome da loja é obrigatório" }, { status: 400 })
     }
 
-    return NextResponse.json(loja)
-  } catch (error) {
-    console.error("Erro ao buscar perfil da loja:", error)
-    return NextResponse.json({ error: "Erro ao buscar perfil da loja" }, { status: 500 })
-  }
-}
+    const { db } = await connectToDatabase()
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
+    // Verificar se o usuário já tem uma loja
+    const lojaExistente = await db.collection("lojas").findOne({
+      $or: [{ usuarioId: userId }, { userId: userId }],
+    })
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    const data = await req.json()
-
-    await connectToDatabase()
-
-    // Verificar se a loja já existe
-    let loja = await Loja.findOne({ usuarioId: session.user.id })
-
-    if (loja) {
+    if (lojaExistente) {
       // Atualizar loja existente
-      loja = await Loja.findOneAndUpdate(
-        { usuarioId: session.user.id },
+      const resultado = await db.collection("lojas").updateOne(
+        { _id: lojaExistente._id },
         {
           $set: {
-            nome: data.nome,
-            descricao: data.descricao,
-            logo: data.logo,
-            banner: data.banner,
-            endereco: data.endereco,
-            telefone: data.telefone,
-            email: data.email,
-            website: data.website,
-            horarioFuncionamento: data.horarioFuncionamento,
-            dataFundacao: data.dataFundacao,
-            numeroFuncionarios: data.numeroFuncionarios,
-            tags: data.tags,
-            redesSociais: data.redesSociais,
+            ...data,
+            usuarioId: userId,
+            dataAtualizacao: new Date(),
           },
         },
-        { new: true },
       )
+
+      if (!resultado.acknowledged) {
+        return NextResponse.json({ error: "Falha ao atualizar loja" }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Loja atualizada com sucesso",
+        lojaId: lojaExistente._id.toString(),
+      })
     } else {
       // Criar nova loja
-      loja = await Loja.create({
-        usuarioId: session.user.id,
-        nome: data.nome,
-        descricao: data.descricao,
-        logo: data.logo,
-        banner: data.banner,
-        endereco: data.endereco,
-        telefone: data.telefone,
-        email: data.email,
-        website: data.website,
-        horarioFuncionamento: data.horarioFuncionamento,
-        dataFundacao: data.dataFundacao,
-        numeroFuncionarios: data.numeroFuncionarios,
-        tags: data.tags,
-        redesSociais: data.redesSociais,
+      const novaLoja = {
+        ...data,
+        usuarioId: userId,
+        ativo: true,
+        dataCriacao: new Date(),
+      }
+
+      const resultado = await db.collection("lojas").insertOne(novaLoja)
+
+      if (!resultado.acknowledged) {
+        return NextResponse.json({ error: "Falha ao criar loja" }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Loja criada com sucesso",
+        lojaId: resultado.insertedId.toString(),
       })
     }
-
-    return NextResponse.json(loja)
   } catch (error) {
-    console.error("Erro ao salvar perfil da loja:", error)
-    return NextResponse.json({ error: "Erro ao salvar perfil da loja" }, { status: 500 })
+    console.error("Erro ao salvar loja:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
 

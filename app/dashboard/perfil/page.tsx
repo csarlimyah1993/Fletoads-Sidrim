@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
+import { ObjectId } from "mongodb"
 
 export const metadata = {
   title: "Perfil da Loja | FletoAds",
@@ -13,17 +14,126 @@ async function getLoja(userId: string) {
   try {
     const { db } = await connectToDatabase()
 
-    const loja = await db.collection("lojas").findOne({ userId: userId })
+    console.log("Conectado ao banco de dados")
+    console.log("Buscando loja para usuário:", userId)
 
-    if (!loja) {
+    // Listar todas as coleções para debug
+    const collections = await db.listCollections().toArray()
+    console.log(
+      "Coleções disponíveis:",
+      collections.map((c) => c.name),
+    )
+
+    // Verificar se a coleção 'lojas' existe
+    if (!collections.some((c) => c.name === "lojas")) {
+      console.log("A coleção 'lojas' não existe no banco de dados")
+
+      // Tentar outras coleções que possam conter lojas
+      const alternativeCollections = ["loja", "store", "stores"]
+
+      for (const collName of alternativeCollections) {
+        if (collections.some((c) => c.name === collName)) {
+          console.log(`Tentando coleção alternativa: ${collName}`)
+          const lojas = await db.collection(collName).find({}).toArray()
+          console.log(`Encontradas ${lojas.length} lojas na coleção ${collName}`)
+
+          if (lojas.length > 0) {
+            // Verificar se alguma loja pertence ao usuário
+            const lojaDoUsuario = lojas.find(
+              (loja) =>
+                (loja.usuarioId && (loja.usuarioId === userId || loja.usuarioId.toString() === userId)) ||
+                (loja.userId && (loja.userId === userId || loja.userId.toString() === userId)),
+            )
+
+            if (lojaDoUsuario) {
+              console.log(`Loja encontrada na coleção ${collName}:`, lojaDoUsuario.nome || lojaDoUsuario.name)
+              return {
+                ...lojaDoUsuario,
+                _id: lojaDoUsuario._id.toString(),
+              }
+            }
+          }
+        }
+      }
+
       return null
     }
 
-    // Converter o ObjectId para string para serialização
-    return {
-      ...loja,
-      _id: loja._id.toString(),
+    // Tentar diferentes formatos de ID
+    let lojaDoUsuario = null
+
+    // Tentar com o ID como string
+    lojaDoUsuario = await db.collection("lojas").findOne({
+      $or: [{ usuarioId: userId }, { userId: userId }],
+    })
+
+    // Se não encontrou, tentar com ObjectId
+    if (!lojaDoUsuario) {
+      try {
+        const objectId = new ObjectId(userId)
+        lojaDoUsuario = await db.collection("lojas").findOne({
+          $or: [{ usuarioId: objectId }, { userId: objectId }],
+        })
+      } catch (error) {
+        console.log("Erro ao converter para ObjectId:", error)
+      }
     }
+
+    // Se ainda não encontrou, buscar todas as lojas e verificar manualmente
+    if (!lojaDoUsuario) {
+      console.log("Buscando todas as lojas para verificação manual")
+      const todasLojas = await db.collection("lojas").find({}).toArray()
+      console.log(`Encontradas ${todasLojas.length} lojas no total`)
+
+      // Imprimir todas as lojas para debug
+      todasLojas.forEach((loja, index) => {
+        console.log(`Loja ${index + 1}:`, {
+          _id: loja._id.toString(),
+          nome: loja.nome,
+          usuarioId: loja.usuarioId ? loja.usuarioId.toString() : undefined,
+          userId: loja.userId ? loja.userId.toString() : undefined,
+        })
+      })
+
+      // Procurar por qualquer loja que tenha o userId ou usuarioId correto
+      lojaDoUsuario = todasLojas.find(
+        (loja) =>
+          (loja.usuarioId && (loja.usuarioId.toString() === userId || loja.usuarioId === userId)) ||
+          (loja.userId && (loja.userId.toString() === userId || loja.userId === userId)),
+      )
+    }
+
+    if (lojaDoUsuario) {
+      console.log("Loja do usuário encontrada:", lojaDoUsuario.nome || lojaDoUsuario.name)
+      return {
+        ...lojaDoUsuario,
+        _id: lojaDoUsuario._id.toString(),
+      }
+    }
+
+    // Se não encontrou nenhuma loja, criar uma loja padrão para o usuário
+    console.log("Nenhuma loja encontrada para este usuário. Criando loja padrão...")
+
+    const novaLoja = {
+      nome: "Minha Loja",
+      descricao: "Descrição da minha loja",
+      usuarioId: userId,
+      ativo: true,
+      dataCriacao: new Date(),
+    }
+
+    const resultado = await db.collection("lojas").insertOne(novaLoja)
+
+    if (resultado.acknowledged) {
+      console.log("Loja padrão criada com sucesso!")
+      return {
+        ...novaLoja,
+        _id: resultado.insertedId.toString(),
+      }
+    }
+
+    console.log("Não foi possível criar uma loja padrão")
+    return null
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
     return null
@@ -38,6 +148,8 @@ export default async function PerfilDaLojaPage() {
   }
 
   const userId = session.user.id
+  console.log("ID do usuário na sessão:", userId)
+
   const loja = await getLoja(userId)
 
   // Se não houver loja, podemos mostrar uma mensagem ou redirecionar para criar

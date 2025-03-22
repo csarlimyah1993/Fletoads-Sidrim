@@ -1,96 +1,69 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertCircle, X } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-
-interface UserPlan {
-  name: string
-  isFreeTier: boolean
-  daysRemaining?: number
-  limitReached?: boolean
-}
+import Link from "next/link"
 
 export function PlanUpgradeBanner() {
-  const [plan, setPlan] = useState<UserPlan | null>(null)
-  const [isVisible, setIsVisible] = useState(true)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+  const [planInfo, setPlanInfo] = useState<any>(null)
+  const [message, setMessage] = useState("")
 
   useEffect(() => {
     const fetchUserPlan = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-
-        const response = await fetch("/api/user/plan")
+        const response = await fetch("/api/user/plan", {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
 
         if (!response.ok) {
-          if (response.status === 404) {
-            // Plano não encontrado, provavelmente usuário novo
-            setIsVisible(false)
-            return
-          }
-          throw new Error("Falha ao carregar informações do plano")
+          console.error("Erro na resposta da API:", response.status, response.statusText)
+          return
         }
 
         const data = await response.json()
-        setPlan(data.plan)
+        setPlanInfo(data)
 
-        // Só mostrar o banner se for plano gratuito ou com limite atingido
-        setIsVisible(
-          data.plan.isFreeTier ||
-            data.plan.limitReached ||
-            (data.plan.daysRemaining !== undefined && data.plan.daysRemaining <= 7),
-        )
+        // Verificar se deve mostrar o banner
+        let shouldShow = false
+        let bannerMessage = ""
+
+        if (data.isFreeTier) {
+          shouldShow = true
+          bannerMessage = "Você está usando o plano gratuito com recursos limitados."
+        } else if (data.limitReached?.produtos || data.limitReached?.panfletos) {
+          shouldShow = true
+          bannerMessage = "Você atingiu o limite do seu plano atual."
+        }
+
+        setIsVisible(shouldShow)
+        setMessage(bannerMessage)
       } catch (error) {
-        console.error("Erro ao buscar plano do usuário:", error)
-        setError("Não foi possível carregar as informações do seu plano")
-        // Não mostrar o banner em caso de erro
+        console.error("Erro ao buscar informações do plano:", error)
         setIsVisible(false)
-      } finally {
-        setIsLoading(false)
       }
     }
 
     fetchUserPlan()
   }, [])
 
-  if (isLoading || !isVisible || error) {
-    return null
-  }
-
-  if (!plan) {
-    return null
-  }
-
-  let message = ""
-  let variant: "default" | "destructive" = "default"
-
-  if (plan.limitReached) {
-    message = "Você atingiu o limite do seu plano atual. Atualize para continuar usando todos os recursos."
-    variant = "destructive"
-  } else if (plan.isFreeTier) {
-    message = "Você está usando o plano gratuito. Atualize para desbloquear mais recursos."
-  } else if (plan.daysRemaining !== undefined && plan.daysRemaining <= 7) {
-    message = `Seu plano ${plan.name} expira em ${plan.daysRemaining} dias. Renove agora para evitar interrupções.`
-  }
+  if (!isVisible) return null
 
   return (
-    <Alert variant={variant} className="mb-4 relative">
+    <Alert className="mb-4">
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Informações do Plano</AlertTitle>
-      <AlertDescription className="flex items-center justify-between">
-        <span>{message}</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href="/dashboard/planos">Atualizar Plano</a>
+      <AlertTitle>Atualize seu plano</AlertTitle>
+      <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+        {message}
+        <Link href="/dashboard/planos" className="ml-0 sm:ml-2">
+          <Button variant="outline" size="sm">
+            Ver planos
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsVisible(false)} aria-label="Fechar">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        </Link>
       </AlertDescription>
     </Alert>
   )

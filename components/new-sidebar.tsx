@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ModeToggle } from "@/components/mode-toggle"
 import {
   Home,
   BarChart3,
@@ -32,6 +31,9 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
 
+  // Verificar se estamos em uma página de vitrine
+  const isVitrinePage = pathname.startsWith("/vitrine/")
+
   // Restaurar o estado de colapso da sidebar do localStorage
   useEffect(() => {
     const storedState = localStorage.getItem("sidebarCollapsed")
@@ -44,6 +46,11 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", isCollapsed.toString())
   }, [isCollapsed])
+
+  // Não renderizar a sidebar em páginas de vitrine, mas apenas após todos os hooks serem chamados
+  if (isVitrinePage) {
+    return null
+  }
 
   return (
     <div
@@ -178,7 +185,7 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
             {isCollapsed && <span>Integrar</span>}
           </Link>
           <Link
-            href="/perfil-da-loja"
+            href="/dashboard/perfil-da-loja"
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
               pathname.includes("/perfil-da-loja")
@@ -196,6 +203,20 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
             />
             {!isCollapsed && <span>Perfil Da Loja</span>}
             {isCollapsed && <span>Loja</span>}
+          </Link>
+          <Link
+            href="/dashboard/vitrine"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
+              pathname.includes("/vitrine") ? "bg-green-500/20 text-green-500 font-medium" : "text-muted-foreground",
+              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
+            )}
+          >
+            <Store
+              className={cn("h-5 w-5", isCollapsed && "h-6 w-6", pathname.includes("/vitrine") && "text-green-500")}
+            />
+            {!isCollapsed && <span>Personalizar Vitrine</span>}
+            {isCollapsed && <span>Vitrine</span>}
           </Link>
         </nav>
       </ScrollArea>
@@ -215,7 +236,6 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
                   <span className="sr-only">Configurações</span>
                 </Link>
               </Button>
-              <ModeToggle />
             </div>
           )}
         </div>

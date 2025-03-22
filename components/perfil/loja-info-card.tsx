@@ -1,30 +1,17 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Store, MapPin, Phone, Mail, Globe, Clock, Calendar, Users } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { MapPin, Phone, Mail, Globe, Clock, Calendar, Users } from "lucide-react"
 
 interface LojaInfoCardProps {
-  loja: {
-    nome?: string
-    endereco?: string
-    telefone?: string
-    email?: string
-    website?: string
-    horarioFuncionamento?: string
-    dataFundacao?: string
-    numeroFuncionarios?: number
-  }
+  loja: any
 }
 
 export function LojaInfoCard({ loja }: LojaInfoCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Store className="h-5 w-5 text-primary" />
-          Informações Gerais
-        </CardTitle>
-        <CardDescription>Dados principais da sua loja</CardDescription>
+        <CardTitle>Informações da Loja</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {loja.endereco && (
@@ -62,7 +49,11 @@ export function LojaInfoCard({ loja }: LojaInfoCardProps) {
             <Globe className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">Website</p>
-              <p className="text-sm text-muted-foreground">{loja.website}</p>
+              <p className="text-sm text-muted-foreground">
+                <a href={loja.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {loja.website}
+                </a>
+              </p>
             </div>
           </div>
         )}
@@ -87,7 +78,7 @@ export function LojaInfoCard({ loja }: LojaInfoCardProps) {
           </div>
         )}
 
-        {loja.numeroFuncionarios !== undefined && (
+        {loja.numeroFuncionarios && (
           <div className="flex items-start gap-3">
             <Users className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
             <div>
@@ -96,18 +87,6 @@ export function LojaInfoCard({ loja }: LojaInfoCardProps) {
             </div>
           </div>
         )}
-
-        {!loja.endereco &&
-          !loja.telefone &&
-          !loja.email &&
-          !loja.website &&
-          !loja.horarioFuncionamento &&
-          !loja.dataFundacao &&
-          loja.numeroFuncionarios === undefined && (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma informação disponível. Edite o perfil da loja para adicionar informações.
-            </p>
-          )}
       </CardContent>
     </Card>
   )

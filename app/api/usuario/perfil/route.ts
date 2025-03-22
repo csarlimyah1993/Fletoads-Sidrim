@@ -1,69 +1,74 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { Usuario } from "@/lib/models/usuario"
+import { ObjectId } from "mongodb"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await connectToDatabase()
-
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Certifique-se de que session.user.id existe
-    if (!session.user.id) {
-      console.error("ID do usuário não encontrado na sessão:", session)
-      return NextResponse.json({ error: "ID do usuário não encontrado" }, { status: 400 })
+    const userId = session.user.id
+
+    try {
+      const { db } = await connectToDatabase()
+
+      // Tentar diferentes formatos de ID
+      let usuario = null
+
+      // Tentar com o ID como string, mas evitando usar _id diretamente
+      usuario = await db.collection("usuarios").findOne({
+        $or: [{ email: session.user.email }, { username: userId }],
+      })
+
+      // Se não encontrou, tentar com ObjectId
+      if (!usuario) {
+        try {
+          const objectId = new ObjectId(userId)
+          usuario = await db.collection("usuarios").findOne({
+            $or: [{ _id: objectId }, { email: session.user.email }],
+          })
+        } catch (error) {
+          console.log("Erro ao converter para ObjectId:", error)
+        }
+      }
+
+      if (!usuario) {
+        return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
+      }
+
+      // Remover campos sensíveis
+      if (usuario.password) {
+        delete usuario.password
+      }
+      if (usuario.senha) {
+        delete usuario.senha
+      }
+
+      // Converter o ObjectId para string
+      return NextResponse.json({
+        ...usuario,
+        _id: usuario._id.toString(),
+      })
+    } catch (dbError) {
+      console.error("Erro ao buscar perfil do usuário no banco de dados:", dbError)
+
+      // Retornar um perfil básico com os dados da sessão para evitar quebrar a UI
+      return NextResponse.json({
+        _id: userId,
+        nome: session.user.name || "Usuário",
+        email: session.user.email,
+        error: "Erro temporário ao acessar o banco de dados. Tente novamente mais tarde.",
+        isTemporaryProfile: true,
+      })
     }
-
-    const usuario = await Usuario.findById(session.user.id).select("-senha")
-
-    if (!usuario) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
-    }
-
-    return NextResponse.json(usuario)
   } catch (error) {
     console.error("Erro ao buscar perfil do usuário:", error)
-    return NextResponse.json({ error: "Erro ao buscar perfil do usuário" }, { status: 500 })
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    await connectToDatabase()
-
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    const data = await request.json()
-
-    // Campos que não podem ser atualizados pelo usuário
-    delete data.email
-    delete data.senha
-    delete data.plano
-
-    const usuario = await Usuario.findByIdAndUpdate(
-      session.user.id,
-      { $set: data },
-      { new: true, runValidators: true },
-    ).select("-senha")
-
-    if (!usuario) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
-    }
-
-    return NextResponse.json(usuario)
-  } catch (error) {
-    console.error("Erro ao atualizar perfil do usuário:", error)
-    return NextResponse.json({ error: "Erro ao atualizar perfil do usuário" }, { status: 500 })
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
 

@@ -17,7 +17,13 @@ const nextConfig = {
     ],
   },
   images: {
-    domains: ["picsum.photos", "via.placeholder.com"],
+    domains: [
+      "picsum.photos",
+      "via.placeholder.com",
+      'xaywsd0belf9yeug.public.blob.vercel-storage.com',
+      'public.blob.vercel-storage.com',
+      'vercel-storage.com',
+      'vercel-blob.com'],
   },
 };
 

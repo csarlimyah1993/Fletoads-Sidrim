@@ -1,23 +1,27 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import { LojaPerfilForm } from "@/components/perfil/loja-perfil-form"
+import { authOptions } from "@/lib/auth"
+import { CriarLojaForm } from "@/components/perfil/criar-loja-form"
+
+export const metadata = {
+  title: "Criar Loja | FletoAds",
+  description: "Crie sua loja para começar a usar todos os recursos do FletoAds",
+}
 
 export default async function CriarLojaPage() {
   const session = await getServerSession(authOptions)
 
-  if (!session || !session.user) {
+  if (!session) {
     redirect("/login")
   }
 
+  const userId = session.user.id
+
   return (
-    <main className="container mx-auto py-6 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Criar Loja</h1>
-        <p className="text-muted-foreground">Preencha os dados da sua loja</p>
-      </div>
-      <LojaPerfilForm />
-    </main>
+    <div className="container py-10">
+      <h1 className="text-3xl font-bold mb-6">Criar Nova Loja</h1>
+      <CriarLojaForm userId={userId} />
+    </div>
   )
 }
 

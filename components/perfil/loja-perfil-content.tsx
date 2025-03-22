@@ -199,4 +199,3 @@ export function LojaPerfilContent({ loja }: LojaPerfilContentProps) {
     </div>
   )
 }
-

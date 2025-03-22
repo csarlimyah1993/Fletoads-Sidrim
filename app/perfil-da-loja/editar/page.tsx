@@ -1,35 +1,58 @@
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
+import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { Loja } from "@/lib/models/loja"
-import { redirect } from "next/navigation"
-import { LojaPerfilForm } from "@/components/perfil/loja-perfil-form"
+import { LojaEditForm } from "@/components/perfil/loja-edit-form"
 
-export default async function EditarLojaPage() {
+export const metadata = {
+  title: "Editar Perfil da Loja | FletoAds",
+  description: "Edite as informações da sua loja",
+}
+
+async function getLoja(userId: string) {
+  try {
+    const { db } = await connectToDatabase()
+
+    // Buscar todas as lojas para este usuário
+    const lojas = await db
+      .collection("lojas")
+      .find({
+        $or: [{ usuarioId: userId }, { userId: userId }],
+      })
+      .toArray()
+
+    if (lojas.length === 0) {
+      return null
+    }
+
+    // Usar a primeira loja encontrada
+    const loja = lojas[0]
+
+    // Converter o ObjectId para string para serialização
+    return {
+      ...loja,
+      _id: loja._id.toString(),
+    }
+  } catch (error) {
+    console.error("Erro ao buscar loja:", error)
+    return null
+  }
+}
+
+export default async function EditarPerfilDaLojaPage() {
   const session = await getServerSession(authOptions)
 
-  if (!session || !session.user) {
+  if (!session) {
     redirect("/login")
   }
 
-  await connectToDatabase()
+  const userId = session.user.id
+  const loja = await getLoja(userId)
 
-  // Buscar a loja do usuário
-  const loja = await Loja.findOne({ usuarioId: session.user.id })
-
-  // Se não houver loja, redirecionar para a página de criação
   if (!loja) {
-    redirect("/perfil-da-loja/criar")
+    redirect("/dashboard/perfil-da-loja")
   }
 
-  return (
-    <main className="container mx-auto py-6 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Editar Loja</h1>
-        <p className="text-muted-foreground">Atualize os dados da sua loja</p>
-      </div>
-      <LojaPerfilForm loja={JSON.parse(JSON.stringify(loja))} isEditing={true} />
-    </main>
-  )
+  return <LojaEditForm loja={loja} />
 }
 

@@ -4,7 +4,11 @@ import type React from "react"
 
 import { SessionProvider as NextAuthSessionProvider } from "next-auth/react"
 
-export function SessionProvider({ children }: { children: React.ReactNode }) {
+interface SessionProviderProps {
+  children: React.ReactNode
+}
+
+export function SessionProvider({ children }: SessionProviderProps) {
   return <NextAuthSessionProvider>{children}</NextAuthSessionProvider>
 }
 

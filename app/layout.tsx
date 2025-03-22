@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { SessionProvider } from "@/components/session-provider"
+import { MainContent } from "@/components/main-content"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,6 +23,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const session = await getServerSession(authOptions)
+  const hasSession = !!session
 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -29,9 +31,7 @@ export default async function RootLayout({
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
             {session && <NewSidebar />}
-            <main className={session ? "ml-[80px] md:ml-[280px] transition-all duration-300 min-h-screen" : ""}>
-              {children}
-            </main>
+            <MainContent hasSession={hasSession}>{children}</MainContent>
             <Toaster />
           </ThemeProvider>
         </SessionProvider>

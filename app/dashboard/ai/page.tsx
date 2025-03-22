@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GeradorConteudo } from "@/components/ai/gerador-conteudo"
-import { AnalisadorConteudo } from "@/components/ai/analisador-conteudo"
-import { SugestorMelhorias } from "@/components/ai/sugestor-melhorias"
+import { GeradorConteudo } from "@/components/gerador-conteudo"
+import { AnalisadorConteudo } from "@/components/analisador-conteudo"
+import { SugestorMelhorias } from "@/components/sugestor-melhorias"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 

@@ -1,201 +1,75 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { QRCodeSVG } from "qrcode.react"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Printer, Download, Share2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Download, Share2, ExternalLink } from "lucide-react"
+import QRCode from "qrcode.react"
 
 interface QRCodeGeneratorProps {
-  url: string
+  url?: string
   storeName: string
+  storeId: string
   logoUrl?: string
 }
 
-export function QRCodeGenerator({ url, storeName, logoUrl }: QRCodeGeneratorProps) {
-  const { toast } = useToast()
-  const [isGenerating, setIsGenerating] = useState(false)
-  const qrCodeRef = useRef<HTMLDivElement>(null)
+export function QRCodeGenerator({ url, storeName, storeId, logoUrl }: QRCodeGeneratorProps) {
+  const [mounted, setMounted] = useState(false)
 
-  // Função para baixar o QR Code como PNG
-  const downloadQRCode = () => {
-    if (!qrCodeRef.current) return
+  // Usar o ID da loja para gerar a URL da vitrine
+  const vitrineUrl = url || `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/vitrine/${storeId}`
 
-    setIsGenerating(true)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-    try {
-      const canvas = document.createElement("canvas")
-      const svg = qrCodeRef.current.querySelector("svg")
-      const svgData = new XMLSerializer().serializeToString(svg!)
-      const img = new Image()
+  const handleDownload = () => {
+    const canvas = document.getElementById("qr-code") as HTMLCanvasElement
+    if (canvas) {
+      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
 
-      img.onload = () => {
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext("2d")!
-        ctx.fillStyle = "#ffffff"
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0)
+      const downloadLink = document.createElement("a")
+      downloadLink.href = pngUrl
+      downloadLink.download = `${storeName.replace(/\s+/g, "-").toLowerCase()}-qrcode.png`
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+    }
+  }
 
-        // Adicionar texto abaixo do QR Code
-        ctx.font = "bold 14px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.textAlign = "center"
-        ctx.fillText(`Escaneie para acessar ${storeName}`, canvas.width / 2, canvas.height - 10)
-
-        const dataUrl = canvas.toDataURL("image/png")
-        const link = document.createElement("a")
-        link.download = `qrcode-${storeName.toLowerCase().replace(/\s+/g, "-")}.png`
-        link.href = dataUrl
-        link.click()
-
-        setIsGenerating(false)
-        toast({
-          title: "QR Code baixado com sucesso!",
-          description: "O arquivo foi salvo na sua pasta de downloads.",
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `QR Code da ${storeName}`,
+          text: `Escaneie este QR Code para acessar ${storeName}`,
+          url: vitrineUrl,
         })
+      } catch (error) {
+        console.error("Erro ao compartilhar:", error)
       }
-
-      img.src = `data:image/svg+xml;base64,${btoa(svgData)}`
-    } catch (error) {
-      console.error("Erro ao baixar QR Code:", error)
-      setIsGenerating(false)
-      toast({
-        title: "Erro ao baixar QR Code",
-        description: "Ocorreu um erro ao gerar o arquivo. Tente novamente.",
-        variant: "destructive",
-      })
+    } else {
+      // Fallback para copiar o link
+      navigator.clipboard.writeText(vitrineUrl)
+      alert("Link copiado para a área de transferência!")
     }
   }
 
-  // Função para imprimir o QR Code
-  const printQRCode = () => {
-    if (!qrCodeRef.current) return
-
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) {
-      toast({
-        title: "Erro ao abrir janela de impressão",
-        description: "Verifique se o bloqueador de pop-ups está desativado.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const svg = qrCodeRef.current.querySelector("svg")
-    const svgData = new XMLSerializer().serializeToString(svg!)
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR Code - ${storeName}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-              padding: 20px;
-              box-sizing: border-box;
-            }
-            .qr-container {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              padding: 20px;
-              border: 1px solid #ccc;
-              border-radius: 8px;
-            }
-            h2 {
-              margin-bottom: 10px;
-              text-align: center;
-            }
-            p {
-              margin-top: 15px;
-              text-align: center;
-              font-size: 14px;
-            }
-            .logo {
-              margin-bottom: 15px;
-              max-width: 80px;
-              max-height: 80px;
-            }
-            @media print {
-              .no-print {
-                display: none;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="qr-container">
-            ${logoUrl ? `<img src="${logoUrl}" alt="${storeName}" class="logo" />` : ""}
-            <h2>${storeName}</h2>
-            ${svgData}
-            <p>Escaneie este QR Code para acessar nossa loja online</p>
-          </div>
-          <div class="no-print" style="margin-top: 30px;">
-            <button onclick="window.print()">Imprimir</button>
-            <button onclick="window.close()">Fechar</button>
-          </div>
-          <script>
-            // Imprimir automaticamente
-            setTimeout(() => {
-              document.querySelector('.no-print').style.display = 'none';
-              window.print();
-              document.querySelector('.no-print').style.display = 'block';
-            }, 500);
-          </script>
-        </body>
-      </html>
-    `)
-
-    printWindow.document.close()
-  }
-
-  // Função para compartilhar o QR Code
-  const shareQRCode = async () => {
-    if (!navigator.share) {
-      toast({
-        title: "Compartilhamento não suportado",
-        description: "Seu navegador não suporta a API de compartilhamento.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      await navigator.share({
-        title: `QR Code - ${storeName}`,
-        text: `Escaneie este QR Code para acessar a loja ${storeName}`,
-        url: url,
-      })
-
-      toast({
-        title: "Link compartilhado com sucesso!",
-      })
-    } catch (error) {
-      console.error("Erro ao compartilhar:", error)
-      toast({
-        title: "Erro ao compartilhar",
-        description: "Ocorreu um erro ao compartilhar o link.",
-        variant: "destructive",
-      })
-    }
+  if (!mounted) {
+    return null
   }
 
   return (
     <Card>
-      <CardContent className="p-6 flex flex-col items-center">
-        <div ref={qrCodeRef} className="bg-white p-4 rounded-lg mb-4">
-          <QRCodeSVG
-            value={url}
-            size={200}
+      <CardHeader>
+        <CardTitle>QR Code da Loja</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center space-y-4">
+        <div className="bg-white p-4 rounded-lg">
+          <QRCode
+            id="qr-code"
+            value={vitrineUrl}
+            size={180}
             level="H"
             includeMargin={true}
             imageSettings={
@@ -212,33 +86,21 @@ export function QRCodeGenerator({ url, storeName, logoUrl }: QRCodeGeneratorProp
             }
           />
         </div>
-
-        <p className="text-sm text-center text-muted-foreground mb-4">
-          Escaneie este QR Code para acessar a vitrine da loja
-        </p>
-
-        <div className="flex flex-wrap gap-2 justify-center">
-          <Button variant="outline" size="sm" onClick={printQRCode} className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            Imprimir
+        <p className="text-sm text-center text-muted-foreground">Escaneie este QR Code para acessar sua loja online</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Download className="h-4 w-4 mr-2" />
+            Baixar
           </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={downloadQRCode}
-            disabled={isGenerating}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            {isGenerating ? "Gerando..." : "Baixar PNG"}
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={shareQRCode} className="flex items-center gap-2">
-            <Share2 className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-2" />
             Compartilhar
           </Button>
         </div>
+        <Button variant="link" size="sm" className="text-xs" onClick={() => window.open(vitrineUrl, "_blank")}>
+          Visualizar vitrine
+          <ExternalLink className="h-3 w-3 ml-1" />
+        </Button>
       </CardContent>
     </Card>
   )

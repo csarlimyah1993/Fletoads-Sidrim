@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { QRCodeGenerator } from "@/components/qr-code-generator"
+import { QRCodeGenerator } from "@/components/perfil/qr-code-generator"
 import { Loader2, ArrowLeft, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
