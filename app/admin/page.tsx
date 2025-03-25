@@ -1,376 +1,263 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { ChartCard } from "@/components/admin/chart-card"
-import { DataTable } from "@/components/admin/data-table"
-import { StatsCard } from "@/components/admin/stats-card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowUpRight, Users, CreditCard, BarChart3, FileText } from "lucide-react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts"
+import { useEffect, useState } from "react"
+import { Loader2, Users, Store, FileText, Package } from "lucide-react"
 
-interface DashboardStats {
-  totalUsers: number
-  activeUsers: number
-  totalPlans: number
-  activePlans: number
-  totalRevenue: number
-  totalPanfletos: number
-  recentPanfletos: number
-}
+// Cores para os gráficos
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"]
 
-export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    activeUsers: 0,
-    totalPlans: 0,
-    activePlans: 0,
-    totalRevenue: 0,
-    totalPanfletos: 0,
-    recentPanfletos: 0,
-  })
-  const [usersByPlan, setUsersByPlan] = useState<any[]>([])
-  const [monthlyRegistrations, setMonthlyRegistrations] = useState<any[]>([])
-  const [revenueByPlan, setRevenueByPlan] = useState<any[]>([])
+export default function AdminDashboardPage() {
+  // Estados para armazenar dados
+  const [mounted, setMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [estatisticas, setEstatisticas] = useState<any>({
+    totalUsuarios: 0,
+    totalLojas: 0,
+    totalPanfletos: 0,
+    totalProdutos: 0,
+    usuariosPorDia: [],
+    lojasPorPlano: [],
+  })
 
+  // useEffect para garantir que o componente só renderize no cliente
   useEffect(() => {
-    async function fetchData() {
+    setMounted(true)
+
+    const fetchDados = async () => {
       try {
-        setLoading(true)
-        setError(null)
+        setIsLoading(true)
 
-        // Fetch dashboard data
-        const response = await fetch("/api/admin/dashboard")
-
-        if (!response.ok) {
-          throw new Error(`Error fetching dashboard data: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        // Safely set stats with fallbacks for missing data
-        setStats({
-          totalUsers: data.usuarios?.total || 0,
-          activeUsers: data.usuarios?.ativos || 0,
-          totalPlans: data.planos?.total || 0,
-          activePlans: data.planos?.ativos || 0,
-          totalRevenue: data.receita?.total || 0,
-          totalPanfletos: data.panfletos?.total || 0,
-          recentPanfletos: data.panfletos?.recentes || 0,
-        })
-
-        // Set other data with fallbacks
-        setUsersByPlan(data.usuarios?.porPlano || [])
-        setMonthlyRegistrations(data.usuarios?.registrosMensais || [])
-        setRevenueByPlan(data.receita?.porPlano || [])
+        // Simulação de dados para demonstração
+        // Em produção, você substituiria isso por chamadas reais à API
+        setTimeout(() => {
+          setEstatisticas({
+            totalUsuarios: 250,
+            totalLojas: 120,
+            totalPanfletos: 1450,
+            totalProdutos: 3200,
+            usuariosPorDia: [
+              { data: "2023-05-01", count: 5 },
+              { data: "2023-05-02", count: 8 },
+              { data: "2023-05-03", count: 12 },
+              { data: "2023-05-04", count: 7 },
+              { data: "2023-05-05", count: 10 },
+              { data: "2023-05-06", count: 15 },
+              { data: "2023-05-07", count: 9 },
+            ],
+            lojasPorPlano: [
+              { plano: "Grátis", count: 50 },
+              { plano: "Básico", count: 35 },
+              { plano: "Premium", count: 25 },
+              { plano: "Empresarial", count: 10 },
+            ],
+          })
+          setIsLoading(false)
+        }, 1000)
       } catch (error) {
-        console.error("Failed to fetch dashboard data:", error)
-        setError("Falha ao carregar dados do dashboard. Por favor, tente novamente.")
-      } finally {
-        setLoading(false)
+        console.error("Erro ao buscar dados:", error)
+        setError("Erro ao carregar dados do dashboard")
+        setIsLoading(false)
       }
     }
 
-    fetchData()
+    fetchDados()
   }, [])
 
+  // Não renderizar nada até que o componente esteja montado no cliente
+  if (!mounted) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Painel Administrativo</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Carregando...</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">...</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Dashboard Administrativo</h1>
-        <div className="text-sm text-muted-foreground">Dados atualizados em {new Date().toLocaleDateString()}</div>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Painel Administrativo</h2>
       </div>
 
-      {error && (
-        <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
-          <CardContent className="p-4 text-red-800 dark:text-red-300">{error}</CardContent>
-        </Card>
-      )}
+      {/* Mensagem de boas-vindas */}
+      <Card className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 border-none">
+        <CardContent className="pt-6">
+          <h3 className="text-xl font-medium mb-2">Área Administrativa</h3>
+          <p className="text-muted-foreground">Gerencie usuários, lojas, produtos e configurações do sistema.</p>
+        </CardContent>
+      </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {loading ? (
-          <>
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="mt-2 h-4 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </>
-        ) : (
-          <>
-            <StatsCard
-              title="Total de Usuários"
-              value={stats.totalUsers}
-              description={`${stats.activeUsers} usuários ativos`}
-              icon={<Users className="h-4 w-4" />}
-            />
-            <StatsCard
-              title="Planos Ativos"
-              value={stats.activePlans}
-              description={`De um total de ${stats.totalPlans} planos`}
-              icon={<CreditCard className="h-4 w-4" />}
-            />
-            <StatsCard
-              title="Receita Mensal"
-              value={`R$ ${stats.totalRevenue}`}
-              description="Baseado nos planos ativos"
-              icon={<BarChart3 className="h-4 w-4" />}
-            />
-            <StatsCard
-              title="Panfletos Criados"
-              value={stats.totalPanfletos}
-              description={`${stats.recentPanfletos} criados nos últimos 7 dias`}
-              icon={<FileText className="h-4 w-4" />}
-            />
-          </>
-        )}
-      </div>
-
-      <Tabs defaultValue="usuarios">
+      <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="usuarios">Usuários</TabsTrigger>
-          <TabsTrigger value="receita">Receita</TabsTrigger>
-          <TabsTrigger value="atividade">Atividade</TabsTrigger>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="analytics">Análises</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="usuarios" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <ChartCard
-              title="Novos Usuários por Mês"
-              description="Registros nos últimos 6 meses"
-              data={monthlyRegistrations}
-              type="line"
-              xKey="month"
-              yKey="usuarios"
-            />
-
+        <TabsContent value="overview" className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Distribuição de Planos</CardTitle>
-                <CardDescription>Usuários por plano</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : (
-                  <DataTable
-                    data={usersByPlan}
-                    columns={[
-                      { key: "nome", title: "Plano" },
-                      { key: "usuarios", title: "Usuários" },
-                      {
-                        key: "ativo",
-                        title: "Status",
-                        render: (item) => (
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              item.ativo
-                                ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                                : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
-                            }`}
-                          >
-                            {item.ativo ? "Ativo" : "Inativo"}
-                          </span>
-                        ),
-                      },
-                    ]}
-                  />
-                )}
+              <CardContent className="flex flex-col items-center justify-center h-64">
+                <p className="text-lg font-medium text-center text-red-500">{error}</p>
               </CardContent>
             </Card>
-          </div>
-
-          <div className="flex justify-end">
-            <Button asChild>
-              <a href="/admin/usuarios">
-                Ver todos os usuários
-                <ArrowUpRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-          </div>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{estatisticas.totalUsuarios}</div>
+                    <p className="text-xs text-muted-foreground">Usuários registrados</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Lojas</CardTitle>
+                    <Store className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{estatisticas.totalLojas}</div>
+                    <p className="text-xs text-muted-foreground">Lojas ativas</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Panfletos</CardTitle>
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{estatisticas.totalPanfletos}</div>
+                    <p className="text-xs text-muted-foreground">Panfletos criados</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{estatisticas.totalProdutos}</div>
+                    <p className="text-xs text-muted-foreground">Produtos cadastrados</p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-4">
+                  <CardHeader>
+                    <CardTitle>Novos Usuários</CardTitle>
+                    <CardDescription>Registros nos últimos 7 dias</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pl-2">
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={estatisticas.usuariosPorDia}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="data"
+                          tickFormatter={(value) => {
+                            const date = new Date(value)
+                            return `${date.getDate()}/${date.getMonth() + 1}`
+                          }}
+                        />
+                        <YAxis />
+                        <Tooltip
+                          formatter={(value) => [`${value} usuários`, "Quantidade"]}
+                          labelFormatter={(value) => {
+                            const date = new Date(value)
+                            return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`
+                          }}
+                        />
+                        <Bar dataKey="count" fill="#FF8042" name="Usuários" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                <Card className="col-span-3">
+                  <CardHeader>
+                    <CardTitle>Lojas por Plano</CardTitle>
+                    <CardDescription>Distribuição de lojas por plano</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart>
+                        <Pie
+                          data={estatisticas.lojasPorPlano}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="count"
+                          nameKey="plano"
+                          label={({ plano, percent }) => `${plano} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {estatisticas.lojasPorPlano.map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value, name) => [`${value} lojas`, name]} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </TabsContent>
-
-        <TabsContent value="receita" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <ChartCard
-              title="Receita por Plano"
-              description="Distribuição da receita mensal"
-              data={revenueByPlan}
-              type="bar"
-              xKey="plano"
-              yKey="receita"
-            />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Detalhes de Receita</CardTitle>
-                <CardDescription>Receita por plano</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : (
-                  <DataTable
-                    data={revenueByPlan}
-                    columns={[
-                      { key: "plano", title: "Plano" },
-                      {
-                        key: "preco",
-                        title: "Preço",
-                        render: (item) => `R$ ${item.preco}`,
-                      },
-                      { key: "usuarios", title: "Usuários" },
-                      {
-                        key: "receita",
-                        title: "Receita",
-                        render: (item) => `R$ ${item.receita}`,
-                      },
-                    ]}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="flex justify-end">
-            <Button asChild>
-              <a href="/admin/metricas">
-                Ver métricas detalhadas
-                <ArrowUpRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="atividade" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Atividade Recente</CardTitle>
-                <CardDescription>Últimas ações no sistema</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {[
-                      {
-                        user: "João Silva",
-                        action: "Criou um novo panfleto",
-                        time: "Há 2 horas",
-                      },
-                      {
-                        user: "Maria Oliveira",
-                        action: "Atualizou perfil da loja",
-                        time: "Há 3 horas",
-                      },
-                      {
-                        user: "Carlos Santos",
-                        action: "Iniciou nova campanha",
-                        time: "Há 5 horas",
-                      },
-                      {
-                        user: "Ana Pereira",
-                        action: "Alterou plano para Premium",
-                        time: "Há 1 dia",
-                      },
-                    ].map((activity, i) => (
-                      <div key={i} className="flex items-start gap-4">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-                          {activity.user.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-medium">{activity.user}</div>
-                          <div className="text-sm text-muted-foreground">{activity.action}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">{activity.time}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Uso do Sistema</CardTitle>
-                <CardDescription>Métricas de uso da plataforma</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Panfletos Criados</div>
-                        <div className="text-sm font-medium">75%</div>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                        <div className="h-2 rounded-full bg-blue-500" style={{ width: "75%" }}></div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Campanhas Ativas</div>
-                        <div className="text-sm font-medium">60%</div>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                        <div className="h-2 rounded-full bg-blue-500" style={{ width: "60%" }}></div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Uso de Armazenamento</div>
-                        <div className="text-sm font-medium">45%</div>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                        <div className="h-2 rounded-full bg-blue-500" style={{ width: "45%" }}></div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Uso de API</div>
-                        <div className="text-sm font-medium">30%</div>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                        <div className="h-2 rounded-full bg-blue-500" style={{ width: "30%" }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="analytics" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Análises Avançadas</CardTitle>
+              <CardDescription>Métricas detalhadas do sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Esta seção mostrará análises avançadas do sistema, incluindo métricas de desempenho, uso de recursos
+                    e tendências de crescimento. Implemente as APIs necessárias para fornecer esses dados.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

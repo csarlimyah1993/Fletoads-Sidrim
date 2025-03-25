@@ -1,78 +1,96 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
 
-export async function GET(req: NextRequest) {
+// Definindo a interface Panfleto como opcional para todos os campos
+interface Panfleto {
+  userId?: string
+  visualizacoes?: number
+  cliques?: number
+  [key: string]: any
+}
+
+export async function GET() {
   try {
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
 
+    if (!db) {
+      throw new Error("Falha ao conectar ao banco de dados")
+    }
+
+    // Verificar e criar coleções se não existirem
+    const collections = await db.listCollections().toArray()
+    const collectionNames = collections.map((c: any) => c.name)
+
+    // Dados padrão para retornar se as coleções não existirem
+    const defaultData = {
+      panfletos: [],
+      vendas: [],
+      clientes: [],
+      estatisticas: {
+        totalVisualizacoes: 0,
+        totalCliques: 0,
+        totalVendas: 0,
+        totalClientes: 0,
+      },
+    }
+
+    // Verificar e criar coleções necessárias
+    const requiredCollections = ["panfletos", "vendas", "clientes"]
+    for (const collName of requiredCollections) {
+      if (!collectionNames.includes(collName)) {
+        await db.createCollection(collName)
+      }
+    }
+
     // Buscar dados de visualizações e cliques dos panfletos
-    const panfletos = await db.collection("panfletos").find({ userId: session.user.id }).toArray()
+    const panfletos = collectionNames.includes("panfletos")
+      ? ((await db.collection("panfletos").find({ userId: session.user.id }).toArray()) as unknown as Panfleto[])
+      : ([] as Panfleto[])
 
     // Buscar dados de vendas
-    const vendas = await db.collection("vendas").find({ userId: session.user.id }).sort({ date: -1 }).limit(5).toArray()
+    const vendas = collectionNames.includes("vendas")
+      ? await db.collection("vendas").find({ userId: session.user.id }).sort({ date: -1 }).limit(5).toArray()
+      : []
 
-    // Calcular totais
-    const totalViews = panfletos.reduce((sum, panfleto) => sum + (panfleto.views || 0), 0)
-    const totalClicks = panfletos.reduce((sum, panfleto) => sum + (panfleto.clicks || 0), 0)
-    const totalSales = vendas.reduce((sum, venda) => sum + (venda.amount || 0), 0)
+    // Buscar dados de clientes
+    const clientes = collectionNames.includes("clientes")
+      ? await db.collection("clientes").find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).toArray()
+      : []
 
-    // Calcular taxa de conversão
-    const conversionRate = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0
-
-    // Gerar dados para os gráficos
-    const viewsData = generateChartData(panfletos, "views")
-    const clicksData = generateChartData(panfletos, "clicks")
-
-    // Formatar vendas recentes
-    const recentSales = vendas.map((venda) => ({
-      id: venda._id.toString(),
-      customer: venda.customer,
-      amount: venda.amount,
-      status: venda.status,
-      date: new Date(venda.date).toLocaleDateString("pt-BR"),
-    }))
+    // Calcular estatísticas
+    const totalVisualizacoes = panfletos.reduce((acc: number, p: Panfleto) => acc + (p.visualizacoes || 0), 0)
+    const totalCliques = panfletos.reduce((acc: number, p: Panfleto) => acc + (p.cliques || 0), 0)
+    const totalVendas = collectionNames.includes("vendas")
+      ? await db.collection("vendas").countDocuments({ userId: session.user.id })
+      : 0
+    const totalClientes = collectionNames.includes("clientes")
+      ? await db.collection("clientes").countDocuments({ userId: session.user.id })
+      : 0
 
     return NextResponse.json({
-      totalViews,
-      totalClicks,
-      totalSales,
-      conversionRate,
-      viewsData,
-      clicksData,
-      recentSales,
+      panfletos,
+      vendas,
+      clientes,
+      estatisticas: {
+        totalVisualizacoes,
+        totalCliques,
+        totalVendas,
+        totalClientes,
+      },
     })
   } catch (error) {
     console.error("Erro ao buscar dados do dashboard:", error)
     return NextResponse.json({ error: "Erro ao buscar dados do dashboard" }, { status: 500 })
   }
-}
-
-// Função auxiliar para gerar dados para os gráficos
-function generateChartData(panfletos: any[], field: string) {
-  // Gerar dados dos últimos 7 dias
-  const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-  const today = new Date()
-  const dayOfWeek = today.getDay()
-
-  return days.map((day, index) => {
-    // Calcular o dia da semana relativo a hoje
-    const relativeDay = (index - dayOfWeek + 7) % 7
-
-    // Valor aleatório para demonstração (em produção, usaria dados reais)
-    const total = Math.floor(Math.random() * 100) + 10
-
-    return {
-      name: day,
-      total,
-    }
-  })
 }
 

@@ -1,25 +1,28 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { Schema, type Document } from "mongoose"
+import bcrypt from "bcryptjs"
 
-// Interface para o documento do usuário
-export interface UsuarioDocument extends Document {
+export interface IUsuario extends Document {
   nome: string
   email: string
-  password: string
-  cpf?: string
+  senha: string
+  cargo: string
+  permissoes: string[]
+  dataCriacao: Date
+  ultimoLogin: Date
+  ativo: boolean
   plano?: string
-  role?: string
-  perfil?: {
-    foto?: string
-    telefone?: string
-    bio?: string
+  perfil: {
+    foto: string
+    telefone: string
+    bio: string
     endereco?: {
-      rua?: string
-      numero?: string
+      rua: string
+      numero: string
       complemento?: string
-      bairro?: string
-      cidade?: string
-      estado?: string
-      cep?: string
+      bairro: string
+      cidade: string
+      estado: string
+      cep: string
     }
     redesSociais?: {
       instagram?: string
@@ -28,28 +31,29 @@ export interface UsuarioDocument extends Document {
       twitter?: string
     }
     preferencias?: {
-      notificacoes?: boolean
-      temaEscuro?: boolean
-      idioma?: string
+      notificacoes: boolean
+      temaEscuro: boolean
+      idioma: string
     }
   }
-  createdAt: Date
-  updatedAt: Date
+  comparePassword(candidatePassword: string): Promise<boolean>
 }
 
-// Verificar se o modelo já existe para evitar recompilação
-const UsuarioSchema = new Schema<UsuarioDocument>(
+const UsuarioSchema: Schema = new Schema(
   {
     nome: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    cpf: { type: String },
-    plano: { type: String, default: "free" },
-    role: { type: String, default: "user" }, // Adicionando o campo role
+    senha: { type: String, required: true },
+    cargo: { type: String, default: "editor" },
+    permissoes: [{ type: String }],
+    dataCriacao: { type: Date, default: Date.now },
+    ultimoLogin: { type: Date },
+    ativo: { type: Boolean, default: true },
+    plano: { type: String, default: "gratuito" },
     perfil: {
-      foto: { type: String },
-      telefone: { type: String },
-      bio: { type: String },
+      foto: { type: String, default: "" },
+      telefone: { type: String, default: "" },
+      bio: { type: String, default: "" },
       endereco: {
         rua: { type: String },
         numero: { type: String },
@@ -72,9 +76,30 @@ const UsuarioSchema = new Schema<UsuarioDocument>(
       },
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 )
 
-// Verificar se o modelo já existe para evitar recompilação
-export const Usuario = mongoose.models.Usuario || mongoose.model<UsuarioDocument>("Usuario", UsuarioSchema)
+// Método para hash da senha antes de salvar
+UsuarioSchema.pre("save", async function (next) {
+  if (!this.isModified("senha")) return next()
+
+  try {
+    const salt = await bcrypt.genSalt(10)
+    // Garantir que this.senha é uma string
+    const senhaString = String(this.senha)
+    this.senha = await bcrypt.hash(senhaString, salt)
+    next()
+  } catch (error) {
+    next(error as Error)
+  }
+})
+
+// Método para comparar senhas
+UsuarioSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.senha)
+}
+
+export default mongoose.models.Usuario || mongoose.model<IUsuario>("Usuario", UsuarioSchema)
 

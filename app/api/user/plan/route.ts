@@ -1,37 +1,59 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { getPlanoDoUsuario } from "@/lib/planos"
-import { ObjectId, type Document } from "mongodb"
+import { ObjectId } from "mongodb"
 
-interface Loja extends Document {
-  _id: ObjectId
-  nome: string
-  usuarioId: string | ObjectId
-  userId?: string | ObjectId
-  [key: string]: any
-}
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
 
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    // Obter userId da query ou do session
+    const url = new URL(request.url)
+    const userId = url.searchParams.get("userId") || session.user.id
+
+    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
 
-    // Buscar o usuário para obter o ID do plano
-    let usuario = null
-    let userObjectId: ObjectId | null = null
+    if (!db) {
+      throw new Error("Falha ao conectar ao banco de dados")
+    }
 
+    // Verificar se a coleção usuarios existe
+    const collections = await db.listCollections({ name: "usuarios" }).toArray()
+
+    // Se a coleção não existir, criar e retornar plano padrão
+    if (collections.length === 0) {
+      await db.createCollection("usuarios")
+      return NextResponse.json({
+        plano: "gratuito",
+        limites: {
+          panfletos: 5,
+          clientes: 50,
+          campanhas: 2,
+        },
+        utilizacao: {
+          panfletos: 0,
+          clientes: 0,
+          campanhas: 0,
+        },
+      })
+    }
+
+    // Buscar usuário
+    let usuario
     try {
-      // Tentar com ObjectId
-      userObjectId = new ObjectId(userId)
-      usuario = await db.collection("usuarios").findOne({ _id: userObjectId })
+      // Tentar buscar por ID
+      if (ObjectId.isValid(userId)) {
+        usuario = await db.collection("usuarios").findOne({
+          _id: new ObjectId(userId),
+        })
+      }
     } catch (error) {
       // Se falhar, tentar com outras formas de identificação
       usuario = await db.collection("usuarios").findOne({
@@ -40,113 +62,66 @@ export async function GET(request: NextRequest) {
     }
 
     if (!usuario) {
-      console.log("Usuário não encontrado com ID:", userId)
-      // Retornar plano gratuito como fallback
-      const planoGratis = getPlanoDoUsuario("gratis")
-      return NextResponse.json({
-        planoId: "gratis",
-        planoNome: "Grátis",
-        isFreeTier: true,
-        limitReached: false,
-        uso: {
-          produtos: {
-            usado: 0,
-            total: planoGratis.vitrine,
-          },
-          panfletos: {
-            usado: 0,
-            total: planoGratis.panfletos,
-          },
-          imagensPorProduto: planoGratis.imagensPorProduto,
-        },
-        planoDetalhes: planoGratis,
-      })
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    // Obter o ID do plano do usuário
-    const planoId = usuario.plano || usuario.metodosPagemento?.plano || "gratis"
-
-    // Obter os detalhes do plano
-    const planoDetalhes = getPlanoDoUsuario(planoId)
-
-    // Calcular uso atual
-    const lojas: Loja[] = (await db
-      .collection("lojas")
-      .find({
-        $or: [{ usuarioId: userId }, { userId: userId }],
-      })
-      .toArray()) as Loja[]
-
-    const loja = lojas[0] || null
-
-    // Contar produtos na vitrine
-    let produtosCount = 0
-    if (loja) {
-      try {
-        produtosCount = await db.collection("produtos").countDocuments({
-          lojaId: loja._id.toString(),
-        })
-      } catch (error) {
-        console.error("Erro ao contar produtos:", error)
-      }
+    // Definir limites baseados no plano
+    const limites = {
+      gratuito: {
+        panfletos: 5,
+        clientes: 50,
+        campanhas: 2,
+      },
+      basico: {
+        panfletos: 20,
+        clientes: 200,
+        campanhas: 5,
+      },
+      profissional: {
+        panfletos: 100,
+        clientes: 1000,
+        campanhas: 20,
+      },
+      empresarial: {
+        panfletos: -1, // ilimitado
+        clientes: -1, // ilimitado
+        campanhas: -1, // ilimitado
+      },
     }
 
-    // Contar panfletos
-    let panfletosCount = 0
-    if (loja) {
-      try {
-        panfletosCount = await db.collection("panfletos").countDocuments({
-          lojaId: loja._id.toString(),
-        })
-      } catch (error) {
-        console.error("Erro ao contar panfletos:", error)
-      }
-    }
+    // Obter plano do usuário ou definir como gratuito
+    const planoUsuario = usuario.plano || "gratuito"
+
+    // Contar recursos utilizados
+    const panfletosCount = await db.collection("panfletos").countDocuments({ userId })
+    const clientesCount = await db.collection("clientes").countDocuments({ userId })
+    const campanhasCount = await db.collection("campanhas").countDocuments({ userId })
 
     return NextResponse.json({
-      planoId,
-      planoNome: planoDetalhes.nome,
-      isFreeTier: planoId === "gratis",
-      limitReached: {
-        produtos: produtosCount >= planoDetalhes.vitrine,
-        panfletos: panfletosCount >= planoDetalhes.panfletos,
+      plano: planoUsuario,
+      limites: limites[planoUsuario as keyof typeof limites],
+      utilizacao: {
+        panfletos: panfletosCount,
+        clientes: clientesCount,
+        campanhas: campanhasCount,
       },
-      uso: {
-        produtos: {
-          usado: produtosCount,
-          total: planoDetalhes.vitrine,
-        },
-        panfletos: {
-          usado: panfletosCount,
-          total: planoDetalhes.panfletos,
-        },
-        imagensPorProduto: planoDetalhes.imagensPorProduto,
-      },
-      planoDetalhes,
     })
   } catch (error) {
     console.error("Erro ao buscar informações do plano:", error)
 
-    // Retornar plano gratuito como fallback
-    const planoGratis = getPlanoDoUsuario("gratis")
-
+    // Retornar plano padrão em caso de erro
     return NextResponse.json({
-      planoId: "gratis",
-      planoNome: "Grátis",
-      isFreeTier: true,
-      limitReached: false,
-      uso: {
-        produtos: {
-          usado: 0,
-          total: planoGratis.vitrine,
-        },
-        panfletos: {
-          usado: 0,
-          total: planoGratis.panfletos,
-        },
-        imagensPorProduto: planoGratis.imagensPorProduto,
+      plano: "gratuito",
+      limites: {
+        panfletos: 5,
+        clientes: 50,
+        campanhas: 2,
       },
-      planoDetalhes: planoGratis,
+      utilizacao: {
+        panfletos: 0,
+        clientes: 0,
+        campanhas: 0,
+      },
     })
   }
 }

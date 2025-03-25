@@ -1,64 +1,67 @@
-import { MongoClient, type Db } from "mongodb"
+import mongoose from "mongoose"
 
-const MONGODB_URI = process.env.MONGODB_URI!
-
-// Variáveis para cache da conexão
-let cachedClient: MongoClient | null = null
-let cachedDb: Db | null = null
+const MONGODB_URI = process.env.MONGODB_URI
 
 if (!MONGODB_URI) {
   throw new Error("Por favor, defina a variável de ambiente MONGODB_URI")
 }
 
+let cachedDb: mongoose.Connection | null = null
+let cachedClient: mongoose.mongo.MongoClient | null = null
+
 export async function connectToDatabase() {
-  // Se já temos uma conexão, retornamos ela
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb }
+  // Se já temos uma conexão, retorne-a
+  if (cachedDb && cachedDb.readyState === 1) {
+    console.log("=> Usando conexão existente com MongoDB")
+    return { db: cachedDb.db, client: cachedClient }
   }
 
-  // Configurações para evitar timeouts e melhorar a performance
-  // Removendo opções não suportadas: keepAlive e keepAliveInitialDelay
-  const opts = {
-    maxPoolSize: 10, // Aumenta o número máximo de conexões no pool
-    minPoolSize: 5, // Mantém um mínimo de conexões ativas
-    socketTimeoutMS: 60000, // Aumenta o timeout do socket para 60 segundos
-    connectTimeoutMS: 60000, // Aumenta o timeout de conexão para 60 segundos
-    serverSelectionTimeoutMS: 60000, // Aumenta o timeout de seleção do servidor para 60 segundos
-    waitQueueTimeoutMS: 30000, // Timeout para a fila de espera aumentado para 30 segundos
+  // Limpar conexões antigas se existirem
+  if (cachedDb) {
+    console.log("=> Limpando conexão antiga com MongoDB")
+    await mongoose.connection.close()
+    cachedDb = null
+    cachedClient = null
   }
+
+  // Configurar opções de conexão
+  const options: mongoose.ConnectOptions = {
+    connectTimeoutMS: 60000,
+    socketTimeoutMS: 60000,
+    serverSelectionTimeoutMS: 60000,
+    heartbeatFrequencyMS: 10000,
+    maxPoolSize: 10,
+    minPoolSize: 5,
+  }
+
+  console.log("=> Estabelecendo nova conexão com MongoDB")
 
   try {
-    // Conecta ao cliente
-    const client = new MongoClient(MONGODB_URI, opts)
-    await client.connect()
+    // Garantir que MONGODB_URI é uma string
+    if (!MONGODB_URI) {
+      throw new Error("MONGODB_URI não está definido")
+    }
 
-    // Extrai o nome do banco de dados da URI
-    const dbName = MONGODB_URI.split("/").pop()?.split("?")[0] || "prod-db"
-    console.log("Conectando ao banco de dados:", dbName)
+    // Conectar ao MongoDB
+    await mongoose.connect(MONGODB_URI, options)
 
-    const db = client.db(dbName)
+    // Aumentar o limite de listeners para evitar avisos
+    mongoose.connection.setMaxListeners(20)
 
-    // Salva a conexão no cache
-    cachedClient = client
-    cachedDb = db
+    // Armazenar a conexão em cache
+    cachedDb = mongoose.connection
+    cachedClient = mongoose.connection.getClient()
 
-    return { client, db }
+    console.log("=> Conectado ao MongoDB com sucesso via MongoClient")
+
+    // Retornar a conexão
+    return {
+      db: mongoose.connection.db,
+      client: cachedClient,
+    }
   } catch (error) {
-    console.error("Erro ao conectar ao MongoDB:", error)
+    console.error("=> Erro ao conectar ao MongoDB:", error)
     throw error
-  }
-}
-
-// Função para verificar a conexão com o MongoDB
-export async function checkDatabaseConnection() {
-  try {
-    const { client } = await connectToDatabase()
-    const adminDb = client.db().admin()
-    const result = await adminDb.ping()
-    return result.ok === 1
-  } catch (error) {
-    console.error("Erro ao verificar conexão com o MongoDB:", error)
-    return false
   }
 }
 

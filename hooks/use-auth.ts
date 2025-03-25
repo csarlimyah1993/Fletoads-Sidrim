@@ -1,20 +1,23 @@
 "use client"
 
-import { useSession, signIn, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { signIn, signOut, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 export function useAuth() {
   const { data: session, status } = useSession()
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  const isAuthenticated = status === "authenticated"
+  const isLoading = status === "loading"
 
   const login = async (email: string, senha: string) => {
-    try {
-      setLoading(true)
-      setError(null)
+    setLoading(true)
+    setError(null)
 
+    try {
       const result = await signIn("credentials", {
         redirect: false,
         email,
@@ -22,65 +25,40 @@ export function useAuth() {
       })
 
       if (result?.error) {
-        setError("Credenciais inválidas")
-        return false
+        setError("Email ou senha inválidos")
+        setLoading(false)
+        return
       }
 
       router.push("/dashboard")
-      return true
     } catch (err) {
       setError("Ocorreu um erro ao fazer login")
-      return false
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const register = async (nome: string, email: string, senha: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nome, email, senha }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || "Erro ao registrar")
-        return false
-      }
-
-      // Login automático após registro
-      return await login(email, senha)
-    } catch (err) {
-      setError("Ocorreu um erro ao registrar")
-      return false
+      console.error("Erro de login:", err)
     } finally {
       setLoading(false)
     }
   }
 
   const logout = async () => {
-    await signOut({ redirect: false })
-    router.push("/login")
+    setLoading(true)
+    try {
+      await signOut({ redirect: false })
+      router.push("/login")
+    } catch (err) {
+      console.error("Erro ao fazer logout:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return {
-    session,
-    status,
+    user: session?.user,
+    isAuthenticated,
+    isLoading,
     loading,
     error,
     login,
-    register,
     logout,
-    isAuthenticated: status === "authenticated",
-    isLoading: status === "loading",
   }
 }
 

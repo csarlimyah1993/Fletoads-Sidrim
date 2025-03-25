@@ -6,100 +6,94 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, UserPlus, Edit, Trash2, Eye } from "lucide-react"
+import { Loader2, Search, Eye, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
 
-export default function UsuariosPage() {
+export default function LojasPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<any[]>([])
+  const [lojas, setLojas] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
     // Simulação de carregamento de dados
-    const fetchUsuarios = async () => {
+    const fetchLojas = async () => {
       try {
         setIsLoading(true)
 
         // Simulação de dados para demonstração
         // Em produção, você substituiria isso por chamadas reais à API
         setTimeout(() => {
-          const mockUsuarios = [
+          const mockLojas = [
             {
               id: "1",
-              nome: "João Silva",
-              email: "joao@exemplo.com",
-              role: "user",
+              nome: "Mercado Central",
+              proprietario: "João Silva",
+              plano: "Premium",
               status: "ativo",
               dataCriacao: "2023-04-15",
             },
             {
               id: "2",
-              nome: "Maria Oliveira",
-              email: "maria@exemplo.com",
-              role: "admin",
+              nome: "Padaria Delícia",
+              proprietario: "Maria Oliveira",
+              plano: "Básico",
               status: "ativo",
               dataCriacao: "2023-03-22",
             },
             {
               id: "3",
-              nome: "Pedro Santos",
-              email: "pedro@exemplo.com",
-              role: "user",
+              nome: "Farmácia Saúde",
+              proprietario: "Pedro Santos",
+              plano: "Empresarial",
               status: "inativo",
               dataCriacao: "2023-05-10",
             },
             {
               id: "4",
-              nome: "Ana Costa",
-              email: "ana@exemplo.com",
-              role: "user",
+              nome: "Loja de Roupas Fashion",
+              proprietario: "Ana Costa",
+              plano: "Grátis",
               status: "ativo",
               dataCriacao: "2023-04-30",
             },
             {
               id: "5",
-              nome: "Carlos Ferreira",
-              email: "carlos@exemplo.com",
-              role: "user",
+              nome: "Restaurante Sabor",
+              proprietario: "Carlos Ferreira",
+              plano: "Premium",
               status: "ativo",
               dataCriacao: "2023-05-05",
             },
           ]
-          setUsuarios(mockUsuarios)
+          setLojas(mockLojas)
           setIsLoading(false)
         }, 1000)
       } catch (error) {
-        console.error("Erro ao buscar usuários:", error)
+        console.error("Erro ao buscar lojas:", error)
         setIsLoading(false)
       }
     }
 
-    fetchUsuarios()
+    fetchLojas()
   }, [])
 
-  // Filtrar usuários com base no termo de pesquisa
-  const filteredUsuarios = usuarios.filter(
-    (usuario) =>
-      usuario.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      usuario.email.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Filtrar lojas com base no termo de pesquisa
+  const filteredLojas = lojas.filter(
+    (loja) =>
+      loja.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loja.proprietario.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Usuários</h2>
-        <Link href="/admin/usuarios/novo">
-          <Button className="flex items-center gap-2">
-            <UserPlus className="h-4 w-4" />
-            <span>Novo Usuário</span>
-          </Button>
-        </Link>
+        <h2 className="text-3xl font-bold tracking-tight">Lojas</h2>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Gerenciar Usuários</CardTitle>
-          <CardDescription>Visualize, edite e gerencie todos os usuários do sistema.</CardDescription>
+          <CardTitle>Gerenciar Lojas</CardTitle>
+          <CardDescription>Visualize e gerencie todas as lojas cadastradas no sistema.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
@@ -107,7 +101,7 @@ export default function UsuariosPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Buscar por nome ou email..."
+                placeholder="Buscar por nome ou proprietário..."
                 className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -125,44 +119,54 @@ export default function UsuariosPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Função</TableHead>
+                    <TableHead>Proprietário</TableHead>
+                    <TableHead>Plano</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data de Criação</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsuarios.length === 0 ? (
+                  {filteredLojas.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        Nenhum usuário encontrado
+                        Nenhuma loja encontrada
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsuarios.map((usuario) => (
-                      <TableRow key={usuario.id}>
-                        <TableCell className="font-medium">{usuario.nome}</TableCell>
-                        <TableCell>{usuario.email}</TableCell>
+                    filteredLojas.map((loja) => (
+                      <TableRow key={loja.id}>
+                        <TableCell className="font-medium">{loja.nome}</TableCell>
+                        <TableCell>{loja.proprietario}</TableCell>
                         <TableCell>
-                          <Badge variant={usuario.role === "admin" ? "destructive" : "default"}>
-                            {usuario.role === "admin" ? "Administrador" : "Usuário"}
+                          <Badge
+                            variant={
+                              loja.plano === "Empresarial"
+                                ? "destructive"
+                                : loja.plano === "Premium"
+                                  ? "default"
+                                  : loja.plano === "Básico"
+                                    ? "secondary"
+                                    : "outline"
+                            }
+                          >
+                            {loja.plano}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={usuario.status === "ativo" ? "success" : "secondary"}>
-                            {usuario.status === "ativo" ? "Ativo" : "Inativo"}
+                          <Badge variant={loja.status === "ativo" ? "success" : "secondary"}>
+                            {loja.status === "ativo" ? "Ativo" : "Inativo"}
                           </Badge>
                         </TableCell>
-                        <TableCell>{new Date(usuario.dataCriacao).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{new Date(loja.dataCriacao).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Link href={`/admin/usuarios/${usuario.id}`}>
+                            <Link href={`/admin/lojas/${loja.id}`}>
                               <Button variant="ghost" size="icon">
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
-                            <Link href={`/admin/usuarios/${usuario.id}/editar`}>
+                            <Link href={`/admin/lojas/${loja.id}/editar`}>
                               <Button variant="ghost" size="icon">
                                 <Edit className="h-4 w-4" />
                               </Button>
