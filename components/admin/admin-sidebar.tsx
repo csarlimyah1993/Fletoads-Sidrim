@@ -1,222 +1,96 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { BarChart3, ChevronLeft, ChevronRight, FileText, Home, Package, Settings, Store, Users } from "lucide-react"
+
 import { cn } from "@/lib/utils"
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  FileText,
-  Store,
-  Settings,
-  ChevronDown,
-  ChevronRight,
-  Users,
-  CreditCard,
-  BarChart,
-} from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-export function AdminSidebar() {
+interface AdminSidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export function AdminSidebar({ className, ...props }: AdminSidebarProps) {
   const pathname = usePathname()
-  const { data: session } = useSession()
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
+  const [collapsed, setCollapsed] = useState(false)
 
-  // Verificar se o usuário é admin
-  const isAdmin = session?.user?.role === "admin"
-
-  const toggleMenu = (menu: string) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menu]: !prev[menu],
-    }))
-  }
-
-  const menuItems = [
+  const routes = [
     {
-      title: "Dashboard",
       href: "/admin",
-      icon: <LayoutDashboard className="h-5 w-5" />,
-      active: pathname === "/admin",
+      icon: Home,
+      title: "Dashboard",
     },
     {
-      title: "Usuários",
-      icon: <Users className="h-5 w-5" />,
-      submenu: true,
-      active: pathname.includes("/admin/usuarios"),
-      submenuItems: [
-        {
-          title: "Lista de Usuários",
-          href: "/admin/usuarios",
-          active: pathname === "/admin/usuarios",
-        },
-        {
-          title: "Adicionar Usuário",
-          href: "/admin/usuarios/adicionar",
-          active: pathname === "/admin/usuarios/adicionar",
-        },
-      ],
+      href: "/admin/clientes",
+      icon: Users,
+      title: "Clientes",
     },
     {
-      title: "Produtos",
-      icon: <ShoppingBag className="h-5 w-5" />,
-      submenu: true,
-      active: pathname.includes("/admin/produtos"),
-      submenuItems: [
-        {
-          title: "Lista de Produtos",
-          href: "/admin/produtos",
-          active: pathname === "/admin/produtos",
-        },
-        {
-          title: "Adicionar Produto",
-          href: "/admin/produtos/adicionar",
-          active: pathname === "/admin/produtos/adicionar",
-        },
-        {
-          title: "Categorias",
-          href: "/admin/produtos/categorias",
-          active: pathname === "/admin/produtos/categorias",
-        },
-      ],
-    },
-    {
+      href: "/admin/panfletos",
+      icon: FileText,
       title: "Panfletos",
-      icon: <FileText className="h-5 w-5" />,
-      submenu: true,
-      active: pathname.includes("/admin/panfletos"),
-      submenuItems: [
-        {
-          title: "Lista de Panfletos",
-          href: "/admin/panfletos",
-          active: pathname === "/admin/panfletos",
-        },
-        {
-          title: "Adicionar Panfleto",
-          href: "/admin/panfletos/adicionar",
-          active: pathname === "/admin/panfletos/adicionar",
-        },
-      ],
     },
     {
+      href: "/admin/campanhas",
+      icon: BarChart3,
+      title: "Campanhas",
+    },
+    {
+      href: "/admin/produtos",
+      icon: Package,
+      title: "Produtos",
+    },
+    {
+      href: "/admin/lojas",
+      icon: Store,
       title: "Lojas",
-      icon: <Store className="h-5 w-5" />,
-      submenu: true,
-      active: pathname.includes("/admin/lojas"),
-      submenuItems: [
-        {
-          title: "Lista de Lojas",
-          href: "/admin/lojas",
-          active: pathname === "/admin/lojas",
-        },
-        {
-          title: "Adicionar Loja",
-          href: "/admin/lojas/adicionar",
-          active: pathname === "/admin/lojas/adicionar",
-        },
-      ],
     },
     {
-      title: "Assinaturas",
-      icon: <CreditCard className="h-5 w-5" />,
-      submenu: true,
-      active: pathname.includes("/admin/assinaturas"),
-      submenuItems: [
-        {
-          title: "Planos",
-          href: "/admin/assinaturas/planos",
-          active: pathname === "/admin/assinaturas/planos",
-        },
-        {
-          title: "Assinantes",
-          href: "/admin/assinaturas/assinantes",
-          active: pathname === "/admin/assinaturas/assinantes",
-        },
-      ],
-    },
-    {
-      title: "Relatórios",
-      href: "/admin/relatorios",
-      icon: <BarChart className="h-5 w-5" />,
-      active: pathname === "/admin/relatorios",
-    },
-    {
-      title: "Configurações",
       href: "/admin/configuracoes",
-      icon: <Settings className="h-5 w-5" />,
-      active: pathname === "/admin/configuracoes",
+      icon: Settings,
+      title: "Configurações",
     },
   ]
 
-  // Se o usuário não for admin, não mostrar o sidebar
-  if (!isAdmin) {
-    return null
-  }
-
   return (
-    <div className="h-full w-64 border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/admin" className="flex items-center font-semibold">
-          <div className="h-6 w-6 rounded-full bg-primary mr-2"></div>
-          <span>Admin Panel</span>
-        </Link>
-      </div>
-      <div className="py-4">
+    <div
+      className={cn(
+        "relative h-screen border-r bg-background transition-all duration-300 ease-in-out",
+        collapsed ? "w-[70px]" : "w-[240px]",
+        className,
+      )}
+      {...props}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute -right-3 top-4 z-50 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-md"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+      </Button>
+
+      <div className="mt-6 px-4">
+        <div className="mb-2 px-2 text-xs font-medium uppercase text-muted-foreground">{!collapsed && "Menu"}</div>
         <nav className="space-y-1 px-2">
-          {menuItems.map((item, index) => (
-            <div key={index}>
-              {item.submenu ? (
-                <div>
-                  <button
-                    onClick={() => toggleMenu(item.title)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium",
-                      item.active
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <div className="flex items-center">
-                      {item.icon}
-                      <span className="ml-3">{item.title}</span>
-                    </div>
-                    {openMenus[item.title] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </button>
-                  {openMenus[item.title] && (
-                    <div className="mt-1 space-y-1 pl-10">
-                      {item.submenuItems?.map((subItem, subIndex) => (
-                        <Link
-                          key={subIndex}
-                          href={subItem.href || "#"}
-                          className={cn(
-                            "block rounded-md px-3 py-2 text-sm font-medium",
-                            subItem.active
-                              ? "bg-muted text-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          )}
-                        >
-                          {subItem.title}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  href={item.href || "#"}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium",
-                    item.active
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.title}</span>
-                </Link>
+          {routes.map((route) => (
+            <Button
+              key={route.href}
+              variant={pathname === route.href ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start",
+                pathname === route.href ? "bg-secondary text-secondary-foreground" : "hover:bg-secondary/50",
+                collapsed ? "h-10 px-2" : "h-10 px-3",
               )}
-            </div>
+              asChild
+            >
+              <Link href={route.href} className="flex items-center">
+                <route.icon className={cn("h-4 w-4", collapsed ? "mr-0" : "mr-2")} />
+                {!collapsed && <span className="text-sm">{route.title}</span>}
+              </Link>
+            </Button>
           ))}
         </nav>
       </div>

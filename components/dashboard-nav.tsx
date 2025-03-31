@@ -82,7 +82,7 @@ export function DashboardNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="grid items-start gap-2">
+    <nav className="grid items-start gap-2 pt-2">
       {navItems.map((item) => (
         <Link key={item.href} href={item.href}>
           <Button

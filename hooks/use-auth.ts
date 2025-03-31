@@ -2,37 +2,31 @@
 
 import { useState } from "react"
 import { signIn, signOut, useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 
 export function useAuth() {
   const { data: session, status } = useSession()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   const isAuthenticated = status === "authenticated"
-  const isLoading = status === "loading"
+  const user = session?.user
 
   const login = async (email: string, senha: string) => {
-    setLoading(true)
-    setError(null)
-
     try {
+      setLoading(true)
+      setError(null)
+
       const result = await signIn("credentials", {
         redirect: false,
         email,
-        senha,
+        password: senha, // Importante: o nome do campo deve corresponder ao esperado pelo NextAuth
       })
 
       if (result?.error) {
-        setError("Email ou senha inválidos")
-        setLoading(false)
-        return
+        setError("Credenciais inválidas. Por favor, tente novamente.")
       }
-
-      router.push("/dashboard")
     } catch (err) {
-      setError("Ocorreu um erro ao fazer login")
+      setError("Ocorreu um erro ao tentar fazer login. Tente novamente mais tarde.")
       console.error("Erro de login:", err)
     } finally {
       setLoading(false)
@@ -40,10 +34,10 @@ export function useAuth() {
   }
 
   const logout = async () => {
-    setLoading(true)
     try {
+      setLoading(true)
       await signOut({ redirect: false })
-      router.push("/login")
+      window.location.href = "/login"
     } catch (err) {
       console.error("Erro ao fazer logout:", err)
     } finally {
@@ -52,13 +46,12 @@ export function useAuth() {
   }
 
   return {
-    user: session?.user,
-    isAuthenticated,
-    isLoading,
-    loading,
-    error,
     login,
     logout,
+    loading,
+    error,
+    isAuthenticated,
+    user,
   }
 }
 

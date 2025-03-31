@@ -1,75 +1,118 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, Eye, Edit, Trash2 } from "lucide-react"
-import Link from "next/link"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2, MoreHorizontal, Search, Filter, RefreshCw, Store } from "lucide-react"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+
+interface Loja {
+  id: string
+  nome: string
+  proprietario: string
+  email: string
+  telefone: string
+  categoria: string
+  ativa: boolean
+  dataCriacao: string
+  produtos: number
+}
 
 export default function LojasPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [lojas, setLojas] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [lojas, setLojas] = useState<Loja[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [filteredLojas, setFilteredLojas] = useState<Loja[]>([])
 
   useEffect(() => {
-    // Simulação de carregamento de dados
     const fetchLojas = async () => {
       try {
         setIsLoading(true)
+        // Simular carregamento de dados
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        // Simulação de dados para demonstração
-        // Em produção, você substituiria isso por chamadas reais à API
-        setTimeout(() => {
-          const mockLojas = [
-            {
-              id: "1",
-              nome: "Mercado Central",
-              proprietario: "João Silva",
-              plano: "Premium",
-              status: "ativo",
-              dataCriacao: "2023-04-15",
-            },
-            {
-              id: "2",
-              nome: "Padaria Delícia",
-              proprietario: "Maria Oliveira",
-              plano: "Básico",
-              status: "ativo",
-              dataCriacao: "2023-03-22",
-            },
-            {
-              id: "3",
-              nome: "Farmácia Saúde",
-              proprietario: "Pedro Santos",
-              plano: "Empresarial",
-              status: "inativo",
-              dataCriacao: "2023-05-10",
-            },
-            {
-              id: "4",
-              nome: "Loja de Roupas Fashion",
-              proprietario: "Ana Costa",
-              plano: "Grátis",
-              status: "ativo",
-              dataCriacao: "2023-04-30",
-            },
-            {
-              id: "5",
-              nome: "Restaurante Sabor",
-              proprietario: "Carlos Ferreira",
-              plano: "Premium",
-              status: "ativo",
-              dataCriacao: "2023-05-05",
-            },
-          ]
-          setLojas(mockLojas)
-          setIsLoading(false)
-        }, 1000)
+        // Aqui você faria uma chamada real para a API
+        // const response = await fetch("/api/admin/lojas")
+        // const data = await response.json()
+
+        // Dados simulados para demonstração
+        const mockLojas: Loja[] = [
+          {
+            id: "1",
+            nome: "Supermercado Silva",
+            proprietario: "João Silva",
+            email: "contato@supermercadosilva.com",
+            telefone: "(11) 98765-4321",
+            categoria: "Supermercado",
+            ativa: true,
+            dataCriacao: "2023-01-15T10:30:00Z",
+            produtos: 128,
+          },
+          {
+            id: "2",
+            nome: "Farmácia Saúde",
+            proprietario: "Maria Oliveira",
+            email: "contato@farmaciasaude.com",
+            telefone: "(11) 91234-5678",
+            categoria: "Farmácia",
+            ativa: true,
+            dataCriacao: "2023-02-10T09:15:00Z",
+            produtos: 85,
+          },
+          {
+            id: "3",
+            nome: "Restaurante Sabor",
+            proprietario: "Pedro Santos",
+            email: "contato@restaurantesabor.com",
+            telefone: "(11) 97777-8888",
+            categoria: "Restaurante",
+            ativa: true,
+            dataCriacao: "2022-11-05T16:45:00Z",
+            produtos: 42,
+          },
+          {
+            id: "4",
+            nome: "Boutique Elegance",
+            proprietario: "Ana Costa",
+            email: "contato@boutiqueelegance.com",
+            telefone: "(11) 96666-7777",
+            categoria: "Vestuário",
+            ativa: false,
+            dataCriacao: "2023-01-20T13:10:00Z",
+            produtos: 64,
+          },
+          {
+            id: "5",
+            nome: "Papelaria Criativa",
+            proprietario: "Carlos Ferreira",
+            email: "contato@papelaria.com",
+            telefone: "(11) 95555-6666",
+            categoria: "Papelaria",
+            ativa: true,
+            dataCriacao: "2022-12-12T11:25:00Z",
+            produtos: 97,
+          },
+        ]
+
+        setLojas(mockLojas)
+        setFilteredLojas(mockLojas)
       } catch (error) {
         console.error("Erro ao buscar lojas:", error)
+        setError("Não foi possível carregar a lista de lojas")
+      } finally {
         setIsLoading(false)
       }
     }
@@ -77,31 +120,77 @@ export default function LojasPage() {
     fetchLojas()
   }, [])
 
-  // Filtrar lojas com base no termo de pesquisa
-  const filteredLojas = lojas.filter(
-    (loja) =>
-      loja.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      loja.proprietario.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredLojas(lojas)
+    } else {
+      const filtered = lojas.filter(
+        (loja) =>
+          loja.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          loja.proprietario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          loja.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+      setFilteredLojas(filtered)
+    }
+  }, [searchTerm, lojas])
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return format(date, "dd/MM/yyyy", { locale: ptBR })
+    } catch (error) {
+      return "Data inválida"
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-red-500">{error}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Lojas</h2>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm">
+            <Filter className="mr-2 h-4 w-4" />
+            Filtrar
+          </Button>
+          <Button variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Atualizar
+          </Button>
+          <Button size="sm">
+            <Store className="mr-2 h-4 w-4" />
+            Nova Loja
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Gerenciar Lojas</CardTitle>
-          <CardDescription>Visualize e gerencie todas as lojas cadastradas no sistema.</CardDescription>
+          <CardDescription>Gerencie todas as lojas da plataforma. Total: {lojas.length} lojas.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
+          <div className="flex items-center py-4">
+            <div className="relative w-full max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Buscar por nome ou proprietário..."
+                placeholder="Buscar lojas..."
                 className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -109,80 +198,70 @@ export default function LojasPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Proprietário</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data de Cadastro</TableHead>
+                  <TableHead>Produtos</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLojas.length === 0 ? (
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Proprietário</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data de Criação</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      Nenhuma loja encontrada.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLojas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        Nenhuma loja encontrada
+                ) : (
+                  filteredLojas.map((loja) => (
+                    <TableRow key={loja.id}>
+                      <TableCell className="font-medium">{loja.nome}</TableCell>
+                      <TableCell>{loja.proprietario}</TableCell>
+                      <TableCell>
+                        <div>{loja.email}</div>
+                        <div className="text-sm text-muted-foreground">{loja.telefone}</div>
+                      </TableCell>
+                      <TableCell>{loja.categoria}</TableCell>
+                      <TableCell>
+                        <Badge variant={loja.ativa ? "success" : "destructive"}>
+                          {loja.ativa ? "Ativa" : "Inativa"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(loja.dataCriacao)}</TableCell>
+                      <TableCell>{loja.produtos}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
+                            <DropdownMenuItem>Editar loja</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>Ver produtos</DropdownMenuItem>
+                            <DropdownMenuItem className={loja.ativa ? "text-red-600" : "text-green-600"}>
+                              {loja.ativa ? "Desativar loja" : "Ativar loja"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredLojas.map((loja) => (
-                      <TableRow key={loja.id}>
-                        <TableCell className="font-medium">{loja.nome}</TableCell>
-                        <TableCell>{loja.proprietario}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              loja.plano === "Empresarial"
-                                ? "destructive"
-                                : loja.plano === "Premium"
-                                  ? "default"
-                                  : loja.plano === "Básico"
-                                    ? "secondary"
-                                    : "outline"
-                            }
-                          >
-                            {loja.plano}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={loja.status === "ativo" ? "success" : "secondary"}>
-                            {loja.status === "ativo" ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(loja.dataCriacao).toLocaleDateString("pt-BR")}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link href={`/admin/lojas/${loja.id}`}>
-                              <Button variant="ghost" size="icon">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Link href={`/admin/lojas/${loja.id}/editar`}>
-                              <Button variant="ghost" size="icon">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

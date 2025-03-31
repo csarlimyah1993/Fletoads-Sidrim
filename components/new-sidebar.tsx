@@ -36,8 +36,9 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
   const { setTheme, theme } = useTheme()
 
-  // Verificar se estamos em uma página de vitrine
+  // Verificar se estamos em uma página de vitrine ou admin
   const isVitrinePage = pathname.startsWith("/vitrine/")
+  const isAdminPage = pathname.startsWith("/admin")
 
   // Restaurar o estado de colapso da sidebar do localStorage
   useEffect(() => {
@@ -55,8 +56,8 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
     window.dispatchEvent(new Event("storage"))
   }, [isCollapsed])
 
-  // Não renderizar a sidebar em páginas de vitrine, mas apenas após todos os hooks serem chamados
-  if (isVitrinePage) {
+  // Não renderizar a sidebar em páginas de vitrine ou admin
+  if (isVitrinePage || isAdminPage) {
     return null
   }
 

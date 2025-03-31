@@ -1,40 +1,45 @@
-import mongoose, { Schema } from "mongoose"
+import mongoose, { Schema, type Document } from "mongoose"
 
-// Define o esquema para o modelo Panfleto
-const PanfletoSchema = new Schema({
-  titulo: {
-    type: String,
-    required: [true, "O título é obrigatório"],
-    trim: true,
-  },
-  descricao: {
-    type: String,
-    required: [true, "A descrição é obrigatória"],
-    trim: true,
-  },
-  imagem: {
-    type: String,
-    required: [true, "A imagem é obrigatória"],
-  },
-  dataPublicacao: {
-    type: Date,
-    default: Date.now,
-  },
-  dataValidade: {
-    type: Date,
-    required: [true, "A data de validade é obrigatória"],
-  },
-  userId: {
-    type: String,
-    required: [true, "O ID do usuário é obrigatório"],
-  },
-  status: {
-    type: String,
-    enum: ["ativo", "inativo", "expirado"],
-    default: "ativo",
-  },
-})
+export interface IPanfleto extends Document {
+  titulo: string
+  descricao: string
+  imagem: string
+  conteudo: string
+  categoria: string
+  tags: string[]
+  dataPublicacao: Date
+  dataAtualizacao: Date
+  status: "rascunho" | "publicado" | "arquivado"
+  autor: string
+  visualizacoes: number
+  compartilhamentos: number
+}
 
-// Verifica se o modelo já existe para evitar recompilação
-export const Panfleto = mongoose.models.Panfleto || mongoose.model("Panfleto", PanfletoSchema)
+const PanfletoSchema: Schema = new Schema(
+  {
+    titulo: { type: String, required: true },
+    descricao: { type: String, required: true },
+    imagem: { type: String, required: true },
+    conteudo: { type: String, required: true },
+    categoria: { type: String, required: true },
+    tags: [{ type: String }],
+    dataPublicacao: { type: Date, default: Date.now },
+    dataAtualizacao: { type: Date, default: Date.now },
+    status: {
+      type: String,
+      enum: ["rascunho", "publicado", "arquivado"],
+      default: "rascunho",
+    },
+    autor: { type: String, required: true },
+    visualizacoes: { type: Number, default: 0 },
+    compartilhamentos: { type: Number, default: 0 },
+  },
+  {
+    timestamps: true,
+  },
+)
+
+// Verificar se o modelo já existe para evitar erros de sobrescrita
+const PanfletoModel = mongoose.models.Panfleto || mongoose.model<IPanfleto>("Panfleto", PanfletoSchema)
+export default PanfletoModel
 

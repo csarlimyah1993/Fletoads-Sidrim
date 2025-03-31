@@ -15,15 +15,19 @@ import { useRouter } from "next/navigation"
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
-  const { login, loading, error, isAuthenticated } = useAuth()
+  const { login, loading, error, isAuthenticated, user } = useAuth()
   const router = useRouter()
 
-  // Redirecionar para o dashboard se já estiver autenticado
+  // Redirecionar para o dashboard ou admin com base no papel do usuário
   useEffect(() => {
     if (isAuthenticated) {
-      router.push("/dashboard")
+      if (user?.role === "admin") {
+        router.push("/admin")
+      } else {
+        router.push("/dashboard")
+      }
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

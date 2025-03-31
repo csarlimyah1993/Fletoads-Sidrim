@@ -1,98 +1,138 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertCircle, X } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { ArrowUpRight } from "lucide-react"
 
-interface UserPlan {
-  name: string
-  isFreeTier: boolean
-  daysRemaining?: number
-  limitReached?: boolean
+interface PlanInfo {
+  plano: string
+  limites: {
+    panfletos: number
+    clientes: number
+    campanhas: number
+  }
+  utilizacao: {
+    panfletos: number
+    clientes: number
+    campanhas: number
+  }
 }
 
 export function PlanUpgradeBanner() {
-  const [plan, setPlan] = useState<UserPlan | null>(null)
-  const [isVisible, setIsVisible] = useState(true)
+  const router = useRouter()
+  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchUserPlan = async () => {
+    const fetchPlanInfo = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-
         const response = await fetch("/api/user/plan")
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            // Plano não encontrado, provavelmente usuário novo
-            setIsVisible(false)
-            return
-          }
-          throw new Error("Falha ao carregar informações do plano")
+        if (response.ok) {
+          const data = await response.json()
+          setPlanInfo(data)
         }
-
-        const data = await response.json()
-        setPlan(data.plan)
-
-        // Só mostrar o banner se for plano gratuito ou com limite atingido
-        setIsVisible(
-          data.plan.isFreeTier ||
-            data.plan.limitReached ||
-            (data.plan.daysRemaining !== undefined && data.plan.daysRemaining <= 7),
-        )
       } catch (error) {
-        console.error("Erro ao buscar plano do usuário:", error)
-        setError("Não foi possível carregar as informações do seu plano")
-        // Não mostrar o banner em caso de erro
-        setIsVisible(false)
+        console.error("Erro ao buscar informações do plano:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchUserPlan()
+    fetchPlanInfo()
   }, [])
 
-  if (isLoading || !isVisible || error) {
+  if (isLoading) {
     return null
   }
 
-  if (!plan) {
+  if (!planInfo) {
     return null
   }
 
-  let message = ""
-  let variant: "default" | "destructive" = "default"
+  // Verificar se o usuário está próximo dos limites
+  const isNearLimit = () => {
+    if (!planInfo) return false
 
-  if (plan.limitReached) {
-    message = "Você atingiu o limite do seu plano atual. Atualize para continuar usando todos os recursos."
-    variant = "destructive"
-  } else if (plan.isFreeTier) {
-    message = "Você está usando o plano gratuito. Atualize para desbloquear mais recursos."
-  } else if (plan.daysRemaining !== undefined && plan.daysRemaining <= 7) {
-    message = `Seu plano ${plan.name} expira em ${plan.daysRemaining} dias. Renove agora para evitar interrupções.`
+    const { limites, utilizacao } = planInfo
+
+    // Se qualquer recurso estiver acima de 80% do limite
+    return (
+      (limites.panfletos > 0 && utilizacao.panfletos / limites.panfletos > 0.8) ||
+      (limites.clientes > 0 && utilizacao.clientes / limites.clientes > 0.8) ||
+      (limites.campanhas > 0 && utilizacao.campanhas / limites.campanhas > 0.8)
+    )
   }
+
+  // Se o usuário não estiver próximo dos limites, não exibir o banner
+  if (!isNearLimit()) {
+    return null
+  }
+
+  // Calcular porcentagens
+  const calcularPorcentagem = (usado: number, limite: number) => {
+    if (limite <= 0) return 0 // Ilimitado
+    return Math.min(Math.round((usado / limite) * 100), 100)
+  }
+
+  const porcentagemPanfletos = calcularPorcentagem(planInfo.utilizacao.panfletos, planInfo.limites.panfletos)
+
+  const porcentagemClientes = calcularPorcentagem(planInfo.utilizacao.clientes, planInfo.limites.clientes)
+
+  const porcentagemCampanhas = calcularPorcentagem(planInfo.utilizacao.campanhas, planInfo.limites.campanhas)
 
   return (
-    <Alert variant={variant} className="mb-4 relative">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Informações do Plano</AlertTitle>
-      <AlertDescription className="flex items-center justify-between">
-        <span>{message}</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href="/dashboard/planos">Atualizar Plano</a>
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsVisible(false)} aria-label="Fechar">
-            <X className="h-4 w-4" />
+    <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+      <CardContent className="p-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <h3 className="font-medium">Você está chegando ao limite do seu plano {planInfo.plano}</h3>
+            <p className="text-sm text-muted-foreground">
+              Faça um upgrade para continuar aproveitando todos os recursos do FletoAds.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>Panfletos</span>
+                  <span>
+                    {planInfo.utilizacao.panfletos}/{planInfo.limites.panfletos > 0 ? planInfo.limites.panfletos : "∞"}
+                  </span>
+                </div>
+                <Progress value={porcentagemPanfletos} className="h-2" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>Clientes</span>
+                  <span>
+                    {planInfo.utilizacao.clientes}/{planInfo.limites.clientes > 0 ? planInfo.limites.clientes : "∞"}
+                  </span>
+                </div>
+                <Progress value={porcentagemClientes} className="h-2" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>Campanhas</span>
+                  <span>
+                    {planInfo.utilizacao.campanhas}/{planInfo.limites.campanhas > 0 ? planInfo.limites.campanhas : "∞"}
+                  </span>
+                </div>
+                <Progress value={porcentagemCampanhas} className="h-2" />
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={() => router.push("/planos")} className="shrink-0">
+            <span>Ver Planos</span>
+            <ArrowUpRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
-      </AlertDescription>
-    </Alert>
+      </CardContent>
+    </Card>
   )
 }
 
