@@ -1,45 +1,8 @@
 import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { connectToDatabase } from "@/lib/mongodb"
-import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
-
-export const metadata = {
-  title: "Perfil da Loja | FletoAds",
-  description: "Visualize e gerencie as informações da sua loja",
-}
-
-async function getLoja(userId: string) {
-  try {
-    const { db } = await connectToDatabase()
-
-    // Buscar todas as lojas para este usuário
-    const lojas = await db
-      .collection("lojas")
-      .find({
-        $or: [{ usuarioId: userId }, { userId: userId }],
-      })
-      .toArray()
-
-    console.log(`Encontradas ${lojas.length} lojas para o usuário ${userId}`)
-
-    if (lojas.length === 0) {
-      return null
-    }
-
-    // Usar a primeira loja encontrada
-    const loja = lojas[0]
-
-    // Converter o ObjectId para string para serialização
-    return {
-      ...loja,
-      _id: loja._id.toString(),
-    }
-  } catch (error) {
-    console.error("Erro ao buscar loja:", error)
-    return null
-  }
-}
+import mongoose from "mongoose"
 
 export default async function PerfilDaLojaPage() {
   const session = await getServerSession(authOptions)
@@ -48,22 +11,48 @@ export default async function PerfilDaLojaPage() {
     redirect("/login")
   }
 
-  const userId = session.user.id
-  const loja = await getLoja(userId)
+  // Connect to database
+  await connectToDatabase()
 
-  // Se não houver loja, podemos mostrar uma mensagem ou redirecionar para criar
-  if (!loja) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
-        <h1 className="text-2xl font-bold">Você ainda não possui uma loja cadastrada</h1>
-        <p className="text-muted-foreground">Crie sua loja para começar a usar todos os recursos do FletoAds</p>
-        <a href="/dashboard/perfil-da-loja/criar" className="text-primary hover:underline">
-          Criar minha loja
-        </a>
-      </div>
-    )
+  // Check if user has a store profile
+  let hasStore = false
+
+  try {
+    // Get database connection
+    const connection = mongoose.connection
+    if (!connection || !connection.db) {
+      throw new Error("Database connection not established")
+    }
+
+    const db = connection.db
+
+    // Find user
+    const usuario = await db.collection("usuarios").findOne({
+      email: session.user.email,
+    })
+
+    if (!usuario) {
+      throw new Error("User not found")
+    }
+
+    // Check if user has a store
+    const loja = await db.collection("lojas").findOne({
+      usuarioId: usuario._id.toString(),
+    })
+
+    hasStore = !!loja
+  } catch (error) {
+    console.error("Error checking store profile:", error)
   }
 
-  return <LojaPerfilContent loja={loja} />
+  // Redirect based on whether user has a store or not
+  if (hasStore) {
+    redirect("/dashboard/perfil-da-loja")
+  } else {
+    redirect("/dashboard/perfil-da-loja/criar")
+  }
+
+  // This will never be reached due to redirects, but TypeScript requires a return
+  return null
 }
 

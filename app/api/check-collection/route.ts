@@ -9,7 +9,12 @@ export async function GET(request: Request) {
     console.log("Conexão com o banco de dados estabelecida")
 
     // Obter a lista de coleções
-    const collections = await mongoose.connection.db.listCollections().toArray()
+    const db = mongoose.connection.db
+    if (!db) {
+      throw new Error("Conexão com o banco de dados não estabelecida corretamente")
+    }
+
+    const collections = await db.listCollections().toArray()
     const collectionNames = collections.map((c) => c.name)
 
     console.log("Coleções encontradas:", collectionNames)

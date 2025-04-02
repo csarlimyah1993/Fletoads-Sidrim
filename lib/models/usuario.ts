@@ -76,7 +76,7 @@ const UsuarioSchema: Schema = new Schema(
 // Método para comparar senhas
 UsuarioSchema.methods.compararSenha = async function (senhaFornecida: string): Promise<boolean> {
   // Verificar se a senha armazenada é um hash bcrypt
-  if (this.senha.startsWith("$2a$") || this.senha.startsWith("$2b$")) {
+  if (this.senha && (this.senha.startsWith("$2a$") || this.senha.startsWith("$2b$"))) {
     return await bcrypt.compare(senhaFornecida, this.senha)
   } else {
     // Se não for um hash bcrypt, comparar diretamente
@@ -90,17 +90,23 @@ UsuarioSchema.pre("save", async function (next) {
 
   try {
     // Verificar se a senha já é um hash bcrypt
-    if (this.senha.startsWith("$2a$") || this.senha.startsWith("$2b$")) {
+    const senha = this.get("senha")
+    if (typeof senha === "string" && (senha.startsWith("$2a$") || senha.startsWith("$2b$"))) {
       return next() // Se já for um hash, não fazer nada
     }
 
     const salt = await bcrypt.genSalt(10)
     // Corrigindo o tipo para garantir que senha seja uma string
-    const senha = this.get("senha") as string
-    this.senha = await bcrypt.hash(senha, salt)
+    if (typeof senha === "string") {
+      this.senha = await bcrypt.hash(senha, salt)
+    }
     next()
-  } catch (error: any) {
-    next(error)
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      next(error)
+    } else {
+      next(new Error("Erro desconhecido ao processar senha"))
+    }
   }
 })
 

@@ -1,146 +1,41 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Download, Check } from "lucide-react"
+import { ArrowLeft, Download, FileText, CheckCircle2, Loader2 } from "lucide-react"
+import { Logo } from "@/components/logo"
+import { WhatsAppButton } from "@/components/whatsapp-button"
+
+// Nomes dos planos
+const nomesPlanos = {
+  gratis: "Grátis",
+  start: "Start",
+  basico: "Básico",
+  completo: "Completo",
+  premium: "Premium",
+  empresarial: "Empresarial",
+}
 
 export default function ContratoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [assinaturaId, setAssinaturaId] = useState<string>("")
-  const [contratoAceito, setContratoAceito] = useState(false)
-  const [contratoConteudo, setContratoConteudo] = useState<string>("")
-  const [assinaturaCompleta, setAssinaturaCompleta] = useState(false)
+  const [aceitouTermos, setAceitouTermos] = useState(false)
+  const [planoId, setPlanoId] = useState<string>(searchParams.get("plano") || "")
+  const [periodo, setPeriodo] = useState<string>(searchParams.get("periodo") || "mensal")
 
-  // Obter o ID da assinatura da URL
-  useEffect(() => {
-    const id = searchParams.get("id")
-    if (id) {
-      setAssinaturaId(id)
-      // Carregar os detalhes da assinatura
-      carregarDetalhesAssinatura(id)
-    } else {
-      router.push("/planos")
-    }
-  }, [searchParams, router])
-
-  // Função para carregar os detalhes da assinatura
-  const carregarDetalhesAssinatura = async (id: string) => {
-    try {
-      // Aqui você carregaria os detalhes da assinatura da API
-      // Por enquanto, vamos apenas simular o carregamento do contrato
-
-      // Simular o carregamento do contrato
-      setIsLoading(true)
-
-      // Carregar o conteúdo do contrato (simulado)
-      setTimeout(() => {
-        setContratoConteudo(`
-TERMO DE USO E CONTRATO DE LICENÇA DE SOFTWARE FLETOADS
-
-Este Termo de Uso e Contrato de Licença de Software ("Contrato") é celebrado entre a FletoAds, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº XX.XXX.XXX/0001-XX, com sede na Cidade de [Cidade], Estado de [Estado], doravante denominada "LICENCIANTE", e a pessoa física ou jurídica, doravante denominada "LICENCIADO", que aceitar este Contrato.
-
-1. OBJETO
-
-1.1. O presente Contrato tem por objeto a concessão, pela LICENCIANTE ao LICENCIADO, de uma licença de uso do software FletoAds ("Software"), em caráter não exclusivo e intransferível, para uso em conformidade com as condições estabelecidas neste Contrato.
-
-1.2. O Software FletoAds é uma plataforma de criação, gestão e distribuição de panfletos digitais, que permite ao LICENCIADO criar, editar, gerenciar e distribuir panfletos digitais para seus clientes.
-
-2. PLANOS DE ASSINATURA
-
-2.1. O LICENCIADO poderá escolher entre os seguintes planos de assinatura:
-
-a) Plano Gratuito: Limitado a 5 panfletos por mês, 50 clientes cadastrados e 2 campanhas ativas.
-b) Plano Básico: Limitado a 20 panfletos por mês, 200 clientes cadastrados e 5 campanhas ativas.
-c) Plano Profissional: Limitado a 100 panfletos por mês, 1000 clientes cadastrados e 20 campanhas ativas.
-d) Plano Empresarial: Panfletos, clientes e campanhas ilimitados.
-
-2.2. Os valores dos planos de assinatura estão disponíveis no site da LICENCIANTE e podem ser alterados mediante aviso prévio de 30 (trinta) dias.
-
-3. PAGAMENTO
-
-3.1. O LICENCIADO deverá efetuar o pagamento da assinatura de acordo com o plano escolhido, nas datas e formas estabelecidas pela LICENCIANTE.
-
-3.2. Em caso de atraso no pagamento, a LICENCIANTE poderá suspender o acesso do LICENCIADO ao Software até a regularização do pagamento.
-
-4. PRAZO
-
-4.1. O presente Contrato vigorará por prazo indeterminado, podendo ser rescindido por qualquer das partes, a qualquer tempo, mediante aviso prévio de 30 (trinta) dias.
-
-5. OBRIGAÇÕES DO LICENCIADO
-
-5.1. O LICENCIADO obriga-se a:
-
-a) Utilizar o Software de acordo com as instruções fornecidas pela LICENCIANTE;
-b) Não ceder, sublicenciar, vender, arrendar, dar em locação ou em garantia, ou, de qualquer outra forma, transferir, total ou parcialmente, o Software objeto deste Contrato;
-c) Não modificar as características do Software;
-d) Não utilizar o Software para fins ilícitos ou que violem direitos de terceiros;
-e) Manter em sigilo todas as informações confidenciais relacionadas ao Software.
-
-6. SUPORTE TÉCNICO
-
-6.1. A LICENCIANTE fornecerá suporte técnico ao LICENCIADO, de acordo com o plano de assinatura contratado.
-
-7. PROPRIEDADE INTELECTUAL
-
-7.1. O Software, objeto deste Contrato, é de propriedade exclusiva da LICENCIANTE, sendo protegido pelas leis de direitos autorais e de propriedade industrial.
-
-8. LIMITAÇÃO DE RESPONSABILIDADE
-
-8.1. A LICENCIANTE não será responsável por quaisquer danos indiretos, incidentais, consequenciais, punitivos ou especiais, incluindo, mas não se limitando a, perda de dados, interrupção de negócios ou perda de lucros.
-
-9. DISPOSIÇÕES GERAIS
-
-9.1. Este Contrato constitui o acordo integral entre as partes com relação ao objeto aqui tratado, substituindo todos os acordos anteriores, verbais ou escritos.
-
-9.2. Se qualquer disposição deste Contrato for considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.
-
-9.3. Este Contrato será regido e interpretado de acordo com as leis da República Federativa do Brasil.
-
-10. FORO
-
-10.1. As partes elegem o foro da Comarca de [Cidade], Estado de [Estado], para dirimir quaisquer dúvidas ou controvérsias oriundas deste Contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.
-
-Ao clicar em "Aceito os Termos do Contrato", o LICENCIADO declara ter lido, compreendido e aceito todos os termos e condições deste Contrato.
-        `)
-        setIsLoading(false)
-      }, 1500)
-    } catch (error) {
-      console.error("Erro ao carregar detalhes da assinatura:", error)
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao carregar os detalhes da assinatura.",
-        variant: "destructive",
-      })
-      setIsLoading(false)
-    }
-  }
-
-  // Função para baixar o contrato
-  const downloadContrato = () => {
-    const element = document.createElement("a")
-    const file = new Blob([contratoConteudo], { type: "text/plain" })
-    element.href = URL.createObjectURL(file)
-    element.download = "contrato_fletoads.txt"
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }
-
-  // Função para assinar o contrato
-  const assinarContrato = async () => {
-    if (!contratoAceito) {
+  const handleAssinar = async () => {
+    if (!aceitouTermos) {
       toast({
         title: "Atenção",
-        description: "Você precisa aceitar os termos do contrato para continuar.",
+        description: "Você precisa aceitar os termos para continuar.",
         variant: "destructive",
       })
       return
@@ -149,38 +44,29 @@ Ao clicar em "Aceito os Termos do Contrato", o LICENCIADO declara ter lido, comp
     setIsLoading(true)
 
     try {
-      // Enviar a assinatura para a API
-      const response = await fetch("/api/planos/assinar-contrato", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assinaturaId,
-          aceito: true,
-          dataAceite: new Date().toISOString(),
-        }),
+      // Simular o processamento da assinatura
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Aqui você faria a chamada para a API para finalizar a assinatura
+      // const response = await fetch("/api/planos/finalizar-assinatura", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ planoId, periodo }),
+      // })
+      // const data = await response.json()
+
+      // Redirecionar para a página de sucesso
+      toast({
+        title: "Assinatura concluída!",
+        description: `Seu plano ${nomesPlanos[planoId as keyof typeof nomesPlanos]} foi ativado com sucesso.`,
       })
 
-      if (!response.ok) {
-        throw new Error("Erro ao assinar contrato")
-      }
-
-      // Simular o processamento da assinatura
-      setTimeout(() => {
-        setAssinaturaCompleta(true)
-        setIsLoading(false)
-
-        toast({
-          title: "Sucesso!",
-          description: "Contrato assinado com sucesso. Seu plano foi ativado.",
-        })
-      }, 2000)
+      router.push("/dashboard")
     } catch (error) {
-      console.error("Erro ao assinar contrato:", error)
+      console.error("Erro ao finalizar assinatura:", error)
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao assinar o contrato. Tente novamente.",
+        description: "Ocorreu um erro ao finalizar a assinatura. Tente novamente.",
         variant: "destructive",
       })
       setIsLoading(false)
@@ -188,87 +74,185 @@ Ao clicar em "Aceito os Termos do Contrato", o LICENCIADO declara ter lido, comp
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Contrato de Assinatura</h1>
-          <p className="text-muted-foreground mt-2">
-            Leia atentamente e aceite os termos do contrato para ativar seu plano
-          </p>
+    <div className="min-h-screen bg-muted">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between">
+          <Link href="/" className="flex items-center space-x-2">
+            <Logo className="h-8 w-8" />
+            <span className="font-bold text-xl">FletoAds</span>
+          </Link>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/planos/checkout">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar para checkout
+              </Link>
+            </Button>
+          </div>
         </div>
+      </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Termo de Uso e Contrato de Licença</CardTitle>
-            <CardDescription>
-              Este documento estabelece os termos e condições para uso do software FletoAds
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center items-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : assinaturaCompleta ? (
-              <div className="flex flex-col items-center justify-center py-10 space-y-4">
-                <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check className="h-8 w-8 text-green-600" />
-                </div>
-                <h3 className="text-xl font-bold">Assinatura Concluída!</h3>
-                <p className="text-center text-muted-foreground">
-                  Seu plano foi ativado com sucesso. Você já pode começar a aproveitar todos os recursos.
-                </p>
-                <Button onClick={() => router.push("/dashboard")} className="mt-4">
-                  Ir para o Dashboard
+      <div className="container py-10">
+        <div className="max-w-4xl mx-auto">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5 text-primary" />
+                Termos e Condições
+              </CardTitle>
+              <CardDescription>
+                Por favor, leia atentamente os termos e condições antes de finalizar sua assinatura
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="texto" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="texto">Texto</TabsTrigger>
+                  <TabsTrigger value="pdf">PDF</TabsTrigger>
+                </TabsList>
+                <TabsContent value="texto" className="border rounded-md p-4">
+                  <div className="h-[500px] overflow-y-auto text-sm">
+                    <h2 className="text-xl font-bold mb-4">TERMOS E CONDIÇÕES GERAIS DE USO</h2>
+                    <p className="mb-4">
+                      Os serviços da Plataforma "Fleto" são fornecidos pela RESZON – SERVIÇOS EM TECNOLOGIA E
+                      DESENVOLVIMENTO DE SOFTWARE LTDA, inscrita no CNPJ nº 40.276.868/0001-33, titular da propriedade
+                      intelectual sobre website, conteúdos e demais ativos relacionados aos serviços por ela prestados.
+                    </p>
+
+                    <h3 className="text-lg font-bold mt-6 mb-2">1 DAS DEFINIÇÕES</h3>
+                    <p className="mb-2">
+                      1.1 Para os efeitos deste instrumento, os vocábulos e expressões abaixo têm as seguintes
+                      definições:
+                    </p>
+                    <ul className="list-disc pl-6 mb-4 space-y-1">
+                      <li>
+                        Lojista: Parceiro usuário da plataforma e suas funções, na condição de fornecedor e/ou prestador
+                        do serviço e/ou produto divulgado, de acordo com o plano contratado;
+                      </li>
+                      <li>Consumidor final: a pessoa física que utiliza o produto e/ou serviço do parceiro Lojista;</li>
+                      <li>Atualização de versão: É a disponibilização de novas versões do software;</li>
+                      <li>Software/Plataforma(s): É a aplicação de autoria da RESZON;</li>
+                      <li>Internet: É a rede mundial de computadores;</li>
+                      <li>
+                        Informações confidenciais: toda e qualquer informação verbal ou escrita, obtida direta ou
+                        indiretamente pelas partes, em virtude do presente contrato e relativas a este;
+                      </li>
+                      <li>
+                        Plano: oferta de serviços do produto de acordo com a grade de comercial dos respectivos
+                        produtos.
+                      </li>
+                    </ul>
+
+                    <h3 className="text-lg font-bold mt-6 mb-2">2 DO OBJETO</h3>
+                    <p className="mb-2">
+                      1.1 A plataforma visa permitir para o lojista o acesso aos serviços da RESZON – SERVIÇOS EM
+                      TECNOLOGIA E DESENVOLVIMENTO DE SOFTWARE LTDA, inscrita no CNPJ nº 40.276.868/0001-33, mediante o
+                      preenchimento do cadastro e a concordância expressa aos Termos e Condições de Uso e à Política de
+                      Privacidade.
+                    </p>
+                    <p className="mb-4">
+                      1.2 A plataforma caracteriza-se pela oferta da prestação dos seguintes serviços: Sistema de Gestão
+                      de Conteúdo, Sistema de Gestão de Publicidade, Sistema de Ofertas de produtos e conteúdos de lojas
+                      participantes e parceiros com inserções em mapas, marcos, com localização geográfica através de
+                      GPS e Fotos.
+                    </p>
+
+                    <h3 className="text-lg font-bold mt-6 mb-2">3 DA ACEITAÇÃO</h3>
+                    <p className="mb-2">
+                      3.1 O presente Termo estabelece obrigações contratadas e conteúdos de livre e espontânea vontade,
+                      por tempo indeterminado, entre a plataforma e as pessoas físicas ou jurídicas, na condição de
+                      lojistas.
+                    </p>
+                    <p className="mb-2">
+                      3.2 Ao utilizar a plataforma o usuário aceita integralmente as presentes normas e compromete-se a
+                      observá-las, sob o risco de aplicação das penalidades cabíveis. Caso o Lojista não concorde com
+                      qualquer condição aqui prevista, não deverá utilizar a Plataforma.
+                    </p>
+                    <p className="mb-4">
+                      3.3 A aceitação do presente instrumento é imprescindível para o acesso e para a utilização de
+                      quaisquer serviços fornecidos pela empresa. Caso não concorde com as disposições deste
+                      instrumento, o usuário não deve utilizá-los.
+                    </p>
+
+                    {/* Continuar com o restante do texto do contrato... */}
+                    <h3 className="text-lg font-bold mt-6 mb-2">4 DO ACESSO DOS LOJISTAS</h3>
+                    <p className="mb-4">
+                      4.1 Serão utilizadas todas as soluções técnicas à disposição da RESZON – SERVIÇOS EM TECNOLOGIA E
+                      DESENVOLVIMENTO DE SOFTWARE LTDA para permitir o acesso aos serviços. No entanto, a navegação na
+                      plataforma ou em alguma de suas páginas poderá ser interrompida, limitada ou suspensa para
+                      atualizações, modificações ou qualquer ação necessária ao seu bom funcionamento.
+                    </p>
+
+                    {/* Texto truncado para brevidade */}
+                    <p className="text-sm text-muted-foreground mt-6">
+                      O texto completo do contrato está disponível para download nos formatos PDF e DOCX.
+                    </p>
+                  </div>
+                </TabsContent>
+                <TabsContent value="pdf">
+                  <div className="border rounded-md p-4 h-[500px]">
+                    <iframe
+                      src="/assets/termos_de_uso_lojista.pdf"
+                      className="w-full h-full"
+                      title="Termos e Condições"
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="flex justify-center mt-6">
+                <Button variant="outline" className="flex items-center" asChild>
+                  <a href="/assets/termos_de_uso_lojista.docx" download>
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar contrato em Word (DOCX)
+                  </a>
                 </Button>
               </div>
-            ) : (
-              <>
-                <div className="bg-muted p-4 rounded-md max-h-96 overflow-y-auto whitespace-pre-line mb-6">
-                  {contratoConteudo}
-                </div>
-
-                <div className="flex justify-end mb-4">
-                  <Button variant="outline" size="sm" onClick={downloadContrato}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar Contrato
-                  </Button>
-                </div>
-
-                <Separator className="my-6" />
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="termos"
-                    checked={contratoAceito}
-                    onCheckedChange={(checked) => setContratoAceito(checked as boolean)}
-                  />
-                  <Label htmlFor="termos" className="font-medium">
-                    Eu li e aceito os termos do contrato
-                  </Label>
-                </div>
-              </>
-            )}
-          </CardContent>
-          {!isLoading && !assinaturaCompleta && (
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => router.push("/planos")}>
-                Voltar
-              </Button>
-              <Button onClick={assinarContrato} disabled={!contratoAceito || isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  "Assinar Contrato"
-                )}
-              </Button>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-4">
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id="aceite-termos"
+                  checked={aceitouTermos}
+                  onCheckedChange={(checked) => setAceitouTermos(checked as boolean)}
+                />
+                <label
+                  htmlFor="aceite-termos"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Li e aceito os termos e condições acima e a política de privacidade
+                </label>
+              </div>
             </CardFooter>
-          )}
-        </Card>
+          </Card>
+
+          <div className="flex justify-between">
+            <Button variant="outline" asChild>
+              <Link href="/planos/checkout">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Link>
+            </Button>
+            <Button onClick={handleAssinar} disabled={isLoading || !aceitouTermos}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  Assinar e Ativar
+                  <CheckCircle2 className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* WhatsApp Button */}
+      <WhatsAppButton />
     </div>
   )
 }

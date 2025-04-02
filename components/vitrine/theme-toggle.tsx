@@ -1,52 +1,28 @@
 "use client"
-
-import { useState, useEffect } from "react"
 import { Moon, Sun } from "lucide-react"
+import { useTheme } from "next-themes"
+
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light")
-
-  // Inicializa o tema com base na preferência do usuário ou localStorage
-  useEffect(() => {
-    // Verifica se há uma preferência salva no localStorage
-    const savedTheme = localStorage.getItem("vitrine-theme") as "light" | "dark" | null
-
-    // Se não houver, verifica a preferência do sistema
-    if (!savedTheme) {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-      setTheme(prefersDark ? "dark" : "light")
-      return
-    }
-
-    setTheme(savedTheme || "light")
-
-    // Aplica o tema ao documento
-    document.documentElement.classList.toggle("dark", savedTheme === "dark")
-  }, [])
-
-  // Função para alternar o tema
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light"
-    setTheme(newTheme)
-
-    // Salva a preferência no localStorage
-    localStorage.setItem("vitrine-theme", newTheme)
-
-    // Aplica o tema ao documento
-    document.documentElement.classList.toggle("dark", newTheme === "dark")
-  }
+  const { setTheme } = useTheme()
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
-      className="rounded-full"
-      aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
-    >
-      {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon">
+          <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

@@ -4,15 +4,32 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Crown, ShoppingBag, FileText, Zap, Image, AlertCircle } from "lucide-react"
+import { Loader2, Crown, ShoppingBag, FileText, Zap, Image, AlertCircle, Infinity } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
-import { planos } from "@/lib/planos"
+
+// Define default plan values if not available from API
+const defaultPlanInfo = {
+  planoId: "gratuito",
+  planoNome: "Grátis",
+  isFreeTier: true,
+  limitReached: false,
+  uso: {
+    produtos: { usado: 0, total: 10 },
+    panfletos: { usado: 0, total: 3 },
+    imagensPorProduto: 1,
+  },
+  planoDetalhes: {
+    preco: 0,
+    popular: false,
+    whatsapp: 0,
+  },
+}
 
 export function PlanoDashboardCard() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
-  const [planInfo, setPlanInfo] = useState<any>(null)
+  const [planInfo, setPlanInfo] = useState<any>(defaultPlanInfo)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -25,42 +42,24 @@ export function PlanoDashboardCard() {
 
         if (!response.ok) {
           console.error("Erro na resposta da API:", response.status, response.statusText)
-
-          // Usar plano gratuito como fallback
-          setPlanInfo({
-            planoId: "gratis",
-            planoNome: "Grátis",
-            isFreeTier: true,
-            limitReached: false,
-            uso: {
-              produtos: { usado: 0, total: planos.gratis.vitrine },
-              panfletos: { usado: 0, total: planos.gratis.panfletos },
-              imagensPorProduto: planos.gratis.imagensPorProduto,
-            },
-            planoDetalhes: planos.gratis,
-          })
-
+          // Keep using the default plan info that was set in useState
           return
         }
 
         const data = await response.json()
+
+        // Ensure the data has the expected structure
+        if (!data.uso || !data.uso.produtos) {
+          console.error("Dados do plano incompletos:", data)
+          // Keep using the default plan info
+          return
+        }
+
         setPlanInfo(data)
       } catch (error) {
         console.error("Erro ao buscar informações do plano:", error)
         setError("Não foi possível carregar as informações do plano")
-
-        // Definir plano padrão em caso de erro
-        setPlanInfo({
-          planoId: "gratis",
-          planoNome: "Grátis",
-          isFreeTier: true,
-          uso: {
-            produtos: { usado: 0, total: planos.gratis.vitrine },
-            panfletos: { usado: 0, total: planos.gratis.panfletos },
-            imagensPorProduto: planos.gratis.imagensPorProduto,
-          },
-          planoDetalhes: planos.gratis,
-        })
+        // Default plan info is already set, no need to set it again
       } finally {
         setIsLoading(false)
       }
@@ -79,6 +78,33 @@ export function PlanoDashboardCard() {
     )
   }
 
+  // Ensure we have the required data structure
+  const uso = planInfo.uso || defaultPlanInfo.uso
+  const produtos = uso.produtos || { usado: 0, total: 10 }
+  const panfletos = uso.panfletos || { usado: 0, total: 0 }
+  const imagensPorProduto = uso.imagensPorProduto || 1
+  const planoDetalhes = planInfo.planoDetalhes || defaultPlanInfo.planoDetalhes
+
+  // Helper function to render the usage count
+  const renderUsageCount = (usado: number, total: any) => {
+    if (total === "Ilimitado" || total === -1) {
+      return (
+        <span className="flex items-center">
+          {usado} / <Infinity className="h-4 w-4 ml-1" />
+        </span>
+      )
+    }
+    return `${usado} / ${total}`
+  }
+
+  // Helper function to calculate progress percentage
+  const calculateProgress = (usado: number, total: any) => {
+    if (total === "Ilimitado" || total === -1) {
+      return 100 // Full progress for unlimited
+    }
+    return (usado / Number(total)) * 100
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -87,7 +113,7 @@ export function PlanoDashboardCard() {
             <Crown className="h-5 w-5 mr-2 text-yellow-500" />
             Seu Plano
           </CardTitle>
-          {planInfo.planoDetalhes?.popular && (
+          {planoDetalhes?.popular && (
             <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
               Popular
             </Badge>
@@ -103,11 +129,11 @@ export function PlanoDashboardCard() {
         )}
 
         <div>
-          <h3 className="text-lg font-medium">{planInfo.planoNome}</h3>
+          <h3 className="text-lg font-medium">{planInfo.planoNome || "Grátis"}</h3>
           <p className="text-sm text-muted-foreground">
             {planInfo.isFreeTier
               ? "Plano gratuito com recursos limitados"
-              : `R$ ${planInfo.planoDetalhes?.preco.toFixed(2).replace(".", ",")} por mês`}
+              : `R$ ${(planoDetalhes?.preco || 0).toFixed(2).replace(".", ",")} por mês`}
           </p>
         </div>
 
@@ -117,12 +143,10 @@ export function PlanoDashboardCard() {
               <span className="flex items-center">
                 <ShoppingBag className="h-4 w-4 mr-1" /> Produtos na Vitrine
               </span>
-              <span>
-                {planInfo.uso.produtos.usado} / {planInfo.uso.produtos.total}
-              </span>
+              <span>{renderUsageCount(produtos.usado, produtos.total)}</span>
             </div>
             <Progress
-              value={(planInfo.uso.produtos.usado / planInfo.uso.produtos.total) * 100}
+              value={calculateProgress(produtos.usado, produtos.total)}
               className={planInfo.limitReached?.produtos ? "bg-red-200" : ""}
             />
             {planInfo.limitReached?.produtos && <p className="text-xs text-red-500 mt-1">Limite atingido</p>}
@@ -133,17 +157,13 @@ export function PlanoDashboardCard() {
               <span className="flex items-center">
                 <FileText className="h-4 w-4 mr-1" /> Panfletos Digitais
               </span>
-              <span>
-                {planInfo.uso.panfletos.usado} / {planInfo.uso.panfletos.total || "0"}
-              </span>
+              <span>{renderUsageCount(panfletos.usado, panfletos.total)}</span>
             </div>
             <Progress
-              value={
-                planInfo.uso.panfletos.total ? (planInfo.uso.panfletos.usado / planInfo.uso.panfletos.total) * 100 : 0
-              }
+              value={calculateProgress(panfletos.usado, panfletos.total)}
               className={planInfo.limitReached?.panfletos ? "bg-red-200" : ""}
             />
-            {planInfo.uso.panfletos.total === 0 && (
+            {panfletos.total === 0 && (
               <p className="text-xs text-muted-foreground mt-1">Não disponível no plano atual</p>
             )}
           </div>
@@ -153,18 +173,18 @@ export function PlanoDashboardCard() {
               <span className="flex items-center">
                 <Image className="h-4 w-4 mr-1" /> Imagens por Produto
               </span>
-              <span>{planInfo.uso.imagensPorProduto}</span>
+              <span>{imagensPorProduto}</span>
             </div>
           </div>
 
-          {planInfo.planoDetalhes?.whatsapp > 0 && (
+          {planoDetalhes?.whatsapp > 0 && (
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="flex items-center">
                   <Zap className="h-4 w-4 mr-1" /> WhatsApp Integrado
                 </span>
                 <span>
-                  {planInfo.planoDetalhes.whatsapp} conta{planInfo.planoDetalhes.whatsapp > 1 ? "s" : ""}
+                  {planoDetalhes.whatsapp} conta{planoDetalhes.whatsapp > 1 ? "s" : ""}
                 </span>
               </div>
             </div>

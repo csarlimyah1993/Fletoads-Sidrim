@@ -1,58 +1,63 @@
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
-import { LojaEditForm } from "@/components/perfil/loja-edit-form"
+"use client"
 
-export const metadata = {
-  title: "Editar Perfil da Loja | FletoAds",
-  description: "Edite as informações da sua loja",
-}
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
-async function getLoja(userId: string) {
-  try {
-    const { db } = await connectToDatabase()
+// Import your existing editor component
+import PerfilEditorPageClient from "@/app/dashboard/perfil/editar/perfil-editor-page-client"
 
-    // Buscar todas as lojas para este usuário
-    const lojas = await db
-      .collection("lojas")
-      .find({
-        $or: [{ usuarioId: userId }, { userId: userId }],
-      })
-      .toArray()
+export default function EditarPerfilPage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-    if (lojas.length === 0) {
-      return null
-    }
+  useEffect(() => {
+    // This is just to ensure the page loads properly
+    // The actual data fetching is handled by PerfilEditorPageClient
+    setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
+  }, [])
 
-    // Usar a primeira loja encontrada
-    const loja = lojas[0]
-
-    // Converter o ObjectId para string para serialização
-    return {
-      ...loja,
-      _id: loja._id.toString(),
-    }
-  } catch (error) {
-    console.error("Erro ao buscar loja:", error)
-    return null
-  }
-}
-
-export default async function EditarPerfilDaLojaPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Carregando informações...</p>
+      </div>
+    )
   }
 
-  const userId = session.user.id
-  const loja = await getLoja(userId)
+  if (error) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Erro ao Carregar Perfil</h1>
+          <p className="text-muted-foreground">
+            Não foi possível carregar seus dados. Por favor, tente novamente mais tarde.
+          </p>
+        </div>
 
-  if (!loja) {
-    redirect("/dashboard/perfil-da-loja")
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+
+        <button
+          onClick={() => router.refresh()}
+          className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    )
   }
 
-  return <LojaEditForm loja={loja} />
+  // Use your existing editor component
+  return <PerfilEditorPageClient />
 }
 

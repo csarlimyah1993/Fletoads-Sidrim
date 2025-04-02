@@ -3,6 +3,51 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
+
+// Define plan limits
+const limites = {
+  gratuito: {
+    panfletos: 5,
+    clientes: 50,
+    campanhas: 2,
+    vitrine: 10,
+    imagensPorProduto: 1,
+    whatsapp: 0,
+    preco: 0,
+    popular: false,
+  },
+  basico: {
+    panfletos: 20,
+    clientes: 200,
+    campanhas: 5,
+    vitrine: 30,
+    imagensPorProduto: 3,
+    whatsapp: 1,
+    preco: 49.9,
+    popular: true,
+  },
+  profissional: {
+    panfletos: 100,
+    clientes: 1000,
+    campanhas: 20,
+    vitrine: 100,
+    imagensPorProduto: 5,
+    whatsapp: 2,
+    preco: 99.9,
+    popular: false,
+  },
+  empresarial: {
+    panfletos: -1, // ilimitado
+    clientes: -1, // ilimitado
+    campanhas: -1, // ilimitado
+    vitrine: -1, // ilimitado
+    imagensPorProduto: 10,
+    whatsapp: 5,
+    preco: 199.9,
+    popular: false,
+  },
+}
 
 export async function GET(request: Request) {
   try {
@@ -18,31 +63,13 @@ export async function GET(request: Request) {
     const userId = url.searchParams.get("userId") || session.user.id
 
     // Conectar ao banco de dados
-    const { db } = await connectToDatabase()
+    const { db: clientDb } = await connectToDatabase()
+
+    // Use the client's db connection
+    const db = mongoose.connection.db || clientDb
 
     if (!db) {
       throw new Error("Falha ao conectar ao banco de dados")
-    }
-
-    // Verificar se a coleção usuarios existe
-    const collections = await db.listCollections({ name: "usuarios" }).toArray()
-
-    // Se a coleção não existir, criar e retornar plano padrão
-    if (collections.length === 0) {
-      await db.createCollection("usuarios")
-      return NextResponse.json({
-        plano: "gratuito",
-        limites: {
-          panfletos: 5,
-          clientes: 50,
-          campanhas: 2,
-        },
-        utilizacao: {
-          panfletos: 0,
-          clientes: 0,
-          campanhas: 0,
-        },
-      })
     }
 
     // Buscar usuário
@@ -65,62 +92,102 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    // Definir limites baseados no plano
-    const limites = {
-      gratuito: {
-        panfletos: 5,
-        clientes: 50,
-        campanhas: 2,
-      },
-      basico: {
-        panfletos: 20,
-        clientes: 200,
-        campanhas: 5,
-      },
-      profissional: {
-        panfletos: 100,
-        clientes: 1000,
-        campanhas: 20,
-      },
-      empresarial: {
-        panfletos: -1, // ilimitado
-        clientes: -1, // ilimitado
-        campanhas: -1, // ilimitado
-      },
+    // Obter plano do usuário ou definir como gratuito
+    let planoUsuario = "gratuito"
+    let planoDetalhes = null
+
+    // Se o usuário tem um plano definido
+    if (usuario.plano) {
+      // Se o plano é um ID, buscar detalhes do plano
+      if (ObjectId.isValid(usuario.plano)) {
+        try {
+          const planoDB = await db.collection("planos").findOne({
+            _id: new ObjectId(usuario.plano),
+          })
+
+          if (planoDB) {
+            planoUsuario = planoDB.nome || "gratuito"
+            planoDetalhes = planoDB
+          }
+        } catch (error) {
+          console.error("Erro ao buscar plano:", error)
+        }
+      } else {
+        // Se o plano é uma string (nome do plano)
+        planoUsuario = usuario.plano
+      }
     }
 
-    // Obter plano do usuário ou definir como gratuito
-    const planoUsuario = usuario.plano || "gratuito"
+    // Usar os limites predefinidos ou do plano do banco de dados
+    const planoLimites = planoDetalhes?.limites || limites[planoUsuario as keyof typeof limites] || limites.gratuito
 
     // Contar recursos utilizados
     const panfletosCount = await db.collection("panfletos").countDocuments({ userId })
     const clientesCount = await db.collection("clientes").countDocuments({ userId })
     const campanhasCount = await db.collection("campanhas").countDocuments({ userId })
+    const produtosCount = await db.collection("produtos").countDocuments({ userId })
 
-    return NextResponse.json({
-      plano: planoUsuario,
-      limites: limites[planoUsuario as keyof typeof limites],
-      utilizacao: {
-        panfletos: panfletosCount,
-        clientes: clientesCount,
-        campanhas: campanhasCount,
+    // Verificar se os limites foram atingidos
+    const limitReached = {
+      panfletos: planoLimites.panfletos !== -1 && panfletosCount >= planoLimites.panfletos,
+      clientes: planoLimites.clientes !== -1 && clientesCount >= planoLimites.clientes,
+      campanhas: planoLimites.campanhas !== -1 && campanhasCount >= planoLimites.campanhas,
+      produtos: planoLimites.vitrine !== -1 && produtosCount >= planoLimites.vitrine,
+    }
+
+    // Construir resposta
+    const response = {
+      planoId: usuario.plano || "gratuito",
+      planoNome: planoUsuario,
+      isFreeTier: planoUsuario === "gratuito",
+      limitReached,
+      uso: {
+        produtos: {
+          usado: produtosCount,
+          total: planoLimites.vitrine === -1 ? "Ilimitado" : planoLimites.vitrine,
+        },
+        panfletos: {
+          usado: panfletosCount,
+          total: planoLimites.panfletos === -1 ? "Ilimitado" : planoLimites.panfletos,
+        },
+        clientes: {
+          usado: clientesCount,
+          total: planoLimites.clientes === -1 ? "Ilimitado" : planoLimites.clientes,
+        },
+        campanhas: {
+          usado: campanhasCount,
+          total: planoLimites.campanhas === -1 ? "Ilimitado" : planoLimites.campanhas,
+        },
+        imagensPorProduto: planoLimites.imagensPorProduto,
       },
-    })
+      planoDetalhes: {
+        preco: planoLimites.preco,
+        popular: planoLimites.popular,
+        whatsapp: planoLimites.whatsapp,
+      },
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Erro ao buscar informações do plano:", error)
 
     // Retornar plano padrão em caso de erro
     return NextResponse.json({
-      plano: "gratuito",
-      limites: {
-        panfletos: 5,
-        clientes: 50,
-        campanhas: 2,
+      planoId: "gratuito",
+      planoNome: "Grátis",
+      isFreeTier: true,
+      limitReached: false,
+      uso: {
+        produtos: { usado: 0, total: limites.gratuito.vitrine },
+        panfletos: { usado: 0, total: limites.gratuito.panfletos },
+        clientes: { usado: 0, total: limites.gratuito.clientes },
+        campanhas: { usado: 0, total: limites.gratuito.campanhas },
+        imagensPorProduto: limites.gratuito.imagensPorProduto,
       },
-      utilizacao: {
-        panfletos: 0,
-        clientes: 0,
-        campanhas: 0,
+      planoDetalhes: {
+        preco: limites.gratuito.preco,
+        popular: limites.gratuito.popular,
+        whatsapp: limites.gratuito.whatsapp,
       },
     })
   }

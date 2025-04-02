@@ -35,6 +35,7 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
   const { setTheme, theme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
   // Verificar se estamos em uma página de vitrine ou admin
   const isVitrinePage = pathname.startsWith("/vitrine/")
@@ -46,6 +47,11 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
     if (storedState !== null) {
       setIsCollapsed(storedState === "true")
     }
+  }, [])
+
+  // Efeito para marcar quando o componente está montado
+  useEffect(() => {
+    setMounted(true)
   }, [])
 
   // Salvar o estado de colapso da sidebar no localStorage
@@ -246,7 +252,15 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
               aria-label="Alternar tema"
               className="w-full flex justify-center"
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {mounted ? (
+                theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )
+              ) : (
+                <div className="h-5 w-5" /> // Placeholder enquanto não está montado
+              )}
             </Button>
           ) : (
             <div className="flex items-center justify-between">
@@ -263,7 +277,15 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 aria-label="Alternar tema"
               >
-                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {mounted ? (
+                  theme === "dark" ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )
+                ) : (
+                  <div className="h-5 w-5" /> // Placeholder enquanto não está montado
+                )}
               </Button>
             </div>
           )}

@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
-import { UsuarioPerfilForm } from "@/components/perfil/usuario-form"
-import { LojaPerfilForm } from "@/components/perfil/loja-form"
+import { UsuarioPerfilForm } from "@/components/perfil/usuario-perfil-form"
+import { CriarLojaForm } from "@/components/perfil/criar-loja-form"
 
 export default function PerfilEditorClient({
   initialUsuario,
@@ -28,7 +28,7 @@ export default function PerfilEditorClient({
       </TabsContent>
       <TabsContent value="loja" className="space-y-4">
         <Card className="p-6">
-          <LojaPerfilForm loja={initialLoja} isEditing={true} />
+          <CriarLojaForm loja={initialLoja} isEditing={true} />
         </Card>
       </TabsContent>
     </Tabs>

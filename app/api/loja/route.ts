@@ -2,117 +2,111 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
-    const userId = session.user.id
-    const data = await request.json()
-
-    const { db } = await connectToDatabase()
-
-    // Buscar a loja do usuário
-    const loja = await db.collection("lojas").findOne({
-      $or: [{ usuarioId: userId }, { userId: userId }],
-    })
-
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    // Atualizar os dados da loja
-    const resultado = await db
-      .collection("lojas")
-      .updateOne({ _id: new ObjectId(loja._id) }, { $set: { ...data, dataAtualizacao: new Date() } })
-
-    if (!resultado.acknowledged) {
-      return NextResponse.json({ error: "Falha ao atualizar loja" }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, message: "Loja atualizada com sucesso" })
-  } catch (error) {
-    console.error("Erro ao atualizar loja:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
-  }
-}
+import Loja from "@/lib/models/loja"
+import Usuario from "@/lib/models/usuario"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
-    // Buscar a loja do usuário
-    const loja = await db.collection("lojas").findOne({
-      $or: [{ usuarioId: userId }, { userId: userId }],
-    })
+    // Buscar loja pelo ID do usuário
+    const usuarioId = session.user.id
+
+    // Usar o modelo Loja diretamente
+    const loja = await Loja.findOne({ usuarioId })
 
     if (!loja) {
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Converter o ObjectId para string
-    return NextResponse.json({
-      ...loja,
-      _id: loja._id.toString(),
-    })
+    return NextResponse.json({ loja })
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao buscar loja" }, { status: 500 })
   }
 }
 
-// Adicione o método POST para criar uma nova loja
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id
     const data = await request.json()
+    const usuarioId = session.user.id
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
-    // Criar uma nova loja
-    const novaLoja = {
-      ...data,
-      usuarioId: userId,
-      dataCriacao: new Date(),
-      dataAtualizacao: new Date(),
-      ativo: true,
+    // Verificar se o usuário existe
+    const usuario = await Usuario.findById(usuarioId)
+    if (!usuario) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    const resultado = await db.collection("lojas").insertOne(novaLoja)
+    // Verificar se já existe uma loja para este usuário
+    let loja = await Loja.findOne({ usuarioId })
 
-    if (!resultado.acknowledged) {
-      return NextResponse.json({ error: "Falha ao criar loja" }, { status: 500 })
+    if (loja) {
+      // Atualizar loja existente
+      Object.assign(loja, {
+        ...data,
+        dataAtualizacao: new Date(),
+      })
+      await loja.save()
+    } else {
+      // Criar nova loja
+      loja = new Loja({
+        ...data,
+        usuarioId,
+        ativo: true,
+        dataCriacao: new Date(),
+        dataAtualizacao: new Date(),
+      })
+      await loja.save()
+
+      // Atualizar o usuário com o ID da loja
+      usuario.lojaId = loja._id
+      await usuario.save()
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Loja criada com sucesso",
-      loja: {
-        ...novaLoja,
-        _id: resultado.insertedId.toString(),
-      },
-    })
+    return NextResponse.json({ loja })
   } catch (error) {
-    console.error("Erro ao criar loja:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    console.error("Erro ao salvar loja:", error)
+    return NextResponse.json({ error: "Erro ao salvar loja" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const usuarioId = session.user.id
+
+    await connectToDatabase()
+
+    // Usar o modelo Loja diretamente
+    const loja = await Loja.findOneAndDelete({ usuarioId })
+
+    if (!loja) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    }
+
+    // Atualizar o usuário para remover a referência à loja
+    await Usuario.findByIdAndUpdate(usuarioId, { $unset: { lojaId: 1 } })
+
+    return NextResponse.json({ message: "Loja excluída com sucesso" })
+  } catch (error) {
+    console.error("Erro ao excluir loja:", error)
+    return NextResponse.json({ error: "Erro ao excluir loja" }, { status: 500 })
   }
 }
 

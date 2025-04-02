@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, Check, Loader2 } from "lucide-react"
+import { Bell, Check, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
@@ -17,17 +17,26 @@ export function Notificacoes() {
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Buscar notificações
   const fetchNotificacoes = async () => {
     try {
       setIsLoading(true)
+      setError(null)
+
       const response = await fetch("/api/notificacoes?limit=10")
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Erro na resposta da API:", errorData)
-        throw new Error(errorData.error || "Erro ao buscar notificações")
+        let errorMessage = "Erro ao buscar notificações"
+        try {
+          const errorData = await response.json().catch(() => ({}))
+          console.error("Erro na resposta da API:", errorData)
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          console.error("Erro ao processar resposta de erro:", e)
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -35,7 +44,9 @@ export function Notificacoes() {
       setNaoLidas(data.naoLidas || 0)
     } catch (error) {
       console.error("Erro ao buscar notificações:", error)
-      // Não mostrar toast de erro para evitar spam ao usuário
+      setError((error as Error).message || "Erro ao buscar notificações")
+      setNotificacoes([])
+      setNaoLidas(0)
     } finally {
       setIsLoading(false)
     }
@@ -73,6 +84,7 @@ export function Notificacoes() {
       setNaoLidas((prev) => Math.max(0, prev - 1))
     } catch (error) {
       console.error("Erro ao marcar notificação como lida:", error)
+      toast.error("Erro ao marcar notificação como lida")
     }
   }
 
@@ -106,10 +118,15 @@ export function Notificacoes() {
 
   // Formatar data relativa
   const formatarDataRelativa = (data: string) => {
-    return formatDistanceToNow(new Date(data), {
-      addSuffix: true,
-      locale: ptBR,
-    })
+    try {
+      return formatDistanceToNow(new Date(data), {
+        addSuffix: true,
+        locale: ptBR,
+      })
+    } catch (error) {
+      console.error("Erro ao formatar data:", error)
+      return "Data desconhecida"
+    }
   }
 
   // Obter cor do ícone com base no tipo
@@ -152,6 +169,15 @@ export function Notificacoes() {
         {isLoading ? (
           <div className="flex justify-center items-center p-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <Bell className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Erro ao carregar notificações</p>
+            <Button variant="ghost" size="sm" onClick={fetchNotificacoes} className="mt-2">
+              <RefreshCw className="mr-1 h-3 w-3" />
+              Tentar novamente
+            </Button>
           </div>
         ) : notificacoes.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">

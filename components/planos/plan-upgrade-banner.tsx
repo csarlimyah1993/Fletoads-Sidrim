@@ -58,6 +58,9 @@ export function PlanUpgradeBanner() {
 
     const { limites, utilizacao } = planInfo
 
+    // Verificar se limites e utilizacao existem
+    if (!limites || !utilizacao) return false
+
     // Se qualquer recurso estiver acima de 80% do limite
     return (
       (limites.panfletos > 0 && utilizacao.panfletos / limites.panfletos > 0.8) ||
@@ -77,11 +80,17 @@ export function PlanUpgradeBanner() {
     return Math.min(Math.round((usado / limite) * 100), 100)
   }
 
-  const porcentagemPanfletos = calcularPorcentagem(planInfo.utilizacao.panfletos, planInfo.limites.panfletos)
+  const porcentagemPanfletos = calcularPorcentagem(
+    planInfo.utilizacao?.panfletos || 0,
+    planInfo.limites?.panfletos || 1,
+  )
 
-  const porcentagemClientes = calcularPorcentagem(planInfo.utilizacao.clientes, planInfo.limites.clientes)
+  const porcentagemClientes = calcularPorcentagem(planInfo.utilizacao?.clientes || 0, planInfo.limites?.clientes || 1)
 
-  const porcentagemCampanhas = calcularPorcentagem(planInfo.utilizacao.campanhas, planInfo.limites.campanhas)
+  const porcentagemCampanhas = calcularPorcentagem(
+    planInfo.utilizacao?.campanhas || 0,
+    planInfo.limites?.campanhas || 1,
+  )
 
   return (
     <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
@@ -98,7 +107,8 @@ export function PlanUpgradeBanner() {
                 <div className="flex justify-between text-xs">
                   <span>Panfletos</span>
                   <span>
-                    {planInfo.utilizacao.panfletos}/{planInfo.limites.panfletos > 0 ? planInfo.limites.panfletos : "∞"}
+                    {planInfo.utilizacao?.panfletos || 0}/
+                    {planInfo.limites?.panfletos > 0 ? planInfo.limites?.panfletos : "∞"}
                   </span>
                 </div>
                 <Progress value={porcentagemPanfletos} className="h-2" />
@@ -108,7 +118,8 @@ export function PlanUpgradeBanner() {
                 <div className="flex justify-between text-xs">
                   <span>Clientes</span>
                   <span>
-                    {planInfo.utilizacao.clientes}/{planInfo.limites.clientes > 0 ? planInfo.limites.clientes : "∞"}
+                    {planInfo.utilizacao?.clientes || 0}/
+                    {planInfo.limites?.clientes > 0 ? planInfo.limites?.clientes : "∞"}
                   </span>
                 </div>
                 <Progress value={porcentagemClientes} className="h-2" />
@@ -118,7 +129,8 @@ export function PlanUpgradeBanner() {
                 <div className="flex justify-between text-xs">
                   <span>Campanhas</span>
                   <span>
-                    {planInfo.utilizacao.campanhas}/{planInfo.limites.campanhas > 0 ? planInfo.limites.campanhas : "∞"}
+                    {planInfo.utilizacao?.campanhas || 0}/
+                    {planInfo.limites?.campanhas > 0 ? planInfo.limites?.campanhas : "∞"}
                   </span>
                 </div>
                 <Progress value={porcentagemCampanhas} className="h-2" />

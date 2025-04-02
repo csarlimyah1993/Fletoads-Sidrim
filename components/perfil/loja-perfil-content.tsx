@@ -95,7 +95,7 @@ export function LojaPerfilContent({ loja }: LojaPerfilContentProps) {
             variant="outline"
             size="sm"
             className="bg-background/80 backdrop-blur-sm"
-            onClick={() => router.push("/perfil-da-loja/editar")}
+            onClick={() => router.push("/dashboard/perfil-da-loja/editar")}
           >
             <Edit className="h-4 w-4 mr-2" />
             Editar
@@ -170,7 +170,7 @@ export function LojaPerfilContent({ loja }: LojaPerfilContentProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
         <LojaInfoCard loja={loja} />
         {/* Usando o componente QRCodeGenerator com as props corretas */}
-        <QRCodeGenerator url={storeUrl} storeName={loja.nome || "Minha Loja"} logoUrl={loja.logo} />
+        <QRCodeGenerator url={storeUrl} storeName={loja.nome || "Minha Loja"} storeId={loja._id} logoUrl={loja.logo} />
         <PlanoDashboardCard />
       </div>
 
@@ -199,3 +199,4 @@ export function LojaPerfilContent({ loja }: LojaPerfilContentProps) {
     </div>
   )
 }
+

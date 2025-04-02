@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import { Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { UsuarioPerfilForm } from "@/components/perfil/usuario-form"
-import { LojaPerfilForm } from "@/components/perfil/loja-form"
+import { UsuarioPerfilForm } from "@/components/perfil/usuario-perfil-form"
+import { LojaPerfilForm } from "@/components/perfil/loja-perfil-form"
 import { User, Store } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/hooks/use-toast"
 
 export default function PerfilEditorPageClient() {
   const [activeTab, setActiveTab] = useState<string>("usuario")
@@ -36,7 +36,7 @@ export default function PerfilEditorPageClient() {
         // It's okay if the store doesn't exist yet
         if (storeResponse.status !== 404) {
           const storeData = await storeResponse.json()
-          setLoja(storeData)
+          setLoja(storeData.loja)
           console.log("Store data fetched:", storeData)
         } else {
           console.log("No store found, will create a new one")
@@ -45,7 +45,11 @@ export default function PerfilEditorPageClient() {
       } catch (error) {
         console.error("Error fetching profile data:", error)
         setError(error instanceof Error ? error.message : "Erro desconhecido")
-        toast.error("Erro ao carregar dados do perfil. Por favor, tente novamente.")
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar dados do perfil. Por favor, tente novamente.",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -114,7 +118,7 @@ export default function PerfilEditorPageClient() {
                 Atualize as informações da sua loja, incluindo CNPJ, endereço e contatos.
               </CardDescription>
             </CardHeader>
-            <CardContent>{loja && <LojaPerfilForm loja={loja} isEditing={Object.keys(loja).length > 0} />}</CardContent>
+            <CardContent>{loja && <LojaPerfilForm loja={loja} />}</CardContent>
           </Card>
         </TabsContent>
       </Tabs>

@@ -1,290 +1,229 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell } from "lucide-react"
+import { Bell, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/components/ui/use-toast"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "sonner"
+import { formatDistanceToNow } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import Link from "next/link"
 
-interface Notification {
-  id: string
-  title: string
-  message: string
-  date: string
-  read: boolean
-  type: "info" | "success" | "warning" | "error"
-}
-
-export function NotificationsDropdown() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
+export function Notificacoes() {
+  const [notificacoes, setNotificacoes] = useState<any[]>([])
+  const [naoLidas, setNaoLidas] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
-  const { toast } = useToast()
+  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const fetchNotifications = async () => {
+  // Buscar notificações
+  const fetchNotificacoes = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/notifications")
+      setError(null)
+
+      const response = await fetch("/api/notificacoes?limit=10")
+
       if (!response.ok) {
-        throw new Error("Falha ao carregar notificações")
+        let errorMessage = "Erro ao buscar notificações"
+        try {
+          const errorData = await response.json()
+          console.error("Erro na resposta da API:", errorData)
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          console.error("Erro ao processar resposta de erro:", e)
+        }
+        throw new Error(errorMessage)
       }
+
       const data = await response.json()
-
-      // Garantir que data seja um array
-      const notificationsArray = Array.isArray(data) ? data : data.notifications || []
-
-      // Garantir que cada notificação tenha um ID válido
-      const validNotifications = notificationsArray.map((notification: any) => ({
-        ...notification,
-        id: notification.id || notification._id || `temp-${Math.random().toString(36).substring(2, 9)}`,
-      }))
-
-      setNotifications(validNotifications)
+      setNotificacoes(data.notificacoes || [])
+      setNaoLidas(data.naoLidas || 0)
     } catch (error) {
-      console.error("Erro ao carregar notificações:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar suas notificações. Tente novamente mais tarde.",
-        variant: "destructive",
-      })
-      // Em caso de erro, garantir que notifications seja um array vazio
-      setNotifications([])
+      console.error("Erro ao buscar notificações:", error)
+      setError((error as Error).message || "Erro ao buscar notificações")
+      setNotificacoes([])
+      setNaoLidas(0)
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Buscar notificações ao carregar o componente
   useEffect(() => {
-    fetchNotifications()
-  }, [toast])
+    fetchNotificacoes()
+  }, [])
 
-  const handleMarkAsRead = async (id: string) => {
+  // Buscar notificações quando o popover é aberto
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotificacoes()
+    }
+  }, [isOpen])
+
+  // Marcar notificação como lida
+  const marcarComoLida = async (id: string) => {
     try {
-      console.log("Marcando notificação como lida:", id)
-
-      // Atualizar localmente primeiro para melhor UX
-      setNotifications((prev) =>
-        prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
-      )
-
-      const response = await fetch(`/api/notifications/${id}/read`, {
+      const response = await fetch(`/api/notificacoes/${id}`, {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ lida: true }),
       })
 
       if (!response.ok) {
-        console.error("Erro na resposta:", await response.text())
-        throw new Error("Falha ao marcar notificação como lida")
+        throw new Error("Erro ao marcar notificação como lida")
       }
 
-      // Já atualizamos o estado localmente, não precisamos fazer nada mais aqui
+      // Atualizar estado local
+      setNotificacoes(notificacoes.map((notif) => (notif._id === id ? { ...notif, lida: true } : notif)))
+      setNaoLidas((prev) => Math.max(0, prev - 1))
     } catch (error) {
       console.error("Erro ao marcar notificação como lida:", error)
-
-      // Reverter a mudança local em caso de erro
-      setNotifications((prev) =>
-        prev.map((notification) => (notification.id === id ? { ...notification, read: false } : notification)),
-      )
-
-      toast({
-        title: "Erro",
-        description: "Não foi possível marcar a notificação como lida. Tente novamente mais tarde.",
-        variant: "destructive",
-      })
     }
   }
 
-  const handleMarkAllAsRead = async () => {
+  // Marcar todas como lidas
+  const marcarTodasComoLidas = async () => {
     try {
-      // Atualizar localmente primeiro para melhor UX
-      const previousNotifications = [...notifications]
-      setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
-
-      const response = await fetch("/api/notifications/read-all", {
-        method: "PUT",
+      setIsMarkingAsRead(true)
+      const response = await fetch("/api/notificacoes/marcar-como-lida", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ todas: true }),
       })
 
       if (!response.ok) {
-        throw new Error("Falha ao marcar todas as notificações como lidas")
+        throw new Error("Erro ao marcar notificações como lidas")
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Todas as notificações foram marcadas como lidas.",
-      })
+      // Atualizar estado local
+      setNotificacoes(notificacoes.map((notif) => ({ ...notif, lida: true })))
+      setNaoLidas(0)
+      toast.success("Todas as notificações foram marcadas como lidas")
     } catch (error) {
       console.error("Erro ao marcar todas as notificações como lidas:", error)
-
-      // Reverter para o estado anterior em caso de erro
-      setNotifications([...notifications])
-
-      toast({
-        title: "Erro",
-        description: "Não foi possível marcar todas as notificações como lidas. Tente novamente mais tarde.",
-        variant: "destructive",
-      })
+      toast.error("Erro ao marcar notificações como lidas")
+    } finally {
+      setIsMarkingAsRead(false)
     }
   }
 
-  // Garantir que notifications seja um array antes de chamar filter
-  const unreadCount = Array.isArray(notifications)
-    ? notifications.filter((notification) => !notification.read).length
-    : 0
+  // Formatar data relativa
+  const formatarDataRelativa = (data: string) => {
+    return formatDistanceToNow(new Date(data), {
+      addSuffix: true,
+      locale: ptBR,
+    })
+  }
 
-  // Criar notificações de exemplo se não houver nenhuma
-  useEffect(() => {
-    if (!isLoading && notifications.length === 0) {
-      // Adicionar notificações de exemplo apenas para demonstração
-      const exampleNotifications: Notification[] = [
-        {
-          id: "1",
-          title: "Bem-vindo ao FletoAds",
-          message: "Obrigado por se cadastrar! Explore todas as funcionalidades.",
-          date: new Date().toISOString(),
-          read: false,
-          type: "info",
-        },
-        {
-          id: "2",
-          title: "Dica: Crie seu primeiro panfleto",
-          message: "Comece a criar seus panfletos digitais agora mesmo.",
-          date: new Date(Date.now() - 3600000).toISOString(), // 1 hora atrás
-          read: false,
-          type: "success",
-        },
-      ]
-      setNotifications(exampleNotifications)
+  // Obter cor do ícone com base no tipo
+  const getIconColor = (tipo: string) => {
+    switch (tipo) {
+      case "success":
+        return "text-green-500"
+      case "warning":
+        return "text-yellow-500"
+      case "error":
+        return "text-red-500"
+      default:
+        return "text-blue-500"
     }
-  }, [isLoading, notifications.length])
+  }
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-              {unreadCount > 9 ? "9+" : unreadCount}
+          {naoLidas > 0 && (
+            <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+              {naoLidas > 9 ? "9+" : naoLidas}
             </span>
           )}
-          <span className="sr-only">Notificações</span>
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notificações</span>
-          {notifications.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto p-0 text-xs text-muted-foreground"
-              onClick={() => {
-                handleMarkAllAsRead()
-                setIsOpen(false)
-              }}
-            >
-              Marcar todas como lidas
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="flex items-center justify-between p-4">
+          <h3 className="font-medium">Notificações</h3>
+          {naoLidas > 0 && (
+            <Button variant="ghost" size="sm" onClick={marcarTodasComoLidas} disabled={isMarkingAsRead}>
+              {isMarkingAsRead ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+              <span className="text-xs">Marcar todas como lidas</span>
             </Button>
           )}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+        </div>
+        <Separator />
         {isLoading ? (
-          <div className="p-2 space-y-2">
-            {Array(3)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="space-y-1 flex-1">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-3 w-4/5" />
+          <div className="flex justify-center items-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <Bell className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Erro ao carregar notificações</p>
+            <Button variant="ghost" size="sm" onClick={fetchNotificacoes} className="mt-2">
+              Tentar novamente
+            </Button>
+          </div>
+        ) : notificacoes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <Bell className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Você não tem notificações</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[300px]">
+            <div className="divide-y">
+              {notificacoes.map((notificacao) => (
+                <div key={notificacao._id} className={`p-4 ${notificacao.lida ? "bg-background" : "bg-muted/30"}`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className={`text-sm font-medium ${!notificacao.lida && "text-primary"}`}>
+                      {notificacao.titulo}
+                    </h4>
+                    <span className="text-xs text-gray-500">{formatarDataRelativa(notificacao.dataCriacao)}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{notificacao.mensagem}</p>
+                  <div className="flex justify-between items-center">
+                    {notificacao.link ? (
+                      <Link
+                        href={notificacao.link}
+                        className="text-xs text-blue-500 hover:underline"
+                        onClick={() => {
+                          if (!notificacao.lida) {
+                            marcarComoLida(notificacao._id)
+                          }
+                          setIsOpen(false)
+                        }}
+                      >
+                        Ver detalhes
+                      </Link>
+                    ) : (
+                      <span></span>
+                    )}
+                    {!notificacao.lida && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => marcarComoLida(notificacao._id)}
+                      >
+                        Marcar como lida
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
-          </div>
-        ) : (
-          <DropdownMenuGroup className="max-h-[300px] overflow-y-auto">
-            {notifications.map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                className={`flex flex-col items-start p-3 cursor-pointer ${!notification.read ? "bg-muted/50" : ""}`}
-                onClick={() => {
-                  if (!notification.read) {
-                    handleMarkAsRead(notification.id)
-                  }
-                  setIsOpen(false)
-                }}
-              >
-                <div className="flex items-start gap-2 w-full">
-                  <div className={`h-2 w-2 mt-1.5 rounded-full ${getNotificationColor(notification.type)}`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{notification.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{formatDate(notification.date)}</p>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
+            </div>
+          </ScrollArea>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <a
-            href="/notificacoes"
-            className="w-full text-center text-xs cursor-pointer"
-            onClick={() => setIsOpen(false)}
-          >
-            Ver todas as notificações
-          </a>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverContent>
+    </Popover>
   )
-}
-
-function getNotificationColor(type: "info" | "success" | "warning" | "error") {
-  switch (type) {
-    case "info":
-      return "bg-blue-500"
-    case "success":
-      return "bg-green-500"
-    case "warning":
-      return "bg-yellow-500"
-    case "error":
-      return "bg-red-500"
-    default:
-      return "bg-blue-500"
-  }
-}
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInMs = now.getTime() - date.getTime()
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} min atrás`
-  } else if (diffInHours < 24) {
-    return `${diffInHours} h atrás`
-  } else if (diffInDays < 7) {
-    return `${diffInDays} dias atrás`
-  } else {
-    return date.toLocaleDateString("pt-BR")
-  }
 }
 
