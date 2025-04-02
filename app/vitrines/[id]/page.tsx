@@ -316,13 +316,19 @@ async function getVitrine(id: string): Promise<VitrineData | null> {
   }
 }
 
-export default async function VitrinePage({ params }: { params: { id: string } }) {
-  // Ensure params.id is available before using it
-  if (!params || !params.id) {
+interface PageProps {
+  params: { id: string }
+}
+
+export default async function VitrinePage({ params }: PageProps) {
+  // Corrigindo o erro de params.id
+  const id = params.id
+
+  if (!id) {
     notFound()
   }
 
-  const vitrine = await getVitrine(params.id)
+  const vitrine = await getVitrine(id)
 
   if (!vitrine) {
     notFound()
@@ -344,14 +350,23 @@ export default async function VitrinePage({ params }: { params: { id: string } }
 
   // Get coordinates for map
   const hasCoordinates = vitrine.endereco?.latitude && vitrine.endereco?.longitude
-  const latitude = hasCoordinates ? Number.parseFloat(vitrine.endereco.latitude) : null
-  const longitude = hasCoordinates ? Number.parseFloat(vitrine.endereco.longitude) : null
+  const latitude = hasCoordinates && vitrine.endereco?.latitude ? Number.parseFloat(vitrine.endereco.latitude) : null
+  const longitude = hasCoordinates && vitrine.endereco?.longitude ? Number.parseFloat(vitrine.endereco.longitude) : null
 
   // Get full address for geocoding if coordinates are not available
-  const fullAddress =
-    !hasCoordinates && vitrine.endereco
-      ? `${vitrine.endereco.rua}, ${vitrine.endereco.numero}, ${vitrine.endereco.cidade}, ${vitrine.endereco.estado}, ${vitrine.endereco.cep}`
-      : null
+  let fullAddress = ""
+  if (!hasCoordinates && vitrine.endereco) {
+    const endereco = vitrine.endereco
+    const parts = [
+      endereco.rua || "",
+      endereco.numero || "",
+      endereco.cidade || "",
+      endereco.estado || "",
+      endereco.cep || "",
+    ].filter(Boolean) // Remove empty strings
+
+    fullAddress = parts.join(", ")
+  }
 
   return (
     <div className="min-h-screen bg-background">

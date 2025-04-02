@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ export interface BusinessHoursSchedule {
 }
 
 interface BusinessHoursSelectorProps {
-  value: BusinessHoursSchedule
+  value: BusinessHoursSchedule | Record<string, any> | undefined
   onChange: (value: BusinessHoursSchedule) => void
 }
 
@@ -38,7 +38,7 @@ const defaultHours: BusinessHoursSchedule = {
   domingo: { open: false, abertura: "00:00", fechamento: "00:00" },
 }
 
-const dayNames = {
+const dayNames: Record<string, string> = {
   segunda: "Segunda-feira",
   terca: "Terça-feira",
   quarta: "Quarta-feira",
@@ -49,8 +49,48 @@ const dayNames = {
 }
 
 export function BusinessHoursSelector({ value, onChange }: BusinessHoursSelectorProps) {
-  // Initialize with default hours if value is undefined
-  const [hours, setHours] = useState<BusinessHoursSchedule>(value || defaultHours)
+  // Garantir que temos um valor válido para hours
+  const [hours, setHours] = useState<BusinessHoursSchedule>(() => {
+    // Se value for undefined ou não tiver as propriedades necessárias, use defaultHours
+    if (!value) return { ...defaultHours }
+
+    // Verificar se todas as propriedades necessárias existem
+    const validValue: BusinessHoursSchedule = { ...defaultHours }
+
+    // Copiar valores existentes
+    Object.keys(dayNames).forEach((day) => {
+      const key = day as keyof BusinessHoursSchedule
+      if (value[key] && typeof value[key] === "object") {
+        validValue[key] = {
+          open: typeof value[key].open === "boolean" ? value[key].open : defaultHours[key].open,
+          abertura: value[key].abertura || defaultHours[key].abertura,
+          fechamento: value[key].fechamento || defaultHours[key].fechamento,
+        }
+      }
+    })
+
+    return validValue
+  })
+
+  // Atualizar hours quando value mudar
+  useEffect(() => {
+    if (value) {
+      const validValue: BusinessHoursSchedule = { ...defaultHours }
+
+      Object.keys(dayNames).forEach((day) => {
+        const key = day as keyof BusinessHoursSchedule
+        if (value[key] && typeof value[key] === "object") {
+          validValue[key] = {
+            open: typeof value[key].open === "boolean" ? value[key].open : defaultHours[key].open,
+            abertura: value[key].abertura || defaultHours[key].abertura,
+            fechamento: value[key].fechamento || defaultHours[key].fechamento,
+          }
+        }
+      })
+
+      setHours(validValue)
+    }
+  }, [value])
 
   const handleDayToggle = (day: keyof BusinessHoursSchedule) => {
     const newHours = { ...hours }
@@ -70,52 +110,53 @@ export function BusinessHoursSelector({ value, onChange }: BusinessHoursSelector
     <Card>
       <CardContent className="p-4">
         <div className="space-y-4">
-          {Object.entries(dayNames).map(([day, label]) => (
-            <div key={day} className="flex flex-col space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor={`${day}-toggle`} className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  {label}
-                </Label>
-                <Switch
-                  id={`${day}-toggle`}
-                  checked={hours[day as keyof BusinessHoursSchedule].open}
-                  onCheckedChange={() => handleDayToggle(day as keyof BusinessHoursSchedule)}
-                />
-              </div>
-
-              {hours[day as keyof BusinessHoursSchedule].open && (
-                <div className="grid grid-cols-2 gap-2 pl-6 mt-1">
-                  <div className="space-y-1">
-                    <Label htmlFor={`${day}-open`} className="text-xs text-muted-foreground">
-                      Abertura
-                    </Label>
-                    <Input
-                      id={`${day}-open`}
-                      type="time"
-                      value={hours[day as keyof BusinessHoursSchedule].abertura}
-                      onChange={(e) => handleTimeChange(day as keyof BusinessHoursSchedule, "abertura", e.target.value)}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`${day}-close`} className="text-xs text-muted-foreground">
-                      Fechamento
-                    </Label>
-                    <Input
-                      id={`${day}-close`}
-                      type="time"
-                      value={hours[day as keyof BusinessHoursSchedule].fechamento}
-                      onChange={(e) =>
-                        handleTimeChange(day as keyof BusinessHoursSchedule, "fechamento", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </div>
+          {Object.entries(dayNames).map(([day, label]) => {
+            const dayKey = day as keyof BusinessHoursSchedule
+            return (
+              <div key={day} className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={`${day}-toggle`} className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    {label}
+                  </Label>
+                  <Switch
+                    id={`${day}-toggle`}
+                    checked={hours[dayKey].open}
+                    onCheckedChange={() => handleDayToggle(dayKey)}
+                  />
                 </div>
-              )}
-            </div>
-          ))}
+
+                {hours[dayKey].open && (
+                  <div className="grid grid-cols-2 gap-2 pl-6 mt-1">
+                    <div className="space-y-1">
+                      <Label htmlFor={`${day}-open`} className="text-xs text-muted-foreground">
+                        Abertura
+                      </Label>
+                      <Input
+                        id={`${day}-open`}
+                        type="time"
+                        value={hours[dayKey].abertura}
+                        onChange={(e) => handleTimeChange(dayKey, "abertura", e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor={`${day}-close`} className="text-xs text-muted-foreground">
+                        Fechamento
+                      </Label>
+                      <Input
+                        id={`${day}-close`}
+                        type="time"
+                        value={hours[dayKey].fechamento}
+                        onChange={(e) => handleTimeChange(dayKey, "fechamento", e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>

@@ -32,8 +32,8 @@ export async function GET() {
       Usuario = mongoose.model("Usuario", UsuarioSchema)
     }
 
-    // Buscar o usuário pelo email
-    const usuario = await Usuario.findOne({ email: session.user.email }).lean().exec()
+    // Buscar o usuário pelo email - corrigindo o erro de TypeScript
+    const usuario = await (Usuario.findOne({ email: session.user.email }) as unknown as Promise<any>)
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
@@ -88,6 +88,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json()
+    console.log("Dados recebidos para salvar:", data)
 
     // Ensure database connection is established
     await connectToDatabase()
@@ -109,8 +110,9 @@ export async function POST(req: Request) {
       Usuario = mongoose.model("Usuario", UsuarioSchema)
     }
 
-    // Buscar o usuário pelo email
-    const usuario = await Usuario.findOne({ email: session.user.email }).lean().exec()
+    // Buscar o usuário pelo email - corrigindo o erro de TypeScript
+    const usuario = await (Usuario.findOne({ email: session.user.email }) as unknown as Promise<any>)
+
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
@@ -130,66 +132,96 @@ export async function POST(req: Request) {
     const lojasCollection = db.collection("lojas")
 
     let loja
+    let resultado
 
     // Se o usuário já tiver uma loja, atualizar
     if (data._id) {
       const lojaId = typeof data._id === "string" ? data._id : data._id.toString()
+      console.log("Atualizando loja existente com ID:", lojaId)
+
+      // Preparar os dados para atualização
+      const lojaAtualizada = {
+        nome: data.nome,
+        descricao: data.descricao,
+        endereco: data.endereco || {},
+        telefone: data.telefone,
+        email: data.email,
+        website: data.website,
+        logo: data.logo || data.logoUrl,
+        banner: data.banner || data.bannerUrl,
+        horarioFuncionamento: data.horarioFuncionamento,
+        redesSociais: data.redesSociais || {},
+        dataAtualizacao: new Date(),
+      }
 
       // Buscar a loja existente
-      loja = await lojasCollection.findOne({
+      const lojaExistente = await lojasCollection.findOne({
         _id: new mongoose.Types.ObjectId(lojaId),
       })
 
-      if (!loja) {
+      if (!lojaExistente) {
+        console.log("Loja não encontrada, criando nova")
         // Se a loja não existir mais, criar uma nova
         const novaLoja = {
-          ...data,
+          ...lojaAtualizada,
           usuarioId: usuario._id.toString(),
           ativo: true,
           dataCriacao: new Date(),
-          dataAtualizacao: new Date(),
         }
 
-        const result = await lojasCollection.insertOne(novaLoja)
+        resultado = await lojasCollection.insertOne(novaLoja)
         loja = {
           ...novaLoja,
-          _id: result.insertedId,
+          _id: resultado.insertedId,
         }
       } else {
+        console.log("Atualizando loja existente")
         // Atualizar a loja existente
-        const lojaAtualizada = {
-          ...data,
-          dataAtualizacao: new Date(),
-        }
-
-        await lojasCollection.updateOne({ _id: new mongoose.Types.ObjectId(lojaId) }, { $set: lojaAtualizada })
+        resultado = await lojasCollection.updateOne(
+          { _id: new mongoose.Types.ObjectId(lojaId) },
+          { $set: lojaAtualizada },
+        )
 
         loja = {
           ...lojaAtualizada,
           _id: new mongoose.Types.ObjectId(lojaId),
+          usuarioId: lojaExistente.usuarioId,
+          dataCriacao: lojaExistente.dataCriacao,
         }
       }
     } else {
+      console.log("Criando nova loja")
       // Criar uma nova loja
       const novaLoja = {
-        ...data,
+        nome: data.nome,
+        descricao: data.descricao,
+        endereco: data.endereco || {},
+        telefone: data.telefone,
+        email: data.email,
+        website: data.website,
+        logo: data.logo || data.logoUrl,
+        banner: data.banner || data.bannerUrl,
+        horarioFuncionamento: data.horarioFuncionamento,
+        redesSociais: data.redesSociais || {},
         usuarioId: usuario._id.toString(),
         ativo: true,
         dataCriacao: new Date(),
         dataAtualizacao: new Date(),
       }
 
-      const result = await lojasCollection.insertOne(novaLoja)
+      resultado = await lojasCollection.insertOne(novaLoja)
       loja = {
         ...novaLoja,
-        _id: result.insertedId,
+        _id: resultado.insertedId,
       }
     }
 
-    return NextResponse.json({ loja })
+    console.log("Loja salva com sucesso:", loja)
+    return NextResponse.json({ loja, success: true })
   } catch (error) {
     console.error("Erro ao salvar perfil da loja:", error)
-    return NextResponse.json({ error: "Erro ao salvar perfil da loja" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
+    return NextResponse.json({ error: "Erro ao salvar perfil da loja", details: errorMessage }, { status: 500 })
   }
 }
 

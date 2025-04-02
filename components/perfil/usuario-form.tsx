@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Adicione esta função no início do arquivo, após os imports
 async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000) {
@@ -73,7 +74,9 @@ interface UsuarioPerfilFormProps {
 
 export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [usuario, setUsuario] = useState<any>(initialData || null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const form = useForm<PerfilFormValues>({
     resolver: zodResolver(perfilSchema),
@@ -204,7 +207,9 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
 
   async function onSubmit(values: PerfilFormValues) {
     try {
-      setIsLoading(true)
+      setIsSaving(true)
+      setSaveSuccess(false)
+
       const response = await fetchWithRetry(
         "/api/usuario/perfil",
         {
@@ -225,12 +230,20 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
 
       const data = await response.json()
       setUsuario(data)
+
+      // Mostrar mensagem de sucesso
+      setSaveSuccess(true)
       toast.success("Perfil atualizado com sucesso!")
+
+      // Esconder a mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false)
+      }, 3000)
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error)
       toast.error("Erro ao atualizar perfil. Por favor, tente novamente.")
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
@@ -245,6 +258,13 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {saveSuccess && (
+          <Alert className="bg-green-50 border-green-200 mb-4">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-600">Perfil atualizado com sucesso!</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col md:flex-row gap-6">
           <Card className="flex-1">
             <CardHeader>
@@ -575,8 +595,8 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
         </div>
 
         <CardFooter className="flex justify-end">
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...

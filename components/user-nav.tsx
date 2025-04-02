@@ -68,10 +68,16 @@ export function UserNav() {
             </DropdownMenuItem>
           )}
           {session?.user?.role !== "admin" && (
-            <DropdownMenuItem onClick={() => router.push("/perfil")}>
-              Meu Perfil
-              <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem onClick={() => router.push("/perfil-usuario/editar")}>
+                Meu Perfil
+                <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/perfil/editar")}>
+                Perfil da Loja
+                <DropdownMenuShortcut>⌘L</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

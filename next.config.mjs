@@ -25,6 +25,9 @@ const nextConfig = {
       'vercel-storage.com',
       'vercel-blob.com'],
   },
+  experimental: {
+    serverComponentsExternalPackages: ['mongoose'],
+  },
 };
 
 export default nextConfig;

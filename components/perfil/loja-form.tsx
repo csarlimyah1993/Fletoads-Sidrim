@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BusinessHoursSelector, type BusinessHoursSchedule } from "@/components/ui/business-hours-selector"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSession } from "next-auth/react"
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Schema de validação
 const lojaFormSchema = z.object({
@@ -42,7 +44,8 @@ const lojaFormSchema = z.object({
     .email({
       message: "Por favor, insira um email válido.",
     })
-    .optional(),
+    .optional()
+    .or(z.literal("")),
   website: z
     .string()
     .url({
@@ -85,8 +88,11 @@ const defaultBusinessHours: BusinessHoursSchedule = {
 export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const { data: session } = useSession()
   const [userPlan, setUserPlan] = useState("free")
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
+  const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
     // Fetch user plan
@@ -104,6 +110,8 @@ export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
 
     fetchUserPlan()
   }, [])
+
+  console.log("Loja recebida no componente:", loja)
 
   // Valores padrão para o formulário
   const defaultValues: Partial<LojaFormValues> = {
@@ -123,11 +131,9 @@ export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
     telefone: loja?.telefone || "",
     email: loja?.email || "",
     website: loja?.website || "",
-    logoUrl: loja?.logoUrl || "",
-    bannerUrl: loja?.bannerUrl || "",
-    horarioFuncionamento: loja?.horarioFuncionamento
-      ? (loja.horarioFuncionamento as BusinessHoursSchedule)
-      : defaultBusinessHours,
+    logoUrl: loja?.logo || loja?.logoUrl || "",
+    bannerUrl: loja?.banner || loja?.bannerUrl || "",
+    horarioFuncionamento: loja?.horarioFuncionamento || defaultBusinessHours,
     redesSociais: {
       facebook: loja?.redesSociais?.facebook || "",
       instagram: loja?.redesSociais?.instagram || "",
@@ -137,38 +143,105 @@ export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
     },
   }
 
+  console.log("Default values:", defaultValues)
+
   const form = useForm<LojaFormValues>({
     resolver: zodResolver(lojaFormSchema),
     defaultValues,
   })
 
+  // Atualizar o formulário quando os dados da loja mudarem
+  useEffect(() => {
+    if (loja) {
+      console.log("Atualizando formulário com dados da loja:", loja)
+      form.reset({
+        nome: loja.nome || "",
+        descricao: loja.descricao || "",
+        endereco: {
+          rua: loja.endereco?.rua || "",
+          numero: loja.endereco?.numero || "",
+          complemento: loja.endereco?.complemento || "",
+          bairro: loja.endereco?.bairro || "",
+          cidade: loja.endereco?.cidade || "",
+          estado: loja.endereco?.estado || "",
+          cep: loja.endereco?.cep || "",
+          latitude: loja.endereco?.latitude || "",
+          longitude: loja.endereco?.longitude || "",
+        },
+        telefone: loja.telefone || "",
+        email: loja.email || "",
+        website: loja.website || "",
+        logoUrl: loja.logo || loja.logoUrl || "",
+        bannerUrl: loja.banner || loja.bannerUrl || "",
+        horarioFuncionamento: loja.horarioFuncionamento || defaultBusinessHours,
+        redesSociais: {
+          facebook: loja.redesSociais?.facebook || "",
+          instagram: loja.redesSociais?.instagram || "",
+          twitter: loja.redesSociais?.twitter || "",
+          linkedin: loja.redesSociais?.linkedin || "",
+          youtube: loja.redesSociais?.youtube || "",
+        },
+      })
+    }
+  }, [loja, form])
+
   const onSubmit = async (data: LojaFormValues) => {
-    setIsLoading(true)
+    setIsSaving(true)
+    setSaveStatus("idle")
+    setErrorMessage("")
+
     try {
+      console.log("Enviando dados para salvar:", data)
+
+      // Mapear os campos do formulário para o formato esperado pela API
+      const lojaData = {
+        _id: loja?._id,
+        nome: data.nome,
+        descricao: data.descricao,
+        endereco: data.endereco || {},
+        telefone: data.telefone,
+        email: data.email,
+        website: data.website,
+        logo: data.logoUrl, // Mapear logoUrl para logo
+        banner: data.bannerUrl, // Mapear bannerUrl para banner
+        horarioFuncionamento: data.horarioFuncionamento,
+        redesSociais: data.redesSociais || {},
+      }
+
+      console.log("Dados formatados para API:", lojaData)
+
       const response = await fetch("/api/loja/perfil", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(lojaData),
       })
 
+      const responseData = await response.json()
+      console.log("Resposta da API:", responseData)
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Erro ao salvar dados da loja")
+        throw new Error(responseData.error || "Erro ao salvar dados da loja")
       }
 
+      // Mostrar mensagem de sucesso
       toast.success("Dados da loja salvos com sucesso!")
-      router.refresh()
+      setSaveStatus("success")
 
-      if (!isEditing) {
-        router.push("/dashboard/perfil")
-      }
+      // Redirecionar para a página de perfil da loja após salvar
+      setTimeout(() => {
+        router.push("/dashboard/perfil-da-loja")
+        router.refresh()
+      }, 2000)
     } catch (error) {
       console.error("Erro ao salvar dados da loja:", error)
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados da loja")
+      const message = error instanceof Error ? error.message : "Erro ao salvar dados da loja"
+      toast.error(message)
+      setErrorMessage(message)
+      setSaveStatus("error")
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
@@ -515,10 +588,7 @@ export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <BusinessHoursSelector
-                      value={(field.value as BusinessHoursSchedule) || defaultBusinessHours}
-                      onChange={field.onChange}
-                    />
+                    <BusinessHoursSelector value={field.value} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -564,12 +634,40 @@ export function LojaPerfilForm({ loja, isEditing = false }: LojaFormProps) {
           </TabsContent>
         </Tabs>
 
+        {saveStatus === "success" && (
+          <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertTitle>Sucesso!</AlertTitle>
+            <AlertDescription>Dados da loja salvos com sucesso. Redirecionando...</AlertDescription>
+          </Alert>
+        )}
+
+        {saveStatus === "error" && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro</AlertTitle>
+            <AlertDescription>{errorMessage || "Ocorreu um erro ao salvar os dados da loja."}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={() => router.push("/dashboard/perfil")} disabled={isLoading}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/dashboard/perfil-da-loja")}
+            disabled={isSaving}
+          >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Salvando..." : "Salvar"}
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar"
+            )}
           </Button>
         </div>
       </form>
