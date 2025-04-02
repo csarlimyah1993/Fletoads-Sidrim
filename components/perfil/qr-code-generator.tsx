@@ -105,4 +105,3 @@ export function QRCodeGenerator({ url, storeName, storeId, logoUrl }: QRCodeGene
     </Card>
   )
 }
-

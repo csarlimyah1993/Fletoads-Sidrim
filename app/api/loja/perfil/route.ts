@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -12,216 +12,168 @@ export async function GET() {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Ensure database connection is established
+    const data = await request.json()
+
+    // Conectar ao banco de dados
     await connectToDatabase()
 
-    // Verificar se o modelo Usuario existe
-    let Usuario
-    try {
-      Usuario = mongoose.model("Usuario")
-    } catch (e) {
-      // Se não existir, criar o modelo
-      const UsuarioSchema = new mongoose.Schema({
-        nome: String,
-        email: String,
-        senha: String,
-        role: String,
-        ativo: Boolean,
-      })
-
-      Usuario = mongoose.model("Usuario", UsuarioSchema)
+    // Obter o usuário atual
+    const connection = mongoose.connection
+    if (!connection || !connection.db) {
+      throw new Error("Conexão com o banco de dados não estabelecida")
     }
 
-    // Buscar o usuário pelo email - corrigindo o erro de TypeScript
-    const usuario = await (Usuario.findOne({ email: session.user.email }) as unknown as Promise<any>)
+    const db = connection.db
+    const usuariosCollection = db.collection("usuarios")
+    const usuario = await usuariosCollection.findOne({ email: session.user.email })
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    console.log("Buscando loja para usuário:", usuario._id)
-
-    // Ensure we have a database connection
-    if (!mongoose.connection || !mongoose.connection.db) {
-      console.error("Conexão com o banco de dados não estabelecida")
-      await connectToDatabase() // Try to reconnect
-
-      if (!mongoose.connection || !mongoose.connection.db) {
-        throw new Error("Não foi possível estabelecer conexão com o banco de dados")
-      }
-    }
-
-    // Tentar buscar diretamente da coleção "lojas"
-    const db = mongoose.connection.db
+    // Verificar se a loja já existe
     const lojasCollection = db.collection("lojas")
-
-    // Buscar a loja do usuário usando o ID como string
     const userId = usuario._id.toString()
-    let loja = await lojasCollection.findOne({
-      $or: [{ usuarioId: userId }, { usuarioId: new mongoose.Types.ObjectId(userId) }],
+
+    const lojaExistente = await lojasCollection.findOne({
+      $or: [
+        { usuarioId: userId },
+        { usuarioId: new mongoose.Types.ObjectId(userId) },
+        { proprietarioId: userId },
+        { proprietarioId: new mongoose.Types.ObjectId(userId) },
+      ],
     })
 
-    if (!loja) {
-      // Se não encontrar, tentar na coleção "vitrines"
-      const vitrinesCollection = db.collection("vitrines")
-      loja = await vitrinesCollection.findOne({
-        $or: [{ usuarioId: userId }, { usuarioId: new mongoose.Types.ObjectId(userId) }],
+    // Preparar os dados da loja
+    const lojaData: {
+      nome: any
+      descricao: any
+      endereco: any
+      contato: {
+        telefone: any
+        email: any
+        whatsapp?: any
+      }
+      website?: any
+      logo: any
+      banner: any
+      horarioFuncionamento: any
+      redesSociais: any
+      usuarioId: mongoose.Types.ObjectId
+      proprietarioId: mongoose.Types.ObjectId
+      dataAtualizacao: Date
+      dataCriacao?: Date
+      ativo?: boolean
+    } = {
+      nome: data.nome,
+      descricao: data.descricao,
+      endereco: data.endereco || {},
+      contato: {
+        telefone: data.telefone || data.contato?.telefone || "",
+        email: data.email || data.contato?.email || "",
+        whatsapp: data.whatsapp || data.contato?.whatsapp || "",
+      },
+      logo: data.logo || data.logoUrl || "",
+      banner: data.banner || data.bannerUrl || "",
+      horarioFuncionamento: data.horarioFuncionamento || {},
+      redesSociais: data.redesSociais || {},
+      usuarioId: new mongoose.Types.ObjectId(userId),
+      proprietarioId: new mongoose.Types.ObjectId(userId),
+      dataAtualizacao: new Date(),
+    }
+
+    let resultado
+
+    if (lojaExistente) {
+      // Atualizar loja existente
+      resultado = await lojasCollection.updateOne({ _id: lojaExistente._id }, { $set: lojaData })
+
+      return NextResponse.json({
+        success: true,
+        message: "Loja atualizada com sucesso",
+        loja: { ...lojaData, _id: lojaExistente._id },
+      })
+    } else {
+      // Criar nova loja
+      lojaData.dataCriacao = new Date()
+      lojaData.ativo = true
+
+      resultado = await lojasCollection.insertOne(lojaData)
+
+      return NextResponse.json({
+        success: true,
+        message: "Loja criada com sucesso",
+        loja: { ...lojaData, _id: resultado.insertedId },
       })
     }
-
-    if (!loja) {
-      return NextResponse.json({ message: "Loja não encontrada" }, { status: 404 })
-    }
-
-    return NextResponse.json({ loja })
   } catch (error) {
-    console.error("Erro ao buscar perfil da loja:", error)
-    return NextResponse.json({ error: "Erro ao buscar perfil da loja" }, { status: 500 })
+    console.error("Erro ao salvar perfil da loja:", error)
+    return NextResponse.json({ error: "Erro ao salvar perfil da loja" }, { status: 500 })
   }
 }
 
-export async function POST(req: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const data = await req.json()
-    console.log("Dados recebidos para salvar:", data)
-
-    // Ensure database connection is established
+    // Conectar ao banco de dados
     await connectToDatabase()
 
-    // Verificar se o modelo Usuario existe
-    let Usuario
-    try {
-      Usuario = mongoose.model("Usuario")
-    } catch (e) {
-      // Se não existir, criar o modelo
-      const UsuarioSchema = new mongoose.Schema({
-        nome: String,
-        email: String,
-        senha: String,
-        role: String,
-        ativo: Boolean,
-      })
-
-      Usuario = mongoose.model("Usuario", UsuarioSchema)
+    // Obter o usuário atual
+    const connection = mongoose.connection
+    if (!connection || !connection.db) {
+      throw new Error("Conexão com o banco de dados não estabelecida")
     }
 
-    // Buscar o usuário pelo email - corrigindo o erro de TypeScript
-    const usuario = await (Usuario.findOne({ email: session.user.email }) as unknown as Promise<any>)
+    const db = connection.db
+    const usuariosCollection = db.collection("usuarios")
+    const usuario = await usuariosCollection.findOne({ email: session.user.email })
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    // Ensure we have a database connection
-    if (!mongoose.connection || !mongoose.connection.db) {
-      console.error("Conexão com o banco de dados não estabelecida")
-      await connectToDatabase() // Try to reconnect
-
-      if (!mongoose.connection || !mongoose.connection.db) {
-        throw new Error("Não foi possível estabelecer conexão com o banco de dados")
-      }
-    }
-
-    // Acessar diretamente a coleção "lojas"
-    const db = mongoose.connection.db
+    // Buscar a loja do usuário
     const lojasCollection = db.collection("lojas")
+    const userId = usuario._id.toString()
 
-    let loja
-    let resultado
+    const loja = await lojasCollection.findOne({
+      $or: [
+        { usuarioId: userId },
+        { usuarioId: new mongoose.Types.ObjectId(userId) },
+        { proprietarioId: userId },
+        { proprietarioId: new mongoose.Types.ObjectId(userId) },
+      ],
+    })
 
-    // Se o usuário já tiver uma loja, atualizar
-    if (data._id) {
-      const lojaId = typeof data._id === "string" ? data._id : data._id.toString()
-      console.log("Atualizando loja existente com ID:", lojaId)
-
-      // Preparar os dados para atualização
-      const lojaAtualizada = {
-        nome: data.nome,
-        descricao: data.descricao,
-        endereco: data.endereco || {},
-        telefone: data.telefone,
-        email: data.email,
-        website: data.website,
-        logo: data.logo || data.logoUrl,
-        banner: data.banner || data.bannerUrl,
-        horarioFuncionamento: data.horarioFuncionamento,
-        redesSociais: data.redesSociais || {},
-        dataAtualizacao: new Date(),
-      }
-
-      // Buscar a loja existente
-      const lojaExistente = await lojasCollection.findOne({
-        _id: new mongoose.Types.ObjectId(lojaId),
-      })
-
-      if (!lojaExistente) {
-        console.log("Loja não encontrada, criando nova")
-        // Se a loja não existir mais, criar uma nova
-        const novaLoja = {
-          ...lojaAtualizada,
-          usuarioId: usuario._id.toString(),
-          ativo: true,
-          dataCriacao: new Date(),
-        }
-
-        resultado = await lojasCollection.insertOne(novaLoja)
-        loja = {
-          ...novaLoja,
-          _id: resultado.insertedId,
-        }
-      } else {
-        console.log("Atualizando loja existente")
-        // Atualizar a loja existente
-        resultado = await lojasCollection.updateOne(
-          { _id: new mongoose.Types.ObjectId(lojaId) },
-          { $set: lojaAtualizada },
-        )
-
-        loja = {
-          ...lojaAtualizada,
-          _id: new mongoose.Types.ObjectId(lojaId),
-          usuarioId: lojaExistente.usuarioId,
-          dataCriacao: lojaExistente.dataCriacao,
-        }
-      }
-    } else {
-      console.log("Criando nova loja")
-      // Criar uma nova loja
-      const novaLoja = {
-        nome: data.nome,
-        descricao: data.descricao,
-        endereco: data.endereco || {},
-        telefone: data.telefone,
-        email: data.email,
-        website: data.website,
-        logo: data.logo || data.logoUrl,
-        banner: data.banner || data.bannerUrl,
-        horarioFuncionamento: data.horarioFuncionamento,
-        redesSociais: data.redesSociais || {},
-        usuarioId: usuario._id.toString(),
-        ativo: true,
-        dataCriacao: new Date(),
-        dataAtualizacao: new Date(),
-      }
-
-      resultado = await lojasCollection.insertOne(novaLoja)
-      loja = {
-        ...novaLoja,
-        _id: resultado.insertedId,
-      }
+    if (!loja) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    console.log("Loja salva com sucesso:", loja)
-    return NextResponse.json({ loja, success: true })
+    // Converter o ObjectId para string antes de retornar
+    const lojaSerializada = JSON.parse(
+      JSON.stringify(loja, (key, value) => {
+        if (key === "_id" && value && typeof value === "object" && value.toString) {
+          return value.toString()
+        }
+        if (value instanceof Date) {
+          return value.toISOString()
+        }
+        return value
+      }),
+    )
+
+    return NextResponse.json({
+      success: true,
+      loja: lojaSerializada,
+    })
   } catch (error) {
-    console.error("Erro ao salvar perfil da loja:", error)
-    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
-    return NextResponse.json({ error: "Erro ao salvar perfil da loja", details: errorMessage }, { status: 500 })
+    console.error("Erro ao buscar perfil da loja:", error)
+    return NextResponse.json({ error: "Erro ao buscar perfil da loja" }, { status: 500 })
   }
 }
 

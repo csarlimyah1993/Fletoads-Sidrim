@@ -321,8 +321,8 @@ interface PageProps {
 }
 
 export default async function VitrinePage({ params }: PageProps) {
-  // Corrigindo o erro de params.id
-  const id = params.id
+  // Corrigindo o erro de params.id - garantindo que é uma string
+  const id = String(params.id)
 
   if (!id) {
     notFound()

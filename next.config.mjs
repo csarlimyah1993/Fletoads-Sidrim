@@ -14,6 +14,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.blob.vercel-storage.com",
       },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+      },
     ],
   },
   images: {
@@ -26,7 +34,7 @@ const nextConfig = {
       'vercel-blob.com'],
   },
   experimental: {
-    serverComponentsExternalPackages: ['mongoose'],
+    serverExternalPackages: ['mongoose'],
   },
 };
 

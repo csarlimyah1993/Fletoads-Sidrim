@@ -11,6 +11,7 @@ import { Plus } from "lucide-react"
 export default function PerfilDaLojaPage() {
   const [loja, setLoja] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -18,23 +19,37 @@ export default function PerfilDaLojaPage() {
     const fetchLoja = async () => {
       try {
         setLoading(true)
-        const response = await fetch("/api/loja/perfil")
+        setError(null)
+
+        // Primeiro, tente buscar pelo endpoint específico de perfil da loja
+        let response = await fetch("/api/loja/perfil")
+
+        // Se não encontrar, tente buscar pela API geral de lojas
+        if (response.status === 404) {
+          console.log("Loja não encontrada no endpoint de perfil, tentando endpoint alternativo...")
+          response = await fetch("/api/loja")
+        }
 
         if (response.status === 404) {
-          // Loja não encontrada, mostrar página para criar
+          // Loja não encontrada em nenhum endpoint
           setLoja(null)
           setLoading(false)
           return
         }
 
         if (!response.ok) {
-          throw new Error("Erro ao buscar dados da loja")
+          throw new Error(`Erro ao buscar dados da loja: ${response.status} ${response.statusText}`)
         }
 
         const data = await response.json()
-        setLoja(data.loja)
+        console.log("Dados da loja recebidos:", data)
+
+        // Verificar a estrutura da resposta e extrair os dados da loja
+        const lojaData = data.loja || data.data || data
+        setLoja(lojaData)
       } catch (err) {
         console.error("Erro ao buscar loja:", err)
+        setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar dados da loja")
         toast({
           title: "Erro",
           description: "Não foi possível carregar os dados da loja. Tente novamente mais tarde.",
@@ -72,6 +87,23 @@ export default function PerfilDaLojaPage() {
             <Skeleton className="h-64" />
             <Skeleton className="h-64" />
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Perfil da Loja</h1>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          <h2 className="text-lg font-semibold mb-2">Erro ao carregar dados</h2>
+          <p>{error}</p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
         </div>
       </div>
     )

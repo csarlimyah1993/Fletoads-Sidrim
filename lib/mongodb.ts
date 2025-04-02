@@ -36,7 +36,6 @@ export async function connectToDatabase() {
       connectTimeoutMS: 10000, // Timeout de conexão após 10 segundos
     }
 
-    // Usando asserção de tipo para garantir que MONGODB_URI seja tratado como string
     cached.promise = mongoose
       .connect(MONGODB_URI as string, opts)
       .then((mongooseInstance) => {
@@ -63,15 +62,14 @@ export async function connectToDatabase() {
 export async function isConnected() {
   try {
     // Verificar se já está conectado
-    // Usando type assertion para evitar erros de tipo
     // 1 = connected no mongoose
-    if ((mongoose.connection.readyState as number) === 1) {
+    if (mongoose.connection.readyState === mongoose.ConnectionStates.connected) {
       return true
     }
 
     // Tenta conectar com um timeout curto
     await connectToDatabase()
-    return (mongoose.connection.readyState as number) === 1
+    return mongoose.connection.readyState === mongoose.ConnectionStates.connected
   } catch (error) {
     console.error("Erro ao verificar conexão:", error)
     return false

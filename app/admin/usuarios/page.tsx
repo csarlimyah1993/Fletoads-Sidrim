@@ -14,11 +14,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, MoreHorizontal, Search, UserPlus, Filter, RefreshCw } from "lucide-react"
+import { Loader2, MoreHorizontal, Search, UserPlus, Filter, RefreshCw, TrendingUp, ChevronUp } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { toast } from "@/components/ui/use-toast"
 
 interface User {
   _id: string
@@ -41,6 +46,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [total, setTotal] = useState(0)
+  const [isUpdatingPlan, setIsUpdatingPlan] = useState<string | null>(null)
 
   const fetchUsers = async () => {
     try {
@@ -86,7 +92,10 @@ export default function UsersPage() {
   const getPlanoBadgeVariant = (plano: string) => {
     switch (plano?.toLowerCase()) {
       case "premium":
+      case "empresarial":
         return "success"
+      case "profissional":
+        return "default"
       case "basico":
         return "secondary"
       default:
@@ -102,6 +111,53 @@ export default function UsersPage() {
 
   const handleRefresh = () => {
     fetchUsers()
+  }
+
+  const handleUpdatePlan = async (userId: string, newPlan: string) => {
+    try {
+      setIsUpdatingPlan(userId)
+
+      const response = await fetch("/api/admin/usuarios/atualizar-plano", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId, plano: newPlan }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Erro ao atualizar plano")
+      }
+
+      const data = await response.json()
+
+      // Atualizar o usuário na lista local
+      setUsers((prevUsers) => prevUsers.map((user) => (user._id === userId ? { ...user, plano: newPlan } : user)))
+
+      setFilteredUsers((prevUsers) =>
+        prevUsers.map((user) => (user._id === userId ? { ...user, plano: newPlan } : user)),
+      )
+
+      toast({
+        title: "Plano atualizado",
+        description: `O plano do usuário foi atualizado para ${newPlan}`,
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Erro ao atualizar plano:", error)
+      toast({
+        title: "Erro",
+        description: (error as Error).message || "Não foi possível atualizar o plano",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingPlan(null)
+    }
+  }
+
+  const handleViewMetrics = (userId: string) => {
+    window.location.href = `/admin/usuarios/${userId}/metricas`
   }
 
   if (isLoading && users.length === 0) {
@@ -210,13 +266,44 @@ export default function UsersPage() {
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
                               <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
+                              {isUpdatingPlan === user._id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleViewMetrics(user._id)}>
+                              <TrendingUp className="mr-2 h-4 w-4" />
+                              Ver métricas de uso
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
                             <DropdownMenuItem>Editar usuário</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <ChevronUp className="mr-2 h-4 w-4" />
+                                Alterar plano
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                  <DropdownMenuItem onClick={() => handleUpdatePlan(user._id, "gratuito")}>
+                                    Gratuito
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleUpdatePlan(user._id, "basico")}>
+                                    Básico
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleUpdatePlan(user._id, "profissional")}>
+                                    Profissional
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleUpdatePlan(user._id, "empresarial")}>
+                                    Empresarial
+                                  </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
+                            </DropdownMenuSub>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem>Redefinir senha</DropdownMenuItem>
                             <DropdownMenuItem className={user.ativo ? "text-red-600" : "text-green-600"}>
