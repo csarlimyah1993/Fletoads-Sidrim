@@ -23,6 +23,12 @@ import mongoose from "mongoose"
 import { ThemeToggle } from "@/components/vitrine/theme-toggle"
 import { GoogleMap } from "@/components/ui/google-map"
 
+// Adicionar o import do componente de avaliações
+import { Avaliacoes } from "@/components/vitrines/avaliacoes"
+
+// Adicionar o import do componente de promoções
+import { HotPromos } from "@/components/vitrines/hot-promos"
+
 // Define interface for produto data
 interface ProdutoData {
   _id: string
@@ -321,8 +327,8 @@ interface PageProps {
 }
 
 export default async function VitrinePage({ params }: PageProps) {
-  // Corrigindo o erro de params.id - garantindo que é uma string
-  const id = String(params.id)
+  // Corrigindo o erro de params.id - garantindo que é uma string válida
+  const id = params?.id ? String(params.id) : ""
 
   if (!id) {
     notFound()
@@ -481,6 +487,7 @@ export default async function VitrinePage({ params }: PageProps) {
                 {showProducts && <TabsTrigger value="produtos">Produtos</TabsTrigger>}
                 {showContact && <TabsTrigger value="contato">Contato</TabsTrigger>}
                 {showMap && vitrine.endereco && <TabsTrigger value="mapa">Mapa</TabsTrigger>}
+                {showTestimonials && <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>}
               </TabsList>
 
               <TabsContent value="sobre" className="space-y-4">
@@ -701,6 +708,12 @@ export default async function VitrinePage({ params }: PageProps) {
                   </Card>
                 </TabsContent>
               )}
+
+              {showTestimonials && (
+                <TabsContent value="avaliacoes" className="space-y-4">
+                  <Avaliacoes lojaId={vitrine._id} />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
 
@@ -793,6 +806,10 @@ export default async function VitrinePage({ params }: PageProps) {
                 </div>
               </CardContent>
             </Card>
+            {/* Adicionar após o Card de horários de funcionamento */}
+            <div className="mt-6">
+              <HotPromos lojaId={vitrine._id} />
+            </div>
           </div>
         </div>
       </div>

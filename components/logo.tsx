@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 
 interface LogoProps extends React.SVGProps<SVGSVGElement> {
   className?: string
+  // Removendo a prop showText que estava causando o erro
 }
 
 export function Logo({ className, ...props }: LogoProps) {

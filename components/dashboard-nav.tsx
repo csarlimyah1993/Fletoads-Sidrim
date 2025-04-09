@@ -1,100 +1,94 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-// Adicione o import do ShoppingBag se ainda não estiver presente
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  Calendar,
-  Settings,
-  BarChart,
-  Sparkles,
-  MessageSquare,
-  FileCheck,
-  ShoppingBag,
-  Package,
-} from "lucide-react"
+import { BarChart3, Users, FileText, Settings, User, ShoppingBag, Store, MessageSquare, Smartphone } from "lucide-react"
 
-// Atualize o array navItems para incluir o item de Produtos após Panfletos
-const navItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Vendas",
-    href: "/dashboard/vendas",
-    icon: ShoppingBag,
-  },
-  {
-    title: "Panfletos",
-    href: "/dashboard/panfletos",
-    icon: FileText,
-  },
-  {
-    title: "Produtos",
-    href: "/dashboard/produtos",
-    icon: Package,
-  },
-  {
-    title: "Clientes",
-    href: "/dashboard/clientes",
-    icon: Users,
-  },
-  {
-    title: "Campanhas",
-    href: "/dashboard/campanhas",
-    icon: Calendar,
-  },
-  {
-    title: "Assistente IA",
-    href: "/dashboard/ai",
-    icon: Sparkles,
-  },
-  {
-    title: "Pan AI",
-    href: "/dashboard/pan-ai",
-    icon: MessageSquare,
-  },
-  {
-    title: "Relatórios",
-    href: "/dashboard/relatorios",
-    icon: BarChart,
-  },
-  {
-    title: "Configurações",
-    href: "/dashboard/configuracoes",
-    icon: Settings,
-  },
-  {
-    title: "Diagnóstico",
-    href: "/dashboard/diagnostico",
-    icon: FileCheck,
-  },
-]
+interface NavItem {
+  title: string
+  href: string
+  icon: React.ReactNode
+  disabled?: boolean
+}
 
 export function DashboardNav() {
   const pathname = usePathname()
 
+  const navItems: NavItem[] = [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: <BarChart3 className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Clientes",
+      href: "/dashboard/clientes",
+      icon: <Users className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Campanhas",
+      href: "/dashboard/campanhas",
+      icon: <FileText className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Panfletos",
+      href: "/dashboard/panfletos",
+      icon: <FileText className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Produtos",
+      href: "/dashboard/produtos",
+      icon: <ShoppingBag className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Perfil da Loja",
+      href: "/dashboard/perfil-da-loja",
+      icon: <Store className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Vitrine",
+      href: "/dashboard/vitrine",
+      icon: <Store className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "PanAI",
+      href: "/dashboard/pan-ai",
+      icon: <MessageSquare className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Integrações",
+      href: "/dashboard/integracoes",
+      icon: <Settings className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "WhatsApp",
+      href: "/dashboard/integracoes/whatsapp",
+      icon: <Smartphone className="mr-2 h-4 w-4" />,
+    },
+    {
+      title: "Perfil",
+      href: "/dashboard/perfil",
+      icon: <User className="mr-2 h-4 w-4" />,
+    },
+  ]
+
   return (
-    <nav className="grid items-start gap-2 pt-2">
-      {navItems.map((item) => (
-        <Link key={item.href} href={item.href}>
-          <Button
-            variant={pathname === item.href ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start",
-              pathname === item.href ? "bg-muted hover:bg-muted" : "hover:bg-transparent hover:underline",
-            )}
-          >
-            <item.icon className="mr-2 h-4 w-4" />
-            {item.title}
-          </Button>
+    <nav className="grid items-start gap-2">
+      {navItems.map((item, index) => (
+        <Link
+          key={index}
+          href={item.disabled ? "#" : item.href}
+          className={cn(
+            "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground",
+            pathname === item.href ? "bg-accent text-accent-foreground" : "transparent",
+            item.disabled && "cursor-not-allowed opacity-80",
+          )}
+        >
+          {item.icon}
+          <span>{item.title}</span>
         </Link>
       ))}
     </nav>

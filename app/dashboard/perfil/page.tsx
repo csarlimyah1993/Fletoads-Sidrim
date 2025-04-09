@@ -1,139 +1,35 @@
+import { Suspense } from "react"
+import { Loader2 } from "lucide-react"
 import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
-import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
-import { ObjectId } from "mongodb"
-
-export const metadata = {
-  title: "Perfil da Loja | FletoAds",
-  description: "Visualize e gerencie as informações da sua loja",
-}
+import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
+import { redirect } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 async function getLoja(userId: string) {
   try {
-    const { db } = await connectToDatabase()
+    console.log("ID do usuário na sessão:", userId)
 
+    // Conectar ao banco de dados
+    const { db } = await connectToDatabase()
     console.log("Conectado ao banco de dados")
+
+    // Garantir que as coleções existam
+    await ensureCollectionsExist()
+
     console.log("Buscando loja para usuário:", userId)
 
-    // Listar todas as coleções para debug
-    const collections = await db.listCollections().toArray()
-    console.log(
-      "Coleções disponíveis:",
-      collections.map((c) => c.name),
-    )
+    // Buscar a loja do usuário
+    const loja = await db.collection("lojas").findOne({ proprietarioId: userId })
 
-    // Verificar se a coleção 'lojas' existe
-    if (!collections.some((c) => c.name === "lojas")) {
-      console.log("A coleção 'lojas' não existe no banco de dados")
-
-      // Tentar outras coleções que possam conter lojas
-      const alternativeCollections = ["loja", "store", "stores"]
-
-      for (const collName of alternativeCollections) {
-        if (collections.some((c) => c.name === collName)) {
-          console.log(`Tentando coleção alternativa: ${collName}`)
-          const lojas = await db.collection(collName).find({}).toArray()
-          console.log(`Encontradas ${lojas.length} lojas na coleção ${collName}`)
-
-          if (lojas.length > 0) {
-            // Verificar se alguma loja pertence ao usuário
-            const lojaDoUsuario = lojas.find(
-              (loja) =>
-                (loja.usuarioId && (loja.usuarioId === userId || loja.usuarioId.toString() === userId)) ||
-                (loja.userId && (loja.userId === userId || loja.userId.toString() === userId)),
-            )
-
-            if (lojaDoUsuario) {
-              console.log(`Loja encontrada na coleção ${collName}:`, lojaDoUsuario.nome || lojaDoUsuario.name)
-              return {
-                ...lojaDoUsuario,
-                _id: lojaDoUsuario._id.toString(),
-              }
-            }
-          }
-        }
-      }
-
-      return null
+    if (!loja) {
+      console.log("Nenhuma loja encontrada para o usuário:", userId)
+    } else {
+      console.log("Loja encontrada:", loja._id)
     }
 
-    // Tentar diferentes formatos de ID
-    let lojaDoUsuario = null
-
-    // Tentar com o ID como string
-    lojaDoUsuario = await db.collection("lojas").findOne({
-      $or: [{ usuarioId: userId }, { userId: userId }],
-    })
-
-    // Se não encontrou, tentar com ObjectId
-    if (!lojaDoUsuario) {
-      try {
-        const objectId = new ObjectId(userId)
-        lojaDoUsuario = await db.collection("lojas").findOne({
-          $or: [{ usuarioId: objectId }, { userId: objectId }],
-        })
-      } catch (error) {
-        console.log("Erro ao converter para ObjectId:", error)
-      }
-    }
-
-    // Se ainda não encontrou, buscar todas as lojas e verificar manualmente
-    if (!lojaDoUsuario) {
-      console.log("Buscando todas as lojas para verificação manual")
-      const todasLojas = await db.collection("lojas").find({}).toArray()
-      console.log(`Encontradas ${todasLojas.length} lojas no total`)
-
-      // Imprimir todas as lojas para debug
-      todasLojas.forEach((loja, index) => {
-        console.log(`Loja ${index + 1}:`, {
-          _id: loja._id.toString(),
-          nome: loja.nome,
-          usuarioId: loja.usuarioId ? loja.usuarioId.toString() : undefined,
-          userId: loja.userId ? loja.userId.toString() : undefined,
-        })
-      })
-
-      // Procurar por qualquer loja que tenha o userId ou usuarioId correto
-      lojaDoUsuario = todasLojas.find(
-        (loja) =>
-          (loja.usuarioId && (loja.usuarioId.toString() === userId || loja.usuarioId === userId)) ||
-          (loja.userId && (loja.userId.toString() === userId || loja.userId === userId)),
-      )
-    }
-
-    if (lojaDoUsuario) {
-      console.log("Loja do usuário encontrada:", lojaDoUsuario.nome || lojaDoUsuario.name)
-      return {
-        ...lojaDoUsuario,
-        _id: lojaDoUsuario._id.toString(),
-      }
-    }
-
-    // Se não encontrou nenhuma loja, criar uma loja padrão para o usuário
-    console.log("Nenhuma loja encontrada para este usuário. Criando loja padrão...")
-
-    const novaLoja = {
-      nome: "Minha Loja",
-      descricao: "Descrição da minha loja",
-      usuarioId: userId,
-      ativo: true,
-      dataCriacao: new Date(),
-    }
-
-    const resultado = await db.collection("lojas").insertOne(novaLoja)
-
-    if (resultado.acknowledged) {
-      console.log("Loja padrão criada com sucesso!")
-      return {
-        ...novaLoja,
-        _id: resultado.insertedId.toString(),
-      }
-    }
-
-    console.log("Não foi possível criar uma loja padrão")
-    return null
+    return loja
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
     return null
@@ -147,24 +43,135 @@ export default async function PerfilDaLojaPage() {
     redirect("/login")
   }
 
-  const userId = session.user.id
-  console.log("ID do usuário na sessão:", userId)
+  try {
+    const loja = await getLoja(session.user.id)
 
-  const loja = await getLoja(userId)
+    if (!loja) {
+      // Se não encontrou loja, mostrar mensagem e link para criar
+      return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <div className="flex items-center justify-between space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">Perfil da Loja</h2>
+          </div>
 
-  // Se não houver loja, podemos mostrar uma mensagem ou redirecionar para criar
-  if (!loja) {
+          <div className="bg-card rounded-lg border shadow-sm p-6">
+            <h3 className="text-xl font-semibold mb-4">Loja não encontrada</h3>
+            <p className="mb-6">
+              Você ainda não possui uma loja cadastrada. Clique no botão abaixo para criar sua loja.
+            </p>
+            <div className="flex gap-4">
+              <Button asChild>
+                <Link href="/init-loja-vitrine">Criar Loja e Vitrine</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/dashboard">Voltar para o Dashboard</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
-        <h1 className="text-2xl font-bold">Você ainda não possui uma loja cadastrada</h1>
-        <p className="text-muted-foreground">Crie sua loja para começar a usar todos os recursos do FletoAds</p>
-        <a href="/dashboard/perfil-da-loja/criar" className="text-primary hover:underline">
-          Criar minha loja
-        </a>
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Perfil da Loja</h2>
+        </div>
+
+        <Suspense
+          fallback={
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }
+        >
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="bg-card rounded-lg border shadow-sm p-6">
+                <h3 className="font-semibold text-lg mb-4">Informações Básicas</h3>
+                <div className="space-y-2">
+                  <p>
+                    <span className="font-medium">Nome:</span> {loja.nome}
+                  </p>
+                  <p>
+                    <span className="font-medium">CNPJ:</span> {loja.cnpj || "Não informado"}
+                  </p>
+                  <p>
+                    <span className="font-medium">Status:</span> {loja.status || "Ativo"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-card rounded-lg border shadow-sm p-6">
+                <h3 className="font-semibold text-lg mb-4">Endereço</h3>
+                <div className="space-y-2">
+                  {loja.endereco ? (
+                    <>
+                      <p>
+                        <span className="font-medium">Rua:</span> {loja.endereco.rua}
+                      </p>
+                      <p>
+                        <span className="font-medium">Número:</span> {loja.endereco.numero}
+                      </p>
+                      <p>
+                        <span className="font-medium">Bairro:</span> {loja.endereco.bairro}
+                      </p>
+                      <p>
+                        <span className="font-medium">Cidade:</span> {loja.endereco.cidade}
+                      </p>
+                      <p>
+                        <span className="font-medium">Estado:</span> {loja.endereco.estado}
+                      </p>
+                    </>
+                  ) : (
+                    <p>Endereço não informado</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-card rounded-lg border shadow-sm p-6">
+                <h3 className="font-semibold text-lg mb-4">Contato</h3>
+                <div className="space-y-2">
+                  {loja.contato ? (
+                    <>
+                      <p>
+                        <span className="font-medium">Email:</span> {loja.contato.email}
+                      </p>
+                      <p>
+                        <span className="font-medium">Telefone:</span> {loja.contato.telefone || "Não informado"}
+                      </p>
+                      <p>
+                        <span className="font-medium">WhatsApp:</span> {loja.contato.whatsapp || "Não informado"}
+                      </p>
+                    </>
+                  ) : (
+                    <p>Contato não informado</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <a
+                href="/perfil-da-loja/editar"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+              >
+                Editar Perfil
+              </a>
+            </div>
+          </div>
+        </Suspense>
+      </div>
+    )
+  } catch (error) {
+    console.error("Erro ao carregar perfil da loja:", error)
+    return (
+      <div className="flex-1 p-8">
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-md">
+          <h3 className="font-medium">Erro ao carregar dados</h3>
+          <p>Ocorreu um erro ao carregar os dados do perfil. Por favor, tente novamente mais tarde.</p>
+        </div>
       </div>
     )
   }
-
-  return <LojaPerfilContent loja={loja} />
 }
-

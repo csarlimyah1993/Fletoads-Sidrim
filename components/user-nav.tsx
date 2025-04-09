@@ -77,6 +77,10 @@ export function UserNav() {
                 Perfil da Loja
                 <DropdownMenuShortcut>⌘L</DropdownMenuShortcut>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes/seguranca")}>
+                Segurança da Conta
+                <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
+              </DropdownMenuItem>
             </>
           )}
         </DropdownMenuGroup>

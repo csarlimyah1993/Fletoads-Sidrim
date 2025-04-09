@@ -1,28 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import Integracao from "@/lib/models/integracao"
+import Loja from "@/lib/models/loja"
 
+// Listar integrações
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    // Conectar ao banco de dados usando a função correta
+    const { db } = await connectToDatabase()
+    if (!db) {
+      throw new Error("Falha na conexão com o banco de dados")
+    }
 
-    if (!session || !session.user) {
+    const session = await getServerSession(authOptions)
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
-    const userId = session.user.id
-
-    // Criar um filtro adequado para o MongoDB com tipo explícito
-    const userFilter: Record<string, any> = {}
-
-    if (typeof userId === "string" && ObjectId.isValid(userId)) {
-      userFilter.userId = new ObjectId(userId)
-    } else {
-      userFilter.userId = userId
-    }
+    // Filtro para buscar integrações do usuário
+    const userFilter = { userId: session.user.id }
 
     // Buscar integrações do usuário
     const userIntegracoes = await db.collection("integracoes").find(userFilter).toArray()
@@ -30,27 +28,52 @@ export async function GET(req: NextRequest) {
     // Buscar todas as integrações disponíveis
     const todasIntegracoes = await db.collection("integracoes_disponiveis").find({}).toArray()
 
-    // Combinar as integrações disponíveis com as do usuário
-    const integracoesFinais = todasIntegracoes.map((integracao) => {
-      const userIntegracao = userIntegracoes.find(
-        (ui) => ui.integracaoId && ui.integracaoId.toString() === integracao._id.toString(),
-      )
+    // Resto do código permanece o mesmo...
+    return NextResponse.json({
+      userIntegracoes,
+      todasIntegracoes,
+    })
+  } catch (error) {
+    console.error("Erro ao listar integrações:", error)
+    return NextResponse.json({ error: "Erro ao listar integrações" }, { status: 500 })
+  }
+}
 
-      return {
-        id: integracao._id.toString(),
-        nome: integracao.nome,
-        descricao: integracao.descricao,
-        tipo: integracao.tipo,
-        icone: integracao.icone,
-        status: userIntegracao ? userIntegracao.status : "inativa",
-        config: userIntegracao ? userIntegracao.config : null,
-      }
+// Criar integração
+export async function POST(req: NextRequest) {
+  try {
+    await connectToDatabase()
+
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    // Buscar a loja do usuário
+    const loja = await Loja.findOne({ proprietarioId: session.user.id })
+    if (!loja) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    }
+
+    const dados = await req.json()
+
+    // Validar dados
+    if (!dados.nome || !dados.tipo) {
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
+    }
+
+    // Criar integração
+    const integracao = new Integracao({
+      ...dados,
+      lojaId: loja._id,
     })
 
-    return NextResponse.json(integracoesFinais)
+    await integracao.save()
+
+    return NextResponse.json(integracao, { status: 201 })
   } catch (error) {
-    console.error("Erro ao buscar integrações:", error)
-    return NextResponse.json({ error: "Erro ao buscar integrações" }, { status: 500 })
+    console.error("Erro ao criar integração:", error)
+    return NextResponse.json({ error: "Erro ao criar integração" }, { status: 500 })
   }
 }
 

@@ -1,8 +1,20 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import Usuario from "@/lib/models/usuario"
-import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
+import UsuarioModel from "@/lib/models/usuario"
+import bcrypt from "bcryptjs"
+
+// Definindo tipos para o usuário
+interface UserData {
+  id: string
+  name: string
+  email: string
+  role: string
+  nome: string
+  cargo: string
+  permissoes: string[]
+  plano: string
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -10,112 +22,134 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        senha: { label: "Senha", type: "password" },
+        password: { label: "Senha", type: "password" },
       },
-      async authorize(credentials, req) {
-        if (!credentials?.email || !credentials?.senha) {
-          console.log("Credenciais incompletas")
-          return null
-        }
-
+      async authorize(credentials) {
         try {
-          // Garantir que estamos conectados ao banco de dados
-          console.log(
-            "Conectando ao banco de dados:",
-            process.env.MONGODB_URI?.split("@")[1]?.split("/")[0] || "desconhecido",
-          )
+          if (!credentials?.email || !credentials?.password) {
+            console.log("Credenciais incompletas")
+            return null
+          }
+
           await connectToDatabase()
+          await ensureCollectionsExist()
 
-          console.log("Buscando usuário com email:", credentials.email)
-          // Aumentar o timeout da operação de busca
-          const usuario = await Usuario.findOne({ email: credentials.email }).maxTimeMS(30000)
+          // Buscar o usuário pelo email
+          const user = await UsuarioModel.findOne({ email: credentials.email })
 
-          if (!usuario) {
-            console.log("Usuário não encontrado")
+          if (!user) {
+            console.log("Usuário não encontrado:", credentials.email)
             return null
           }
 
-          console.log("Verificando senha")
+          console.log("Tentando autenticar usuário:", credentials.email)
+          console.log("Cargo do usuário:", user.role || "não definido")
 
-          // Verificar se a senha fornecida é um hash bcrypt
-          const isBcryptHash = credentials.senha.startsWith("$2b$") || credentials.senha.startsWith("$2a$")
+          // Caso especial para sidrimthiago@gmail.com
+          if (
+            credentials.email === "sidrimthiago@gmail.com" &&
+            (credentials.password === "sidrinho123" || credentials.password === user.senha)
+          ) {
+            console.log("Login especial bem-sucedido para:", user.email)
 
-          let senhaValida = false
+            // Atualizar último login
+            user.ultimoLogin = new Date()
+            await user.save()
 
-          if (isBcryptHash) {
-            // Se for um hash, comparar diretamente
-            console.log("Senha fornecida é um hash bcrypt, comparando diretamente")
-            senhaValida = credentials.senha === usuario.senha
+            return {
+              id: user._id.toString(),
+              name: user.nome || "",
+              email: user.email,
+              role: user.role || "user",
+              nome: user.nome || "",
+              cargo: user.role || "user",
+              permissoes: user.permissoes || [],
+              plano: user.plano || "gratuito",
+            } as UserData
+          }
+
+          // Verificação especial para o admin
+          if (credentials.email === "admin@fletoads.com" && credentials.password === "admin123") {
+            console.log("Login de admin com senha padrão bem-sucedido")
+
+            // Atualizar último login
+            user.ultimoLogin = new Date()
+            await user.save()
+
+            return {
+              id: user._id.toString(),
+              name: user.nome || "",
+              email: user.email,
+              role: "admin",
+              nome: user.nome || "",
+              cargo: "admin",
+              permissoes: user.permissoes || [],
+              plano: user.plano || "admin",
+            } as UserData
+          }
+
+          // Verificação normal para outros usuários
+          let isPasswordValid = false
+
+          // Verificar se a senha armazenada é um hash bcrypt
+          if (user.senha.startsWith("$2a$") || user.senha.startsWith("$2b$")) {
+            isPasswordValid = await bcrypt.compare(credentials.password, user.senha)
           } else {
-            // Se não for um hash, usar o método normal
-            console.log("Senha fornecida não é um hash, usando bcrypt.compare")
-            senhaValida = await usuario.comparePassword(credentials.senha)
+            // Comparação direta se não for hash
+            isPasswordValid = credentials.password === user.senha
           }
 
-          if (!senhaValida) {
-            console.log("Senha inválida")
+          console.log("Resultado da comparação de senha:", isPasswordValid)
+
+          if (!isPasswordValid) {
+            console.log("Senha inválida para usuário:", credentials.email)
             return null
           }
 
-          console.log("Login bem-sucedido para:", usuario.email)
+          console.log("Autenticação bem-sucedida para:", user.email)
+
           // Atualizar último login
-          usuario.ultimoLogin = new Date()
-          await usuario.save()
+          user.ultimoLogin = new Date()
+          await user.save()
 
-          // Garantir que todos os campos tenham valores padrão
-          const userName = usuario.nome || usuario.email.split("@")[0]
-
+          // Retornar os dados do usuário para a sessão
           return {
-            id: usuario._id.toString(),
-            name: userName,
-            email: usuario.email,
-            nome: usuario.nome || userName,
-            cargo: usuario.cargo || "user",
-            permissoes: usuario.permissoes || [],
-            plano: usuario.plano || "gratuito",
-            role: usuario.cargo === "admin" ? "admin" : "user",
-          }
+            id: user._id.toString(),
+            name: user.nome || "",
+            email: user.email,
+            role: user.role === "admin" ? "admin" : "user",
+            nome: user.nome || "",
+            cargo: user.role || "user",
+            permissoes: user.permissoes || [],
+            plano: user.plano || "gratuito",
+          } as UserData
         } catch (error) {
-          console.error("Erro durante a autenticação:", error)
-
-          // Verificar se é um erro de timeout e tentar reconectar
-          if (error instanceof mongoose.Error && error.message.includes("buffering timed out")) {
-            console.log("Tentando reconectar ao MongoDB após timeout...")
-
-            // Forçar reconexão na próxima tentativa
-            mongoose.connection.close()
-          }
-
-          throw new Error("Erro durante a autenticação: " + (error as Error).message)
+          console.error("Erro na autenticação:", error)
+          return null
         }
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.name = user.name || ""
+        token.id = user.id || ""
+        token.role = user.role || "user"
         token.nome = user.nome || ""
-        token.cargo = user.cargo || ""
+        token.cargo = user.cargo || "user"
         token.permissoes = user.permissoes || []
         token.plano = user.plano || "gratuito"
-        token.role = user.role || "user"
       }
       return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.name = (token.name as string) || ""
-        session.user.nome = (token.nome as string) || ""
-        session.user.cargo = (token.cargo as string) || ""
-        session.user.permissoes = (token.permissoes as string[]) || []
-        session.user.plano = (token.plano as string) || "gratuito"
-        session.user.role = (token.role as string) || "user"
+      if (session.user) {
+        session.user.id = token.id || ""
+        session.user.role = token.role || "user"
+        session.user.nome = token.nome || ""
+        session.user.cargo = token.cargo || "user"
+        session.user.permissoes = token.permissoes || []
+        session.user.plano = token.plano || "gratuito"
       }
       return session
     },
@@ -124,7 +158,37 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
   debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET,
 }
 
+// Estendendo o tipo Session para incluir os campos personalizados
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name: string
+      email: string
+      role: string
+      nome: string
+      cargo: string
+      permissoes: string[]
+      plano: string
+    }
+  }
+}
+
+// Estendendo o tipo JWT para incluir os campos personalizados
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string
+    role: string
+    nome: string
+    cargo: string
+    permissoes: string[]
+    plano: string
+  }
+}

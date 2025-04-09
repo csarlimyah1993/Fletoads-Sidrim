@@ -1,69 +1,70 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { ObjectId } from "mongodb"
+import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
 
+    // Garantir que as coleções existam
+    await ensureCollectionsExist()
+
+    // Definir filtros para buscar recursos do usuário
+    const userFilter = { userId: session.user.id }
+
     // Buscar contagem de panfletos
-    const panfletosCount = await db.collection("panfletos").countDocuments({ userId: session.user.id })
-
-    // Buscar contagem de produtos
-    const produtosCount = await db.collection("produtos").countDocuments({ userId: session.user.id })
-
-    // Buscar informações do usuário para determinar os limites
-    const userId = session.user.id
-
-    // Criar um filtro adequado para o MongoDB com tipo explícito
-    const userFilter: Record<string, any> = {}
-
-    if (typeof userId === "string" && ObjectId.isValid(userId)) {
-      userFilter._id = new ObjectId(userId)
-    } else {
-      userFilter._id = userId
+    let panfletosCount = 0
+    try {
+      panfletosCount = await db.collection("panfletos").countDocuments(userFilter)
+    } catch (error) {
+      console.error("Erro ao contar panfletos:", error)
     }
 
-    const user = await db.collection("users").findOne(userFilter)
+    // Buscar contagem de produtos
+    let produtosCount = 0
+    try {
+      produtosCount = await db.collection("produtos").countDocuments(userFilter)
+    } catch (error) {
+      console.error("Erro ao contar produtos:", error)
+    }
 
     // Definir limites com base no plano do usuário
-    const isPremium = user?.plan === "premium"
+    let panfletosLimit = 10
+    let produtosLimit = 50
 
-    const panfletosLimit = isPremium ? 100 : 10
-    const produtosLimit = isPremium ? 100 : 10
-    const armazenamentoLimit = isPremium ? 1024 * 1024 * 1024 : 100 * 1024 * 1024 // 1GB ou 100MB
-
-    // Calcular uso de armazenamento (simulado para demonstração)
-    const armazenamentoUsed = Math.floor(Math.random() * armazenamentoLimit * 0.7)
+    if (session.user.plano === "premium") {
+      panfletosLimit = 100
+      produtosLimit = 500
+    } else if (session.user.plano === "business") {
+      panfletosLimit = 50
+      produtosLimit = 200
+    }
 
     return NextResponse.json({
       panfletos: {
-        used: panfletosCount,
-        limit: panfletosLimit,
-        percentage: (panfletosCount / panfletosLimit) * 100,
+        usado: panfletosCount,
+        limite: panfletosLimit,
       },
       produtos: {
-        used: produtosCount,
-        limit: produtosLimit,
-        percentage: (produtosCount / produtosLimit) * 100,
-      },
-      armazenamento: {
-        used: armazenamentoUsed,
-        limit: armazenamentoLimit,
-        percentage: (armazenamentoUsed / armazenamentoLimit) * 100,
+        usado: produtosCount,
+        limite: produtosLimit,
       },
     })
   } catch (error) {
     console.error("Erro ao buscar limites de recursos:", error)
-    return NextResponse.json({ error: "Erro ao buscar limites de recursos" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Erro ao buscar limites de recursos",
+        details: (error as Error).message,
+      },
+      { status: 500 },
+    )
   }
 }
-

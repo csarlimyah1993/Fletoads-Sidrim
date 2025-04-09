@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import Link from "next/link"
 
-export function Notificacoes() {
+export function NotificationsDropdown() {
   const [notificacoes, setNotificacoes] = useState<any[]>([])
   const [naoLidas, setNaoLidas] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -227,3 +227,4 @@ export function Notificacoes() {
   )
 }
 
+export default NotificationsDropdown

@@ -96,18 +96,21 @@ export default function AdminDashboardPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      // Buscar dados reais da API
+      setError(null)
+
+      // Usar URL relativa para evitar problemas com o hostname
       const response = await fetch("/api/admin/dashboard")
 
       if (!response.ok) {
-        throw new Error(`Erro ao buscar dados: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Erro ao buscar dados: ${response.status}${errorData.message ? ` - ${errorData.message}` : ""}`)
       }
 
       const data = await response.json()
       setStats(data)
     } catch (error) {
       console.error("Erro ao buscar dados do dashboard:", error)
-      setError("Não foi possível carregar os dados do dashboard")
+      setError(error instanceof Error ? error.message : "Não foi possível carregar os dados do dashboard")
     } finally {
       setIsLoading(false)
     }
@@ -125,7 +128,7 @@ export default function AdminDashboardPage() {
     }).format(valor)
   }
 
-  if (isLoading && Object.values(stats).every((value) => value === 0 || (Array.isArray(value) && value.length === 0))) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -135,8 +138,9 @@ export default function AdminDashboardPage() {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-red-500">{error}</p>
+      <div className="flex flex-col justify-center items-center h-64 space-y-4">
+        <p className="text-red-500 text-center">{error}</p>
+        <Button onClick={fetchData}>Tentar Novamente</Button>
       </div>
     )
   }

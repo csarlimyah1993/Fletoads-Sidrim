@@ -13,6 +13,9 @@ import { VitrinesFooter } from "@/components/vitrines/footer"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 
+// Adicionar o import do componente de lojas próximas
+import { LojasProximas } from "@/components/vitrines/lojas-proximas"
+
 // Definir interface para os dados da vitrine
 interface VitrineData {
   _id: string
@@ -77,10 +80,10 @@ async function getVitrines(): Promise<VitrineData[]> {
     }
 
     // Buscar lojas ativas
-    const lojas = await Loja.find({ ativo: true }).lean().exec()
+    const lojas = (await Loja.find({ ativo: true }).lean().exec()) as any[]
 
     // Buscar vitrines ativas
-    const vitrines = await Vitrine.find({ ativo: true }).lean().exec()
+    const vitrines = (await Vitrine.find({ ativo: true }).lean().exec()) as any[]
 
     // Combinar resultados
     const combinedResults = [...lojas, ...vitrines]
@@ -332,6 +335,10 @@ export default async function VitrinesPage() {
                     {categoria.nome}
                   </Button>
                 ))}
+              </div>
+              {/* Adicionar na sidebar ou em algum local apropriado da página */}
+              <div className="mt-4">
+                <LojasProximas />
               </div>
             </div>
           </div>

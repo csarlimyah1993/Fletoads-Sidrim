@@ -1,0 +1,9 @@
+version: '3'
+services:
+  evolution_api:
+    image: atendai/evolution-api:latest
+    container_name: evolution_api
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTHENTICATION_API_KEY=12c279b70eef89895e30622c5ccb74ba4d822d320d6b8678a44c1097981064a4

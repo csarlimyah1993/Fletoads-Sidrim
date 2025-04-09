@@ -3,95 +3,102 @@
 import type React from "react"
 
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
-
-interface LoginFormProps {
-  providers?: Record<string, any>
-}
-
-export default function LoginForm({ providers }: LoginFormProps) {
+export function LoginForm() {
   const [email, setEmail] = useState("")
-  const [senha, setSenha] = useState("")
-  const [erro, setErro] = useState("")
-  const [carregando, setCarregando] = useState(false)
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setCarregando(true)
-    setErro("")
+    setIsLoading(true)
+    setError("")
 
     try {
       const result = await signIn("credentials", {
         redirect: false,
         email,
-        senha,
+        password: password,
       })
 
       if (result?.error) {
-        setErro("Email ou senha inválidos")
-        setCarregando(false)
+        setError("Credenciais inválidas. Por favor, tente novamente.")
+        setIsLoading(false)
         return
       }
 
-      router.push("/dashboard")
+      // Verificar se o usuário é admin
+      const session = await getSession()
+
+      if (session?.user?.role === "admin" || session?.user?.cargo === "admin") {
+        console.log("Redirecionando para área de admin")
+        router.push("/admin")
+      } else {
+        console.log("Redirecionando para dashboard")
+        router.push("/dashboard")
+      }
     } catch (error) {
-      setErro("Ocorreu um erro ao fazer login")
-      setCarregando(false)
+      console.error("Erro ao fazer login:", error)
+      setError("Ocorreu um erro durante o login. Por favor, tente novamente.")
+      setIsLoading(false)
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-      {erro && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{erro}</AlertDescription>
-        </Alert>
-      )}
-      <form className="space-y-6" onSubmit={handleSubmit}>
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <div className="mt-1">
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl">Login</CardTitle>
+        <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              name="email"
               type="email"
-              autoComplete="email"
-              required
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="senha">Senha</Label>
-          <div className="mt-1">
-            <Input
-              id="senha"
-              name="senha"
-              type="password"
-              autoComplete="current-password"
               required
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
             />
           </div>
-        </div>
-
-        <div>
-          <Button type="submit" className="w-full" disabled={carregando}>
-            {carregando ? "Entrando..." : "Entrar"}
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Entrando..." : "Entrar"}
           </Button>
-        </div>
-      </form>
-    </div>
+        </form>
+      </CardContent>
+      <CardFooter className="flex justify-center">
+        <Button variant="link" onClick={() => router.push("/reset-password")}>
+          Esqueceu sua senha?
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
-

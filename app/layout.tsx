@@ -1,30 +1,25 @@
 import type React from "react"
-import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { Providers } from "./providers"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { SessionProvider } from "@/components/session-provider"
+import type { Metadata } from "next"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "FletoAds",
-  description: "Plataforma de gerenciamento de panfletos digitais",
+  title: "FletoAds - Plataforma de Marketing Digital",
+  description: "Plataforma completa para gerenciamento de marketing digital",
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
-        </SessionProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

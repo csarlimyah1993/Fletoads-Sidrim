@@ -1,14 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import Usuario from "@/lib/models/usuario"
-import Loja from "@/lib/models/loja"
-import Produto from "@/lib/models/produto"
-import Panfleto from "@/lib/models/panfleto"
-import Venda from "@/lib/models/venda"
+import mongoose from "mongoose"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("Iniciando rota de dashboard admin")
     await connectToDatabase()
+    console.log("Conexão com MongoDB estabelecida")
+
+    // Obter modelos
+    const Usuario = mongoose.models.Usuario || mongoose.model("Usuario", new mongoose.Schema({}, { strict: false }))
+    const Loja = mongoose.models.Loja || mongoose.model("Loja", new mongoose.Schema({}, { strict: false }))
+    const Produto = mongoose.models.Produto || mongoose.model("Produto", new mongoose.Schema({}, { strict: false }))
+    const Panfleto = mongoose.models.Panfleto || mongoose.model("Panfleto", new mongoose.Schema({}, { strict: false }))
+    const Venda = mongoose.models.Venda || mongoose.model("Venda", new mongoose.Schema({}, { strict: false }))
+
+    console.log("Modelos carregados, iniciando consultas")
 
     // Get user stats
     const totalUsers = await Usuario.countDocuments()
@@ -88,6 +95,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    console.log("Consultas concluídas, retornando dados")
+
     // Return data
     return NextResponse.json({
       totalUsers,
@@ -114,7 +123,13 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching dashboard data:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
