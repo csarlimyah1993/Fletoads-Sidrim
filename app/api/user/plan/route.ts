@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb" // Corrigido: mudado de @/lib/db para @/lib/mongodb
 import { ObjectId } from "mongodb"
-import mongoose from "mongoose"
 
 // Define plan limits
 const limites = {
@@ -63,10 +62,7 @@ export async function GET(request: Request) {
     const userId = url.searchParams.get("userId") || session.user.id
 
     // Conectar ao banco de dados
-    const { db: clientDb } = await connectToDatabase()
-
-    // Use the client's db connection
-    const db = mongoose.connection.db || clientDb
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Falha ao conectar ao banco de dados")
@@ -192,4 +188,3 @@ export async function GET(request: Request) {
     })
   }
 }
-

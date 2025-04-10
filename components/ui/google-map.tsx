@@ -1,10 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Card } from "@/components/ui/card"
-import { AlertCircle, MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useGoogleMaps } from "@/hooks/use-google-maps"
+import { useEffect, useRef } from "react"
+import { Loader } from "lucide-react"
 
 interface GoogleMapProps {
   latitude: number | null
@@ -12,184 +9,101 @@ interface GoogleMapProps {
   address?: string
   storeName?: string
   zoom?: number
-  height?: string
-  className?: string
 }
 
-export function GoogleMap({
-  latitude,
-  longitude,
-  address,
-  storeName = "Loja",
-  zoom = 15,
-  height = "400px",
-  className = "",
-}: GoogleMapProps) {
+export function GoogleMap({ latitude, longitude, address, storeName = "Loja", zoom = 15 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
-  const [mapError, setMapError] = useState(false)
-  const { isLoaded, loadError } = useGoogleMaps()
+  const mapInstanceRef = useRef<google.maps.Map | null>(null)
+  const markerRef = useRef<google.maps.Marker | null>(null)
 
-  // Inicializar o mapa quando o script estiver carregado
   useEffect(() => {
-    // Verificar se temos coordenadas válidas ou um endereço
-    if ((!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) && !address) {
-      return
+    // Função para carregar o script do Google Maps
+    const loadGoogleMapsScript = () => {
+      const script = document.createElement("script")
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+
+      return new Promise<void>((resolve) => {
+        script.onload = () => resolve()
+      })
     }
 
-    // Se o script não foi carregado ou houve erro, não prosseguir
-    if (!isLoaded || loadError) {
-      return
-    }
+    // Função para inicializar o mapa
+    const initMap = async () => {
+      if (!mapRef.current) return
 
-    // Se o elemento de referência não existe, não prosseguir
-    if (!mapRef.current || !window.google || !window.google.maps) {
-      return
-    }
+      // Se o Google Maps API não estiver carregado, carregue-o
+      if (typeof window.google === "undefined" || !window.google.maps) {
+        await loadGoogleMapsScript()
+      }
 
-    // Se já temos uma instância do mapa, não criar outra
-    if (mapInstance) {
-      return
-    }
+      // Inicializar o mapa com coordenadas padrão (será atualizado depois)
+      const defaultPosition = { lat: -23.5505, lng: -46.6333 } // São Paulo como padrão
 
-    try {
-      const google = window.google
-
-      // Criar o mapa
-      const mapOptions = {
+      mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+        center: defaultPosition,
         zoom: zoom,
         mapTypeControl: false,
+        fullscreenControl: false,
         streetViewControl: false,
-        fullscreenControl: true,
-        zoomControl: true,
-      }
+      })
 
-      const map = new google.maps.Map(mapRef.current, mapOptions)
-      setMapInstance(map)
-
-      // Se temos coordenadas, usamos elas diretamente
-      if (latitude && longitude && !isNaN(latitude) && !isNaN(longitude)) {
+      // Se temos coordenadas, use-as diretamente
+      if (latitude !== null && longitude !== null) {
         const position = { lat: latitude, lng: longitude }
-        map.setCenter(position)
+        mapInstanceRef.current.setCenter(position)
 
-        // Adicionar um marcador
-        const marker = new google.maps.Marker({
-          position: position,
-          map: map,
+        // Adicionar marcador
+        markerRef.current = new google.maps.Marker({
+          position,
+          map: mapInstanceRef.current,
           title: storeName,
-          animation: google.maps.Animation.DROP,
         })
-
-        // Adicionar uma janela de informações
-        if (storeName) {
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="font-weight: bold;">${storeName}</div>`,
-          })
-
-          marker.addListener("click", () => {
-            infoWindow.open(map, marker)
-          })
-        }
       }
-      // Se não temos coordenadas mas temos um endereço, usamos o geocoding
+      // Se temos um endereço, mas não coordenadas, use o Geocoder para obter as coordenadas
       else if (address) {
         const geocoder = new google.maps.Geocoder()
-        geocoder.geocode({ address: address }, (results: any, status: any) => {
+        geocoder.geocode({ address }, (results, status) => {
           if (status === "OK" && results && results[0]) {
             const position = results[0].geometry.location
-            map.setCenter(position)
+            mapInstanceRef.current?.setCenter(position)
 
-            // Adicionar um marcador
-            const marker = new google.maps.Marker({
-              position: position,
-              map: map,
+            // Adicionar marcador
+            markerRef.current = new google.maps.Marker({
+              position,
+              map: mapInstanceRef.current,
               title: storeName,
-              animation: google.maps.Animation.DROP,
             })
-
-            // Adicionar uma janela de informações
-            if (storeName) {
-              const infoWindow = new google.maps.InfoWindow({
-                content: `<div style="font-weight: bold;">${storeName}</div>`,
-              })
-
-              marker.addListener("click", () => {
-                infoWindow.open(map, marker)
-              })
-            }
           } else {
-            console.error("Geocode falhou:", status)
-            setMapError(true)
+            console.error("Geocode falhou devido a: " + status)
           }
         })
       }
-    } catch (error) {
-      console.error("Erro ao inicializar o mapa:", error)
-      setMapError(true)
     }
+
+    initMap()
 
     // Cleanup
     return () => {
-      // Não precisamos limpar o mapa, pois o elemento será removido do DOM
+      if (markerRef.current) {
+        markerRef.current.setMap(null)
+      }
     }
-  }, [isLoaded, loadError, latitude, longitude, address, zoom, storeName, mapInstance])
-
-  // Se não temos coordenadas válidas nem endereço, mostrar uma mensagem
-  if ((!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) && !address) {
-    return (
-      <Card className={`flex flex-col items-center justify-center ${className}`} style={{ height }}>
-        <div className="p-6 text-center">
-          <MapPin className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-sm mb-4">
-            Localização não disponível. Adicione coordenadas de latitude e longitude nas configurações da loja.
-          </p>
-          <Button variant="outline" size="sm" asChild>
-            <a href="/dashboard/perfil-da-loja/editar">Adicionar Localização</a>
-          </Button>
-        </div>
-      </Card>
-    )
-  }
-
-  // Se a API key está faltando ou houve erro ao carregar o script
-  if (loadError) {
-    return (
-      <Card className={`flex flex-col items-center justify-center ${className}`} style={{ height }}>
-        <div className="p-6 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-          <p className="text-muted-foreground text-sm mb-2">
-            API key do Google Maps não configurada ou erro ao carregar o script. Verifique as variáveis de ambiente.
-          </p>
-          <p className="text-xs text-muted-foreground">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
-        </div>
-      </Card>
-    )
-  }
-
-  // Se ocorreu um erro ao inicializar o mapa, mostrar uma mensagem
-  if (mapError) {
-    return (
-      <Card className={`flex items-center justify-center ${className}`} style={{ height }}>
-        <p className="text-muted-foreground text-sm p-4 text-center">
-          Não foi possível carregar o mapa. Verifique sua conexão com a internet ou tente novamente mais tarde.
-        </p>
-      </Card>
-    )
-  }
-
-  // Se o script ainda está carregando, mostrar um estado de carregamento
-  if (!isLoaded) {
-    return (
-      <Card className={`flex items-center justify-center ${className}`} style={{ height }}>
-        <p className="text-muted-foreground text-sm">Carregando mapa...</p>
-      </Card>
-    )
-  }
+  }, [latitude, longitude, address, storeName, zoom])
 
   return (
-    <Card className={className}>
-      <div ref={mapRef} style={{ width: "100%", height }} />
-    </Card>
+    <div className="relative w-full h-full min-h-[300px]">
+      <div ref={mapRef} className="w-full h-full rounded-md" />
+      {!latitude && !longitude && !address && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <div className="flex items-center gap-2">
+            <Loader className="h-4 w-4 animate-spin" />
+            <span>Carregando mapa...</span>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
-

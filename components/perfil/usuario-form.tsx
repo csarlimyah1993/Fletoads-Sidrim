@@ -17,20 +17,26 @@ import { toast } from "sonner"
 import { Loader2, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-// Adicione esta função no início do arquivo, após os imports
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000) {
+// Função para fazer requisições com retry
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, delay = 1000) {
   try {
+    console.log(`Fazendo requisição para ${url}`, options)
     const response = await fetch(url, options)
+    console.log(`Resposta de ${url}:`, response.status)
     return response
   } catch (err) {
+    console.error(`Erro na requisição para ${url}:`, err)
     if (retries <= 1) throw err
+    console.log(`Tentando novamente em ${delay}ms...`)
     await new Promise((resolve) => setTimeout(resolve, delay))
     return fetchWithRetry(url, options, retries - 1, delay * 2)
   }
 }
 
+// Schema de validação
 const perfilSchema = z.object({
   nome: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
+  cpf: z.string().min(11, { message: "CPF deve ter 11 dígitos" }).max(14).optional(),
   perfil: z
     .object({
       foto: z.string().optional(),
@@ -77,11 +83,13 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [usuario, setUsuario] = useState<any>(initialData || null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const form = useForm<PerfilFormValues>({
     resolver: zodResolver(perfilSchema),
     defaultValues: {
       nome: "",
+      cpf: "",
       perfil: {
         foto: "",
         telefone: "",
@@ -115,11 +123,13 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
     const fetchUsuario = async () => {
       // If we already have initialData, use it
       if (initialData) {
+        console.log("Usando initialData:", initialData)
         setUsuario(initialData)
 
         // Preencher o formulário com os dados iniciais
         form.reset({
-          nome: initialData.nome,
+          nome: initialData.nome || "",
+          cpf: initialData.cpf || "",
           perfil: {
             foto: initialData.perfil?.foto || "",
             telefone: initialData.perfil?.telefone || "",
@@ -151,23 +161,39 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
 
       try {
         setIsLoading(true)
-        const response = await fetchWithRetry("/api/usuario/perfil", {}, 3, 1000)
+        setLoadError(null)
+        console.log("Buscando dados do usuário...")
+
+        const response = await fetchWithRetry(
+          "/api/usuario/perfil",
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
+          },
+          3,
+          1000,
+        )
 
         if (response.status === 404) {
-          // Usuário não encontrado, usar valores padrão
+          console.warn("Usuário não encontrado")
+          setLoadError("Usuário não encontrado. Por favor, faça login novamente.")
           return
         }
 
         if (!response.ok) {
-          throw new Error("Falha ao buscar dados do usuário")
+          throw new Error(`Falha ao buscar dados do usuário: ${response.status}`)
         }
 
         const data = await response.json()
+        console.log("Dados do usuário recebidos:", data)
         setUsuario(data)
 
         // Preencher o formulário com os dados do usuário
         form.reset({
-          nome: data.nome,
+          nome: data.nome || "",
+          cpf: data.cpf || "",
           perfil: {
             foto: data.perfil?.foto || "",
             telefone: data.perfil?.telefone || "",
@@ -196,6 +222,7 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
         })
       } catch (error) {
         console.error("Erro ao buscar perfil:", error)
+        setLoadError("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
         toast.error("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
       } finally {
         setIsLoading(false)
@@ -209,6 +236,7 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
     try {
       setIsSaving(true)
       setSaveSuccess(false)
+      console.log("Enviando dados do formulário:", values)
 
       const response = await fetchWithRetry(
         "/api/usuario/perfil",
@@ -225,10 +253,11 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Falha ao atualizar perfil")
+        throw new Error(errorData.error || `Falha ao atualizar perfil: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log("Resposta da atualização:", data)
       setUsuario(data)
 
       // Mostrar mensagem de sucesso
@@ -252,6 +281,14 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <Alert className="bg-red-50 border-red-200 mb-4">
+        <AlertDescription className="text-red-600">{loadError}</AlertDescription>
+      </Alert>
     )
   }
 
@@ -307,6 +344,20 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
                     <FormLabel>Nome Completo</FormLabel>
                     <FormControl>
                       <Input placeholder="Seu nome completo" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
+                    <FormControl>
+                      <Input placeholder="000.000.000-00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -610,4 +661,3 @@ export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
     </Form>
   )
 }
-

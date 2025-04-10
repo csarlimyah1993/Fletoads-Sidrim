@@ -113,10 +113,9 @@ export function VitrineCard({ loja }: VitrineCardProps) {
 
       <CardFooter className="pt-2 pb-4">
         <Button asChild className="w-full">
-          <Link href={`/vitrines/${loja._id}`}>Ver Vitrine</Link>
+          <Link href={`/vitrines/${loja?._id || ""}`}>Ver Vitrine</Link>
         </Button>
       </CardFooter>
     </Card>
   )
 }
-

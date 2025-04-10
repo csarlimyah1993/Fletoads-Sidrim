@@ -1,89 +1,79 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ExternalLink, Eye } from "lucide-react"
-import Link from "next/link"
+// Renomeado o arquivo para resolver o problema de case-sensitivity
 import { VitrineCustomization } from "@/components/vitrine/vitrine-customization"
-import { DatabaseErrorFallbackClient } from "@/components/database-error-fallback-client"
+import { useState } from "react"
+import { toast } from "@/components/ui/use-toast"
+import { OfflineFallback } from "./offline-fallback"
 
 interface VitrineClientPageProps {
-  lojaId: string
+  loja: any
+  vitrineConfig: any
 }
 
-export default function VitrineClientPage({ lojaId }: VitrineClientPageProps) {
-  const [error, setError] = useState<boolean>(false)
+export function VitrineClientPage({ loja, vitrineConfig }: VitrineClientPageProps) {
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Verificar se o componente pode ser renderizado
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const response = await fetch("/api/check-connection")
-        if (!response.ok) {
-          setError(true)
-        }
-      } catch (err) {
-        console.error("Erro ao verificar conexão:", err)
-        setError(true)
-      }
+  // Monitor online status
+  useState(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  })
+
+  const handleSaveConfig = async (config: any) => {
+    if (!isOnline) {
+      toast({
+        title: "Sem conexão",
+        description: "Você está offline. Conecte-se à internet para salvar as alterações.",
+        variant: "destructive",
+      })
+      return
     }
 
-    checkConnection()
-  }, [])
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/loja/${loja._id}/vitrine/configuracoes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+      })
 
-  if (error) {
-    return <DatabaseErrorFallbackClient />
+      if (!response.ok) {
+        throw new Error("Falha ao salvar configurações")
+      }
+
+      toast({
+        title: "Configurações salvas",
+        description: "As configurações da sua vitrine foram atualizadas com sucesso.",
+      })
+    } catch (error) {
+      console.error("Erro ao salvar configurações:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao salvar as configurações. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!isOnline) {
+    return <OfflineFallback />
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Vitrine Online</h1>
-          <p className="text-muted-foreground">Personalize e gerencie sua vitrine online</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/vitrines/${lojaId}`} target="_blank">
-              <Eye className="mr-2 h-4 w-4" />
-              Visualizar Vitrine
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-8">
-        <VitrineCustomization lojaId={lojaId} />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Link da Vitrine</CardTitle>
-            <CardDescription>Compartilhe sua vitrine online com seus clientes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="flex-1 p-3 bg-muted rounded-md font-mono text-sm overflow-x-auto">
-                {`${process.env.NEXT_PUBLIC_APP_URL || "https://fletoads.vercel.app"}/vitrines/${lojaId}`}
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${process.env.NEXT_PUBLIC_APP_URL || "https://fletoads.vercel.app"}/vitrines/${lojaId}`,
-                  )
-                }}
-              >
-                <ExternalLink className="h-4 w-4" />
-                <span className="sr-only">Copiar link</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <VitrineCustomization loja={loja} initialConfig={vitrineConfig} onSave={handleSaveConfig} isSaving={isSaving} />
   )
 }
-

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import Usuario from "@/lib/models/usuario"
 import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 
 // Rota para obter o perfil do usuário logado
 export async function GET(req: NextRequest) {
@@ -42,27 +43,39 @@ export async function PUT(req: NextRequest) {
     }
 
     const dadosAtualizacao = await req.json()
+    console.log("Dados recebidos para atualização:", dadosAtualizacao)
 
     // Remover campos que não devem ser atualizados diretamente
     delete dadosAtualizacao.senha
     delete dadosAtualizacao.email
-    delete dadosAtualizacao.cargo
+    delete dadosAtualizacao.role
     delete dadosAtualizacao.permissoes
 
-    const usuario = await Usuario.findByIdAndUpdate(
-      session.user.id,
-      { $set: dadosAtualizacao },
-      { new: true, runValidators: true },
-    ).select("-senha")
+    // Usar o método updateOne diretamente para atualizar o documento
+    const resultado = await Usuario.updateOne(
+      { _id: new mongoose.Types.ObjectId(session.user.id) },
+      {
+        $set: {
+          nome: dadosAtualizacao.nome,
+          cpf: dadosAtualizacao.cpf,
+          perfil: dadosAtualizacao.perfil,
+        },
+      },
+    )
 
-    if (!usuario) {
+    console.log("Resultado da atualização:", resultado)
+
+    if (resultado.matchedCount === 0) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(usuario)
+    // Buscar o usuário atualizado para retornar
+    const usuarioAtualizado = await Usuario.findById(session.user.id).select("-senha")
+
+    console.log("Usuário atualizado com sucesso:", usuarioAtualizado)
+    return NextResponse.json(usuarioAtualizado)
   } catch (error) {
     console.error("Erro ao atualizar perfil do usuário:", error)
     return NextResponse.json({ error: "Erro ao atualizar perfil do usuário" }, { status: 500 })
   }
 }
-

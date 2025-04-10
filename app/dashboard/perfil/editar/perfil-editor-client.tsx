@@ -28,10 +28,9 @@ export default function PerfilEditorClient({
       </TabsContent>
       <TabsContent value="loja" className="space-y-4">
         <Card className="p-6">
-          <CriarLojaForm loja={initialLoja} isEditing={true} />
+          <CriarLojaForm initialData={initialLoja} isEditing={true} />
         </Card>
       </TabsContent>
     </Tabs>
   )
 }
-

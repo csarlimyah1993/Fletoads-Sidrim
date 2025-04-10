@@ -14,24 +14,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
-// Adicione esta função no início do arquivo, após os imports
+// Função para fazer requisições com retry
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, delay = 1000) {
   try {
+    console.log(`Fazendo requisição para ${url}`, options)
     const response = await fetch(url, options)
+    console.log(`Resposta de ${url}:`, response.status)
     return response
   } catch (err) {
+    console.error(`Erro na requisição para ${url}:`, err)
     if (retries <= 1) throw err
+    console.log(`Tentando novamente em ${delay}ms...`)
     await new Promise((resolve) => setTimeout(resolve, delay))
     return fetchWithRetry(url, options, retries - 1, delay * 2)
   }
 }
 
-// Update the schema to include CPF
+// Schema de validação
 const perfilSchema = z.object({
   nome: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
-  cpf: z.string().min(11, { message: "CPF deve ter 11 dígitos" }).max(14),
+  cpf: z.string().min(11, { message: "CPF deve ter 11 dígitos" }).max(14).optional(),
   perfil: z
     .object({
       foto: z.string().optional(),
@@ -69,11 +74,17 @@ const perfilSchema = z.object({
 
 type PerfilFormValues = z.infer<typeof perfilSchema>
 
-export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [usuario, setUsuario] = useState<any>(null)
+interface UsuarioPerfilFormProps {
+  initialData?: any
+}
 
-  // Update the defaultValues to include CPF
+export function UsuarioPerfilForm({ initialData }: UsuarioPerfilFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [usuario, setUsuario] = useState<any>(initialData || null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const form = useForm<PerfilFormValues>({
     resolver: zodResolver(perfilSchema),
     defaultValues: {
@@ -107,107 +118,126 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
     },
   })
 
-  // Initialize form with data if provided
-  // Update the useEffect to include CPF
+  // Buscar dados do usuário
   useEffect(() => {
-    if (initialData) {
-      setUsuario(initialData)
+    const fetchUsuario = async () => {
+      // If we already have initialData, use it
+      if (initialData) {
+        console.log("Usando initialData:", initialData)
+        setUsuario(initialData)
 
-      // Preencher o formulário com os dados do usuário
-      form.reset({
-        nome: initialData.nome || "",
-        cpf: initialData.cpf || "",
-        perfil: {
-          foto: initialData.perfil?.foto || "",
-          telefone: initialData.perfil?.telefone || "",
-          bio: initialData.perfil?.bio || "",
-          endereco: {
-            rua: initialData.perfil?.endereco?.rua || "",
-            numero: initialData.perfil?.endereco?.numero || "",
-            complemento: initialData.perfil?.endereco?.complemento || "",
-            bairro: initialData.perfil?.endereco?.bairro || "",
-            cidade: initialData.perfil?.endereco?.cidade || "",
-            estado: initialData.perfil?.endereco?.estado || "",
-            cep: initialData.perfil?.endereco?.cep || "",
-          },
-          redesSociais: {
-            instagram: initialData.perfil?.redesSociais?.instagram || "",
-            facebook: initialData.perfil?.redesSociais?.facebook || "",
-            linkedin: initialData.perfil?.redesSociais?.linkedin || "",
-            twitter: initialData.perfil?.redesSociais?.twitter || "",
-          },
-          preferencias: {
-            notificacoes: initialData.perfil?.preferencias?.notificacoes ?? true,
-            temaEscuro: initialData.perfil?.preferencias?.temaEscuro ?? false,
-            idioma: initialData.perfil?.preferencias?.idioma || "pt-BR",
-          },
-        },
-      })
-      setIsLoading(false)
-    } else {
-      // If no initialData, fetch from API
-      const fetchUsuario = async () => {
-        try {
-          setIsLoading(true)
-          const response = await fetchWithRetry("/api/usuario/perfil", {}, 3, 1000)
-
-          if (response.status === 404) {
-            // Usuário não encontrado, usar valores padrão
-            return
-          }
-
-          if (!response.ok) {
-            throw new Error("Falha ao buscar dados do usuário")
-          }
-
-          const data = await response.json()
-          setUsuario(data)
-
-          // Preencher o formulário com os dados do usuário
-          form.reset({
-            nome: data.nome,
-            cpf: data.cpf || "",
-            perfil: {
-              foto: data.perfil?.foto || "",
-              telefone: data.perfil?.telefone || "",
-              bio: data.perfil?.bio || "",
-              endereco: {
-                rua: data.perfil?.endereco?.rua || "",
-                numero: data.perfil?.endereco?.numero || "",
-                complemento: data.perfil?.endereco?.complemento || "",
-                bairro: data.perfil?.endereco?.bairro || "",
-                cidade: data.perfil?.endereco?.cidade || "",
-                estado: data.perfil?.endereco?.estado || "",
-                cep: data.perfil?.endereco?.cep || "",
-              },
-              redesSociais: {
-                instagram: data.perfil?.redesSociais?.instagram || "",
-                facebook: data.perfil?.redesSociais?.facebook || "",
-                linkedin: data.perfil?.redesSociais?.linkedin || "",
-                twitter: data.perfil?.redesSociais?.twitter || "",
-              },
-              preferencias: {
-                notificacoes: data.perfil?.preferencias?.notificacoes ?? true,
-                temaEscuro: data.perfil?.preferencias?.temaEscuro ?? false,
-                idioma: data.perfil?.preferencias?.idioma || "pt-BR",
-              },
+        // Preencher o formulário com os dados iniciais
+        form.reset({
+          nome: initialData.nome || "",
+          cpf: initialData.cpf || "",
+          perfil: {
+            foto: initialData.perfil?.foto || "",
+            telefone: initialData.perfil?.telefone || "",
+            bio: initialData.perfil?.bio || "",
+            endereco: {
+              rua: initialData.perfil?.endereco?.rua || "",
+              numero: initialData.perfil?.endereco?.numero || "",
+              complemento: initialData.perfil?.endereco?.complemento || "",
+              bairro: initialData.perfil?.endereco?.bairro || "",
+              cidade: initialData.perfil?.endereco?.cidade || "",
+              estado: initialData.perfil?.endereco?.estado || "",
+              cep: initialData.perfil?.endereco?.cep || "",
             },
-          })
-        } catch (error) {
-          console.error("Erro ao buscar perfil:", error)
-          toast.error("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
-        } finally {
-          setIsLoading(false)
-        }
+            redesSociais: {
+              instagram: initialData.perfil?.redesSociais?.instagram || "",
+              facebook: initialData.perfil?.redesSociais?.facebook || "",
+              linkedin: initialData.perfil?.redesSociais?.linkedin || "",
+              twitter: initialData.perfil?.redesSociais?.twitter || "",
+            },
+            preferencias: {
+              notificacoes: initialData.perfil?.preferencias?.notificacoes ?? true,
+              temaEscuro: initialData.perfil?.preferencias?.temaEscuro ?? false,
+              idioma: initialData.perfil?.preferencias?.idioma || "pt-BR",
+            },
+          },
+        })
+        return
       }
 
-      fetchUsuario()
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        console.log("Buscando dados do usuário...")
+
+        const response = await fetchWithRetry(
+          "/api/usuario/perfil",
+          {
+            headers: {
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
+          },
+          3,
+          1000,
+        )
+
+        if (response.status === 404) {
+          console.warn("Usuário não encontrado")
+          setLoadError("Usuário não encontrado. Por favor, faça login novamente.")
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(`Falha ao buscar dados do usuário: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log("Dados do usuário recebidos:", data)
+        setUsuario(data)
+
+        // Preencher o formulário com os dados do usuário
+        form.reset({
+          nome: data.nome || "",
+          cpf: data.cpf || "",
+          perfil: {
+            foto: data.perfil?.foto || "",
+            telefone: data.perfil?.telefone || "",
+            bio: data.perfil?.bio || "",
+            endereco: {
+              rua: data.perfil?.endereco?.rua || "",
+              numero: data.perfil?.endereco?.numero || "",
+              complemento: data.perfil?.endereco?.complemento || "",
+              bairro: data.perfil?.endereco?.bairro || "",
+              cidade: data.perfil?.endereco?.cidade || "",
+              estado: data.perfil?.endereco?.estado || "",
+              cep: data.perfil?.endereco?.cep || "",
+            },
+            redesSociais: {
+              instagram: data.perfil?.redesSociais?.instagram || "",
+              facebook: data.perfil?.redesSociais?.facebook || "",
+              linkedin: data.perfil?.redesSociais?.linkedin || "",
+              twitter: data.perfil?.redesSociais?.twitter || "",
+            },
+            preferencias: {
+              notificacoes: data.perfil?.preferencias?.notificacoes ?? true,
+              temaEscuro: data.perfil?.preferencias?.temaEscuro ?? false,
+              idioma: data.perfil?.preferencias?.idioma || "pt-BR",
+            },
+          },
+        })
+      } catch (error) {
+        console.error("Erro ao buscar perfil:", error)
+        setLoadError("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
+        toast.error("Erro ao carregar dados do perfil. Por favor, recarregue a página.")
+      } finally {
+        setIsLoading(false)
+      }
     }
+
+    fetchUsuario()
   }, [form, initialData])
 
   async function onSubmit(values: PerfilFormValues) {
     try {
-      setIsLoading(true)
+      setIsSaving(true)
+      setSaveSuccess(false)
+      console.log("Enviando dados do formulário:", values)
+
       const response = await fetchWithRetry(
         "/api/usuario/perfil",
         {
@@ -223,17 +253,26 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Falha ao atualizar perfil")
+        throw new Error(errorData.error || `Falha ao atualizar perfil: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log("Resposta da atualização:", data)
       setUsuario(data)
+
+      // Mostrar mensagem de sucesso
+      setSaveSuccess(true)
       toast.success("Perfil atualizado com sucesso!")
+
+      // Esconder a mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false)
+      }, 3000)
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error)
       toast.error("Erro ao atualizar perfil. Por favor, tente novamente.")
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
@@ -245,9 +284,24 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
     )
   }
 
+  if (loadError) {
+    return (
+      <Alert className="bg-red-50 border-red-200 mb-4">
+        <AlertDescription className="text-red-600">{loadError}</AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {saveSuccess && (
+          <Alert className="bg-green-50 border-green-200 mb-4">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-600">Perfil atualizado com sucesso!</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-col md:flex-row gap-6">
           <Card className="flex-1">
             <CardHeader>
@@ -296,8 +350,6 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
                 )}
               />
 
-              {/* Add the CPF field to the form */}
-              {/* Inside the CardContent after the nome field */}
               <FormField
                 control={form.control}
                 name="cpf"
@@ -594,8 +646,8 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
         </div>
 
         <CardFooter className="flex justify-end">
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
@@ -609,4 +661,3 @@ export function UsuarioPerfilForm({ initialData }: { initialData?: any }) {
     </Form>
   )
 }
-

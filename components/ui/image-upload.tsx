@@ -1,124 +1,104 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Upload, X, Loader2 } from "lucide-react"
+import { useCallback, useState } from "react"
+import { useDropzone } from "react-dropzone"
 import Image from "next/image"
+import { Upload, X } from "lucide-react"
 
-interface ImageUploadProps {
-  value?: string
-  onChange?: (url: string) => void
-  onRemove?: () => void
+export interface ImageUploadProps {
+  onChange: (value: string) => void
+  onRemove: (value: string) => void
+  value: string[]
   disabled?: boolean
-  tipo?: string
-  className?: string
+  endpoint?: string
+  onUploadComplete?: (url: string) => void
 }
 
-export function ImageUpload({ value, onChange, onRemove, disabled, tipo = "geral", className }: ImageUploadProps) {
+const ImageUpload = ({ onChange, onRemove, value, disabled, endpoint, onUploadComplete }: ImageUploadProps) => {
   const [isUploading, setIsUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [imageError, setImageError] = useState(false)
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      setIsUploading(true)
 
-    setIsUploading(true)
-    setError(null)
+      const file = acceptedFiles[0]
 
-    try {
-      const file = files[0]
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("tipo", tipo)
-
-      const response = await fetch("/api/upload/imagem", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Falha ao fazer upload da imagem")
+      if (!file || !endpoint) {
+        setIsUploading(false)
+        return
       }
 
-      const data = await response.json()
+      try {
+        const formData = new FormData()
+        formData.append("file", file)
 
-      if (onChange) {
-        onChange(data.url)
+        const response = await fetch(`/api/${endpoint}`, {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error("Upload failed")
+        }
+
+        const data = await response.json()
+
+        if (data.url) {
+          onChange(data.url)
+          if (onUploadComplete) {
+            onUploadComplete(data.url)
+          }
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error)
+      } finally {
+        setIsUploading(false)
       }
-    } catch (error) {
-      console.error("Erro ao fazer upload:", error)
-      setError(error instanceof Error ? error.message : "Erro ao fazer upload da imagem")
-    } finally {
-      setIsUploading(false)
-    }
-  }
+    },
+    [onChange, endpoint, onUploadComplete],
+  )
 
-  const handleImageError = () => {
-    console.warn("Erro ao carregar imagem:", value)
-    setImageError(true)
-  }
-
-  // Verificar se a URL da imagem é válida
-  const isValidImageUrl = value && typeof value === "string" && value.startsWith("http")
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop,
+    accept: {
+      "image/*": [],
+    },
+    disabled: disabled || isUploading,
+    maxFiles: 1,
+  })
 
   return (
-    <div className={className}>
-      {isValidImageUrl && !imageError ? (
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-0">
-            <div className="aspect-square relative">
-              <Image
-                src={value || "/placeholder.svg"}
-                alt="Imagem carregada"
-                fill
-                className="object-cover"
-                onError={handleImageError}
-                unoptimized // Usar esta opção para evitar problemas com domínios não configurados
-              />
-              {!disabled && (
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={onRemove}
-                  type="button"
-                >
+    <div>
+      <div
+        {...getRootProps({
+          className:
+            "border-2 border-dashed border-primary/50 rounded-md p-4 transition flex flex-col items-center justify-center hover:opacity-70 cursor-pointer",
+        })}
+      >
+        <input {...getInputProps()} />
+        <div className="flex flex-col items-center justify-center gap-2">
+          <Upload className="h-10 w-10 text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {isUploading ? "Uploading..." : "Drag & drop or click to upload"}
+          </p>
+        </div>
+      </div>
+      {value && value.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-4">
+          {value.map((url) => (
+            <div key={url} className="relative w-24 h-24 rounded-md overflow-hidden">
+              <div className="absolute top-1 right-1 z-10">
+                <button type="button" onClick={() => onRemove(url)} className="bg-rose-500 text-white p-1 rounded-full">
                   <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-dashed">
-          <CardContent className="p-0">
-            <label className="flex flex-col items-center justify-center w-full h-full aspect-square cursor-pointer">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                {isUploading ? (
-                  <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mb-2" />
-                ) : (
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                )}
-                <p className="text-sm text-muted-foreground">{isUploading ? "Enviando..." : "Clique para adicionar"}</p>
-                {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+                </button>
               </div>
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleUpload}
-                disabled={isUploading || disabled}
-              />
-            </label>
-          </CardContent>
-        </Card>
+              <Image fill className="object-cover" alt="Image" src={url || "/placeholder.svg"} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
+export default ImageUpload

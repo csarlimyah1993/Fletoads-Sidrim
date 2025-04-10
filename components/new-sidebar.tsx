@@ -8,23 +8,18 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-// Primeiro, importe o hook useTheme e os ícones necessários
-import { useTheme } from "next-themes"
 import {
-  Moon,
-  Sun,
-  Home,
-  BarChart3,
-  ShoppingCart,
+  BarChart2,
+  Users,
   FileText,
   Package,
-  MessageSquareText,
-  Link2,
   Store,
-  HelpCircle,
+  MessageSquare,
+  Link2,
+  Phone,
   ChevronLeft,
   ChevronRight,
-  Settings,
+  Headphones,
 } from "lucide-react"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -34,7 +29,6 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
-  const { setTheme, theme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   // Verificar se estamos em uma página de vitrine ou admin
@@ -43,255 +37,148 @@ export function NewSidebar({ className, defaultCollapsed = false }: SidebarProps
 
   // Restaurar o estado de colapso da sidebar do localStorage
   useEffect(() => {
-    const storedState = localStorage.getItem("sidebarCollapsed")
-    if (storedState !== null) {
-      setIsCollapsed(storedState === "true")
+    if (typeof window !== "undefined") {
+      const storedState = localStorage.getItem("sidebarCollapsed")
+      if (storedState !== null) {
+        setIsCollapsed(storedState === "true")
+      }
+      setMounted(true)
     }
-  }, [])
-
-  // Efeito para marcar quando o componente está montado
-  useEffect(() => {
-    setMounted(true)
   }, [])
 
   // Salvar o estado de colapso da sidebar no localStorage
   useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", isCollapsed.toString())
-
-    // Disparar um evento de storage para notificar outros componentes
-    window.dispatchEvent(new Event("storage"))
-  }, [isCollapsed])
+    if (mounted && typeof window !== "undefined") {
+      localStorage.setItem("sidebarCollapsed", isCollapsed.toString())
+    }
+  }, [isCollapsed, mounted])
 
   // Não renderizar a sidebar em páginas de vitrine ou admin
   if (isVitrinePage || isAdminPage) {
     return null
   }
 
+  const menuItems = [
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: BarChart2,
+    },
+    {
+      name: "Clientes",
+      href: "/dashboard/clientes",
+      icon: Users,
+    },
+    {
+      name: "Campanhas",
+      href: "/dashboard/campanhas",
+      icon: FileText,
+    },
+    {
+      name: "Panfletos",
+      href: "/dashboard/panfletos",
+      icon: FileText,
+    },
+    {
+      name: "Produtos",
+      href: "/dashboard/produtos",
+      icon: Package,
+    },
+    {
+      name: "Perfil da Loja",
+      href: "/dashboard/perfil-da-loja",
+      icon: Store,
+    },
+    {
+      name: "Vitrine",
+      href: "/dashboard/vitrine",
+      icon: Store,
+    },
+    {
+      name: "PanAI",
+      href: "/dashboard/pan-ai",
+      icon: MessageSquare,
+    },
+    {
+      name: "Integrações",
+      href: "/dashboard/integracoes",
+      icon: Link2,
+    },
+    {
+      name: "WhatsApp",
+      href: "/dashboard/whatsapp",
+      icon: Phone,
+    },
+  ]
+
   return (
     <div
       className={cn(
-        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r bg-background transition-width duration-300 ease-in-out",
-        isCollapsed ? "w-[80px]" : "w-[280px]",
+        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r transition-width duration-300 ease-in-out",
+        isCollapsed ? "w-[70px]" : "w-[240px]",
         className,
       )}
       style={{
         transitionProperty: "width",
         transitionDuration: "300ms",
         transitionTimingFunction: "ease-in-out",
+        backgroundColor: "#0A1122", // Cor de fundo azul escuro
       }}
     >
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          {isCollapsed ? (
-            <span className="font-bold text-primary text-xl">F</span>
-          ) : (
-            <span className="font-bold text-xl">
-              <span className="text-primary">fleto</span>
-              <span className="text-green-500">ads</span>
-            </span>
-          )}
-        </Link>
+      <div className="flex h-16 items-center justify-between px-4">
+        {!isCollapsed ? (
+          <h1 className="text-xl font-bold text-white">FletoAds</h1>
+        ) : (
+          <h1 className="text-xl font-bold text-white">F</h1>
+        )}
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-2 top-3"
+          className="text-gray-400 hover:text-white"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           <span className="sr-only">Toggle Sidebar</span>
         </Button>
       </div>
-      <ScrollArea className="flex-1 py-4">
-        <nav className="grid gap-2 px-2">
-          <Link
-            href="/dashboard"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <Home className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Página Inicial</span>}
-            {isCollapsed && <span>Início</span>}
-          </Link>
-          <Link
-            href="/dashboard/estatisticas"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/estatisticas"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <BarChart3 className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Dashboard</span>}
-            {isCollapsed && <span>Stats</span>}
-          </Link>
-          <Link
-            href="/dashboard/vendas"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/vendas"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <ShoppingCart className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Vendas</span>}
-            {isCollapsed && <span>Vendas</span>}
-          </Link>
-          <Link
-            href="/dashboard/panfletos"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/panfletos"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <FileText className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Panfletos</span>}
-            {isCollapsed && <span>Panfletos</span>}
-          </Link>
-          <Link
-            href="/dashboard/produtos"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/produtos"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <Package className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Produtos</span>}
-            {isCollapsed && <span>Produtos</span>}
-          </Link>
-          <Link
-            href="/dashboard/pan-ai"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/pan-ai"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <MessageSquareText className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Ferramenta Pan AI</span>}
-            {isCollapsed && <span>Pan AI</span>}
-          </Link>
-          <Link
-            href="/dashboard/integracoes"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname === "/dashboard/integracoes"
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <Link2 className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>Integrações</span>}
-            {isCollapsed && <span>Integrar</span>}
-          </Link>
-          <Link
-            href="/dashboard/perfil-da-loja"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname.includes("/perfil-da-loja")
-                ? "bg-green-500/20 text-green-500 font-medium"
-                : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <Store
-              className={cn(
-                "h-5 w-5",
-                isCollapsed && "h-6 w-6",
-                pathname.includes("/perfil-da-loja") && "text-green-500",
-              )}
-            />
-            {!isCollapsed && <span>Perfil Da Loja</span>}
-            {isCollapsed && <span>Loja</span>}
-          </Link>
-          <Link
-            href="/dashboard/vitrine"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-base transition-all hover:bg-accent",
-              pathname.includes("/vitrine") ? "bg-green-500/20 text-green-500 font-medium" : "text-muted-foreground",
-              isCollapsed && "flex-col justify-center gap-1 py-3 text-xs",
-            )}
-          >
-            <Store
-              className={cn("h-5 w-5", isCollapsed && "h-6 w-6", pathname.includes("/vitrine") && "text-green-500")}
-            />
-            {!isCollapsed && <span>Personalizar Vitrine</span>}
-            {isCollapsed && <span>Vitrine</span>}
-          </Link>
+      <ScrollArea className="flex-1 py-2">
+        <nav className="grid gap-1 px-2">
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+                  isActive
+                    ? "bg-blue-900/50 text-white font-medium"
+                    : "text-gray-400 hover:bg-blue-900/30 hover:text-white",
+                  isCollapsed && "justify-center py-2.5",
+                )}
+              >
+                <item.icon className={cn("h-5 w-5", isCollapsed && "h-5 w-5")} />
+                {!isCollapsed && <span>{item.name}</span>}
+              </Link>
+            )
+          })}
         </nav>
       </ScrollArea>
-      <div className="mt-auto border-t p-4">
-        <div className="flex flex-col gap-4">
-          <Button variant="outline" className="w-full justify-start gap-2" asChild>
-            <Link href="/suporte">
-              <HelpCircle className="h-5 w-5" />
-              {!isCollapsed && <span>Suporte</span>}
-            </Link>
-          </Button>
-
-          {isCollapsed ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label="Alternar tema"
-              className="w-full flex justify-center"
-            >
-              {mounted ? (
-                theme === "dark" ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )
-              ) : (
-                <div className="h-5 w-5" /> // Placeholder enquanto não está montado
-              )}
-            </Button>
-          ) : (
-            <div className="flex items-center justify-between">
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/dashboard/configuracoes">
-                  <Settings className="h-5 w-5" />
-                  <span className="sr-only">Configurações</span>
-                </Link>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                aria-label="Alternar tema"
-              >
-                {mounted ? (
-                  theme === "dark" ? (
-                    <Sun className="h-5 w-5" />
-                  ) : (
-                    <Moon className="h-5 w-5" />
-                  )
-                ) : (
-                  <div className="h-5 w-5" /> // Placeholder enquanto não está montado
-                )}
-              </Button>
-            </div>
+      <div className="mt-auto p-4">
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full border-gray-700 bg-transparent text-gray-300 hover:bg-blue-900/30 hover:text-white",
+            isCollapsed ? "justify-center" : "justify-start gap-2",
           )}
-        </div>
+          asChild
+        >
+          <Link href="/suporte">
+            <Headphones className="h-5 w-5" />
+            {!isCollapsed && <span>Suporte</span>}
+          </Link>
+        </Button>
       </div>
     </div>
   )
 }
-

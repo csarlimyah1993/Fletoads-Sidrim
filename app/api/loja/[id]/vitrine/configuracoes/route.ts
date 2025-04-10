@@ -34,8 +34,57 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Não autorizado a acessar esta loja" }, { status: 403 })
     }
 
-    // Retornar as configurações da vitrine
-    return NextResponse.json(loja.vitrineConfig || {})
+    // Configurações padrão
+    const defaultConfiguracoes = {
+      cores: {
+        primaria: "#4f46e5",
+        secundaria: "#818cf8",
+        texto: "#1f2937",
+        fundo: "#ffffff",
+        destaque: "#ef4444",
+      },
+      fontes: {
+        titulo: "Inter",
+        corpo: "Inter",
+        tamanhoTitulo: "xl",
+        tamanhoCorpo: "base",
+      },
+      layout: {
+        mostrarLogo: true,
+        mostrarBanner: true,
+        mostrarRedes: true,
+        mostrarHorarios: true,
+        mostrarEndereco: true,
+        mostrarContato: true,
+      },
+      seo: {
+        titulo: "",
+        descricao: "",
+        palavrasChave: "",
+      },
+      estilos: {
+        layout: "moderno",
+        cores: {
+          primaria: "#4f46e5",
+          secundaria: "#818cf8",
+          texto: "#1f2937",
+        },
+        widgets: ["produtos", "contato", "mapa", "redesSociais"],
+      },
+    }
+
+    // Se encontrou a vitrine, retornar suas configurações
+    if (loja && loja.vitrineConfig) {
+      return NextResponse.json({
+        configuracoes: {
+          ...defaultConfiguracoes,
+          ...loja.vitrineConfig,
+        },
+      })
+    }
+
+    // Se não encontrou configurações, retornar as padrão
+    return NextResponse.json({ configuracoes: defaultConfiguracoes })
   } catch (error) {
     console.error("Erro ao buscar configurações da vitrine:", error)
     return NextResponse.json({ error: "Erro ao buscar configurações da vitrine" }, { status: 500 })
@@ -98,4 +147,3 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Erro ao atualizar configurações da vitrine" }, { status: 500 })
   }
 }
-

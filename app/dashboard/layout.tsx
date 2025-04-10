@@ -5,8 +5,9 @@ import { Notificacoes } from "@/components/notificacoes"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { DashboardNav } from "@/components/dashboard-nav"
+import { Sidebar } from "@/components/sidebar"
 import { ModeToggle } from "@/components/mode-toggle"
+import { SidebarToggleScript } from "@/components/sidebar-toggle-script"
 
 export const metadata: Metadata = {
   title: "Dashboard - FletoAds",
@@ -26,25 +27,23 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background">
-        <div className="container flex h-16 items-center justify-between py-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold">FletoAds</h1>
+      <SidebarToggleScript />
+      <Sidebar />
+      <div
+        className="flex flex-col flex-1 transition-all duration-300 ease-in-out ml-[70px] md:ml-64"
+        id="main-content"
+      >
+        <header className="sticky top-0 z-40 border-b bg-background">
+          <div className="flex h-16 items-center justify-end px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-4">
+              <Notificacoes />
+              <ModeToggle />
+              <UserNav />
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Notificacoes />
-            <ModeToggle />
-            <UserNav />
-          </div>
-        </div>
-      </header>
-      <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10">
-        <aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 md:sticky md:block">
-          <DashboardNav />
-        </aside>
-        <main className="flex w-full flex-col overflow-hidden pt-4">{children}</main>
+        </header>
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   )
 }
-

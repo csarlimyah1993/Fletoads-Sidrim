@@ -1,8 +1,9 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb"
 import UsuarioModel from "@/lib/models/usuario"
 import bcrypt from "bcryptjs"
+import { ObjectId } from "mongodb"
 
 // Definindo tipos para o usuário
 interface UserData {
@@ -14,6 +15,20 @@ interface UserData {
   cargo: string
   permissoes: string[]
   plano: string
+}
+
+// Interface para usuário customizado
+interface CustomUser {
+  _id: string | ObjectId
+  email: string
+  nome: string
+  senha: string
+  role: string
+  plano: string
+  ultimoLogin: Date
+  permissoes?: string[]
+  save: () => Promise<any>
+  compararSenha: (senha: string) => Promise<boolean>
 }
 
 export const authOptions: NextAuthOptions = {
@@ -31,14 +46,56 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          await connectToDatabase()
-          await ensureCollectionsExist()
+          const { db } = await connectToDatabase()
 
-          // Buscar o usuário pelo email
-          const user = await UsuarioModel.findOne({ email: credentials.email })
+          // Buscar o usuário pelo email em múltiplas coleções
+          let user: any = await UsuarioModel.findOne({ email: credentials.email })
+
+          // Se não encontrar na coleção "usuarios", tenta na coleção "users"
+          if (!user) {
+            console.log("Usuário não encontrado em 'usuarios', tentando em 'users'...")
+            const usersCollection = db.collection("users")
+            const userFromUsers = await usersCollection.findOne({ email: credentials.email })
+
+            if (userFromUsers) {
+              console.log("Usuário encontrado na coleção 'users'")
+              // Converter para o formato esperado
+              user = {
+                _id: userFromUsers._id.toString(),
+                email: userFromUsers.email,
+                nome: userFromUsers.nome || userFromUsers.name || "",
+                senha: userFromUsers.senha || userFromUsers.password || "",
+                role: userFromUsers.role || userFromUsers.cargo || "user",
+                plano: userFromUsers.plano || "gratuito",
+                ultimoLogin: new Date(),
+                permissoes: userFromUsers.permissoes || [],
+                // Implementação de save() para usuários da coleção "users"
+                save: async function () {
+                  try {
+                    await usersCollection.updateOne(
+                      { _id: new ObjectId(this._id.toString()) },
+                      { $set: { ultimoLogin: this.ultimoLogin } },
+                    )
+                    return this
+                  } catch (error) {
+                    console.error("Erro ao salvar usuário:", error)
+                    return this
+                  }
+                },
+                compararSenha: async function (senhaFornecida: string) {
+                  // Implementação simplificada para usuários da coleção "users"
+                  if (this.senha.startsWith("$2a$") || this.senha.startsWith("$2b$")) {
+                    return await bcrypt.compare(senhaFornecida, this.senha)
+                  } else {
+                    return senhaFornecida === this.senha
+                  }
+                },
+              }
+            }
+          }
 
           if (!user) {
-            console.log("Usuário não encontrado:", credentials.email)
+            console.log("Usuário não encontrado em nenhuma coleção:", credentials.email)
             return null
           }
 
@@ -57,7 +114,7 @@ export const authOptions: NextAuthOptions = {
             await user.save()
 
             return {
-              id: user._id.toString(),
+              id: typeof user._id === "object" ? user._id.toString() : user._id,
               name: user.nome || "",
               email: user.email,
               role: user.role || "user",
@@ -77,7 +134,7 @@ export const authOptions: NextAuthOptions = {
             await user.save()
 
             return {
-              id: user._id.toString(),
+              id: typeof user._id === "object" ? user._id.toString() : user._id,
               name: user.nome || "",
               email: user.email,
               role: "admin",
@@ -92,7 +149,9 @@ export const authOptions: NextAuthOptions = {
           let isPasswordValid = false
 
           // Verificar se a senha armazenada é um hash bcrypt
-          if (user.senha.startsWith("$2a$") || user.senha.startsWith("$2b$")) {
+          if (typeof user.compararSenha === "function") {
+            isPasswordValid = await user.compararSenha(credentials.password)
+          } else if (user.senha.startsWith("$2a$") || user.senha.startsWith("$2b$")) {
             isPasswordValid = await bcrypt.compare(credentials.password, user.senha)
           } else {
             // Comparação direta se não for hash
@@ -114,7 +173,7 @@ export const authOptions: NextAuthOptions = {
 
           // Retornar os dados do usuário para a sessão
           return {
-            id: user._id.toString(),
+            id: typeof user._id === "object" ? user._id.toString() : user._id,
             name: user.nome || "",
             email: user.email,
             role: user.role === "admin" ? "admin" : "user",
@@ -163,32 +222,4 @@ export const authOptions: NextAuthOptions = {
   },
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,
-}
-
-// Estendendo o tipo Session para incluir os campos personalizados
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      name: string
-      email: string
-      role: string
-      nome: string
-      cargo: string
-      permissoes: string[]
-      plano: string
-    }
-  }
-}
-
-// Estendendo o tipo JWT para incluir os campos personalizados
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string
-    role: string
-    nome: string
-    cargo: string
-    permissoes: string[]
-    plano: string
-  }
 }

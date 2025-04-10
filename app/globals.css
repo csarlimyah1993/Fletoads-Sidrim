@@ -39,14 +39,13 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 220 65% 9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-muted: 217.9 10.6% 64.9%;
+    --sidebar-muted-foreground: 215 20.2% 65.1%;
+    --sidebar-accent: 220 70% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 214.3 31.8% 91.4%;
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -73,14 +72,13 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 220 65% 9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-muted: 217.9 10.6% 64.9%;
+    --sidebar-muted-foreground: 215 20.2% 65.1%;
+    --sidebar-accent: 220 70% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
   }
 }
 
@@ -93,3 +91,23 @@ body {
   }
 }
 
+/* Estilos específicos para a sidebar */
+.sidebar-nav-item {
+  @apply flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors;
+}
+
+.sidebar-nav-item.active {
+  @apply bg-[#1a2b4d] text-white font-medium;
+}
+
+.sidebar-nav-item:not(.active) {
+  @apply text-gray-400 hover:bg-[#1a2b4d] hover:text-white;
+}
+
+.sidebar-icon {
+  @apply h-5 w-5;
+}
+
+.sidebar-collapsed .sidebar-nav-item {
+  @apply justify-center py-2.5;
+}

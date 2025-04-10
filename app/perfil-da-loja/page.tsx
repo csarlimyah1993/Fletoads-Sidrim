@@ -1,58 +1,122 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+"use client"
 
-export default async function PerfilDaLojaPage() {
-  const session = await getServerSession(authOptions)
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
+import { useToast } from "@/hooks/use-toast"
+import { Plus } from "lucide-react"
 
-  if (!session) {
-    redirect("/login")
-  }
+export default function PerfilDaLojaPage() {
+  const [loja, setLoja] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const { toast } = useToast()
 
-  // Connect to database
-  await connectToDatabase()
+  useEffect(() => {
+    let isMounted = true
 
-  // Check if user has a store profile
-  let hasStore = false
+    const fetchLoja = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch("/api/loja/perfil")
 
-  try {
-    // Get database connection
-    const connection = mongoose.connection
-    if (!connection || !connection.db) {
-      throw new Error("Database connection not established")
+        if (!isMounted) return
+
+        if (response.status === 404) {
+          // Loja não encontrada, mostrar página para criar
+          setLoja(null)
+          setLoading(false)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error("Erro ao buscar dados da loja")
+        }
+
+        const data = await response.json()
+        setLoja(data.loja)
+      } catch (err) {
+        console.error("Erro ao buscar loja:", err)
+        if (isMounted) {
+          toast({
+            title: "Erro",
+            description: "Não foi possível carregar os dados da loja. Tente novamente mais tarde.",
+            variant: "destructive",
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
     }
 
-    const db = connection.db
+    fetchLoja()
 
-    // Find user
-    const usuario = await db.collection("usuarios").findOne({
-      email: session.user.email,
-    })
-
-    if (!usuario) {
-      throw new Error("User not found")
+    return () => {
+      isMounted = false
     }
+  }, [toast])
 
-    // Check if user has a store
-    const loja = await db.collection("lojas").findOne({
-      usuarioId: usuario._id.toString(),
-    })
-
-    hasStore = !!loja
-  } catch (error) {
-    console.error("Error checking store profile:", error)
+  const handleCriarLoja = () => {
+    router.push("/dashboard/perfil-da-loja/criar")
   }
 
-  // Redirect based on whether user has a store or not
-  if (hasStore) {
-    redirect("/dashboard/perfil-da-loja")
-  } else {
-    redirect("/dashboard/perfil-da-loja/criar")
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Perfil da Loja</h1>
+        </div>
+        <div className="relative h-48 bg-gray-200 dark:bg-gray-800 rounded-lg">
+          <Skeleton className="h-full w-full" />
+          <div className="absolute -bottom-16 left-8">
+            <Skeleton className="h-32 w-32 rounded-full" />
+          </div>
+        </div>
+        <div className="pt-20">
+          <Skeleton className="h-10 w-1/3 mb-4" />
+          <Skeleton className="h-4 w-2/3 mb-8" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  // This will never be reached due to redirects, but TypeScript requires a return
-  return null
+  if (!loja) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Perfil da Loja</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-semibold mb-2">Você ainda não tem uma loja</h2>
+            <p className="text-muted-foreground">
+              Crie sua loja para ter uma vitrine online e começar a vender seus produtos e serviços.
+            </p>
+          </div>
+          <Button onClick={handleCriarLoja}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar Loja
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Perfil da Loja</h1>
+      </div>
+      <LojaPerfilContent loja={loja} />
+    </div>
+  )
 }
-

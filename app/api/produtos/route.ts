@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,24 +13,27 @@ export async function GET(request: NextRequest) {
     // Conectar ao banco de dados
     const { db } = await connectToDatabase()
 
-    // Garantir que as coleções existam
-    await ensureCollectionsExist()
-
-    // Buscar a loja do usuário
-    const loja = await db.collection("lojas").findOne({ proprietarioId: session.user.id })
-
-    // Filtro para buscar produtos
-    const userFilter = loja ? { lojaId: loja._id.toString() } : { userId: session.user.id }
-
     // Parâmetros de busca
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get("search")
     const categoria = searchParams.get("categoria")
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const lojaId = searchParams.get("lojaId")
 
     // Construir filtro
-    const filter: any = { ...userFilter }
+    let filter: any = {}
+
+    // Se temos um lojaId específico, usamos ele
+    if (lojaId) {
+      filter.lojaId = lojaId
+    } else {
+      // Caso contrário, buscamos a loja do usuário
+      const loja = await db.collection("lojas").findOne({ proprietarioId: session.user.id })
+
+      // Filtro para buscar produtos
+      filter = loja ? { lojaId: loja._id.toString() } : { userId: session.user.id }
+    }
 
     if (search) {
       filter.$or = [{ nome: { $regex: search, $options: "i" } }, { descricao: { $regex: search, $options: "i" } }]
@@ -82,32 +85,73 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    if (!session?.user) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401 })
     }
 
+    const data = await req.json()
+    const userId = session.user.id
+
+    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
-    await ensureCollectionsExist()
 
-    const loja = await db.collection("lojas").findOne({ proprietarioId: session.user.id })
+    // Buscar a loja do usuário
+    let loja = await db.collection("lojas").findOne({ proprietarioId: session.user.id })
 
+    // Se não existir loja, criar uma loja padrão
     if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+      const novaLoja = {
+        nome: `Loja de ${session.user.name || "Usuário"}`,
+        descricao: "Loja criada automaticamente",
+        proprietarioId: session.user.id,
+        dataCriacao: new Date(),
+        dataAtualizacao: new Date(),
+        ativo: true,
+        endereco: {
+          rua: "",
+          numero: "",
+          complemento: "",
+          bairro: "",
+          cidade: "",
+          estado: "",
+          cep: "",
+          pais: "Brasil",
+        },
+        contato: {
+          telefone: "",
+          email: session.user.email || "",
+          whatsapp: "",
+        },
+      }
+
+      const resultado = await db.collection("lojas").insertOne(novaLoja)
+      loja = {
+        ...novaLoja,
+        _id: resultado.insertedId,
+      }
+
+      console.log("Loja padrão criada automaticamente:", loja._id)
     }
 
-    const data = await request.json()
+    // Preparar dados do produto
+    const produtoData = { ...data }
 
-    // Validar dados
-    if (!data.nome || !data.preco) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
+    // Remover campos de envio para produtos não físicos
+    if (data.tipoProduto !== "fisico") {
+      // Em vez de usar delete, definimos como undefined
+      produtoData.peso = undefined
+      produtoData.altura = undefined
+      produtoData.largura = undefined
+      produtoData.comprimento = undefined
+      produtoData.tipoFrete = undefined
     }
 
-    // Criar produto
+    // Continuar com a criação do produto
     const novoProduto = {
-      ...data,
+      ...produtoData,
       lojaId: loja._id.toString(),
       userId: session.user.id,
       createdAt: new Date(),
@@ -123,8 +167,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao criar produto:", error)
-    return NextResponse.json({ error: "Erro ao criar produto" }, { status: 500 })
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
 }
