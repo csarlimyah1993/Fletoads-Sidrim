@@ -1,167 +1,105 @@
-export type PlanType = "free" | "start" | "pro" | "business" | "enterprise"
-
 export interface ResourceLimits {
-  panfletos: number
-  produtos: number
-  campanhas: number
-  clientes: number
-  integracoes: number
-  armazenamento: number // em KB
-  panAssistant: boolean
-  analytics: boolean
-  clientesProximos: boolean
-  sinalizacaoVisual: boolean
-  notificacoes: boolean
-  vitrine: boolean
-  hotPromos: boolean
-  vendas: boolean
-  suporte: boolean
+  panfletos: number | null
+  produtos: number | null
+  integracoes: number | null
+  armazenamento: number | null
+  layouts: number | null
+  widgets: number | null
+  promocoes: number | null
+  imagensPorProduto: number | null
+  contasWhatsapp: number | null
+  tourVirtual: boolean
+  animacoes: boolean
+  personalizacaoFontes: boolean
 }
 
-// Limites para o plano gratuito
+// Define the limits for each plan
 export const FREE_PLAN_LIMITS: ResourceLimits = {
-  panfletos: 3,
-  produtos: 20,
-  campanhas: 1,
-  clientes: 5,
+  panfletos: 0,
+  produtos: 10,
   integracoes: 0,
-  armazenamento: 5 * 1024, // 5MB
-  panAssistant: false,
-  analytics: false,
-  clientesProximos: false,
-  sinalizacaoVisual: false,
-  notificacoes: false,
-  vitrine: false,
-  hotPromos: false,
-  vendas: false,
-  suporte: false,
+  armazenamento: 100, // MB
+  layouts: 2,
+  widgets: 3,
+  promocoes: 0,
+  imagensPorProduto: 1,
+  contasWhatsapp: 0,
+  tourVirtual: false,
+  animacoes: false,
+  personalizacaoFontes: false,
 }
 
-// Limites para o plano básico
-export const BASIC_PLAN_LIMITS: ResourceLimits = {
-  panfletos: 10,
-  produtos: 50,
-  campanhas: 3,
-  clientes: 20,
+export const START_PLAN_LIMITS: ResourceLimits = {
+  panfletos: 20,
+  produtos: 30,
   integracoes: 1,
-  armazenamento: 20 * 1024, // 20MB
-  panAssistant: true,
-  analytics: false,
-  clientesProximos: false,
-  sinalizacaoVisual: false,
-  notificacoes: true,
-  vitrine: true,
-  hotPromos: false,
-  vendas: true,
-  suporte: true,
+  armazenamento: 500, // MB
+  layouts: 4,
+  widgets: 5,
+  promocoes: 5,
+  imagensPorProduto: 2,
+  contasWhatsapp: 1,
+  tourVirtual: false,
+  animacoes: false,
+  personalizacaoFontes: true,
 }
 
-// Limites para o plano profissional
-export const PRO_PLAN_LIMITS: ResourceLimits = {
+export const BASIC_PLAN_LIMITS: ResourceLimits = {
   panfletos: 30,
-  produtos: 200,
-  campanhas: 10,
-  clientes: 100,
-  integracoes: 3,
-  armazenamento: 100 * 1024, // 100MB
-  panAssistant: true,
-  analytics: true,
-  clientesProximos: false,
-  sinalizacaoVisual: true,
-  notificacoes: true,
-  vitrine: true,
-  hotPromos: true,
-  vendas: true,
-  suporte: true,
+  produtos: 0, // No web showcase
+  integracoes: 1,
+  armazenamento: 1000, // MB
+  layouts: 4,
+  widgets: 5,
+  promocoes: 10,
+  imagensPorProduto: 3,
+  contasWhatsapp: 1,
+  tourVirtual: false,
+  animacoes: false,
+  personalizacaoFontes: true,
 }
 
-// Limites para o plano empresarial
-export const ENTERPRISE_PLAN_LIMITS: ResourceLimits = {
+export const COMPLETE_PLAN_LIMITS: ResourceLimits = {
+  panfletos: 50,
+  produtos: 60,
+  integracoes: 1,
+  armazenamento: 2000, // MB
+  layouts: 6,
+  widgets: 7,
+  promocoes: 20,
+  imagensPorProduto: 3,
+  contasWhatsapp: 1,
+  tourVirtual: true,
+  animacoes: true,
+  personalizacaoFontes: true,
+}
+
+export const PREMIUM_PLAN_LIMITS: ResourceLimits = {
   panfletos: 100,
-  produtos: 1000,
-  campanhas: 50,
-  clientes: 500,
-  integracoes: 10,
-  armazenamento: 500 * 1024, // 500MB
-  panAssistant: true,
-  analytics: true,
-  clientesProximos: true,
-  sinalizacaoVisual: true,
-  notificacoes: true,
-  vitrine: true,
-  hotPromos: true,
-  vendas: true,
-  suporte: true,
+  produtos: 120,
+  integracoes: 2,
+  armazenamento: 5000, // MB
+  layouts: 8,
+  widgets: 10,
+  promocoes: 50,
+  imagensPorProduto: 5,
+  contasWhatsapp: 2,
+  tourVirtual: true,
+  animacoes: true,
+  personalizacaoFontes: true,
 }
 
-// Função para obter os limites com base no plano
-export function getResourceLimitsByPlan(planType: PlanType): ResourceLimits {
-  switch (planType) {
-    case "free":
-      return FREE_PLAN_LIMITS
-    case "start":
-      return BASIC_PLAN_LIMITS
-    case "pro":
-      return PRO_PLAN_LIMITS
-    case "business":
-    case "enterprise":
-      return ENTERPRISE_PLAN_LIMITS
-    default:
-      return FREE_PLAN_LIMITS
-  }
+export const ENTERPRISE_PLAN_LIMITS: ResourceLimits = {
+  panfletos: 200,
+  produtos: 400,
+  integracoes: 4,
+  armazenamento: 10000, // MB
+  layouts: 12,
+  widgets: 12,
+  promocoes: 100,
+  imagensPorProduto: 5,
+  contasWhatsapp: 4,
+  tourVirtual: true,
+  animacoes: true,
+  personalizacaoFontes: true,
 }
-
-// Função para verificar se um usuário atingiu o limite de um recurso
-export function hasReachedLimit(
-  limits: ResourceLimits,
-  resourceType: keyof ResourceLimits,
-  currentUsage: number,
-): boolean {
-  const limit = limits[resourceType]
-
-  if (typeof limit === "number") {
-    return currentUsage >= limit
-  }
-
-  return false
-}
-
-// Função para calcular a porcentagem de uso de um recurso
-export function getUsagePercentage(
-  limits: ResourceLimits,
-  resourceType: keyof ResourceLimits,
-  currentUsage: number,
-): number {
-  const limit = limits[resourceType]
-
-  if (typeof limit === "number" && limit > 0) {
-    return Math.min(Math.round((currentUsage / limit) * 100), 100)
-  }
-
-  return 0
-}
-
-// Função para obter uma mensagem sobre o limite de um recurso
-export function getLimitMessage(
-  limits: ResourceLimits,
-  resourceType: keyof ResourceLimits,
-  currentUsage: number,
-): string {
-  const limit = limits[resourceType]
-
-  if (typeof limit === "number") {
-    const remaining = limit - currentUsage
-    const percentage = getUsagePercentage(limits, resourceType, currentUsage)
-
-    if (remaining <= 0) {
-      return `Você atingiu o limite de ${limit} ${resourceType}.`
-    } else if (percentage >= 80) {
-      return `Você está próximo de atingir o limite de ${limit} ${resourceType}.`
-    } else {
-      return `Você tem ${remaining} ${resourceType} disponíveis.`
-    }
-  }
-
-  return ""
-}
-

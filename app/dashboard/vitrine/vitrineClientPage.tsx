@@ -1,79 +1,51 @@
 "use client"
 
-// Renomeado o arquivo para resolver o problema de case-sensitivity
-import { VitrineCustomization } from "@/components/vitrine/vitrine-customization"
-import { useState } from "react"
-import { toast } from "@/components/ui/use-toast"
-import { OfflineFallback } from "./offline-fallback"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import VitrineCustomization from "@/components/vitrine/vitrine-customization"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface VitrineClientPageProps {
-  loja: any
-  vitrineConfig: any
-}
-
-export function VitrineClientPage({ loja, vitrineConfig }: VitrineClientPageProps) {
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
-  const [isSaving, setIsSaving] = useState(false)
-
-  // Monitor online status
-  useState(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
-
-    return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
-    }
-  })
-
-  const handleSaveConfig = async (config: any) => {
-    if (!isOnline) {
-      toast({
-        title: "Sem conexão",
-        description: "Você está offline. Conecte-se à internet para salvar as alterações.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      const response = await fetch(`/api/loja/${loja._id}/vitrine/configuracoes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(config),
-      })
-
-      if (!response.ok) {
-        throw new Error("Falha ao salvar configurações")
-      }
-
-      toast({
-        title: "Configurações salvas",
-        description: "As configurações da sua vitrine foram atualizadas com sucesso.",
-      })
-    } catch (error) {
-      console.error("Erro ao salvar configurações:", error)
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao salvar as configurações. Tente novamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  if (!isOnline) {
-    return <OfflineFallback />
-  }
-
+export default function VitrineClientPage() {
   return (
-    <VitrineCustomization loja={loja} initialConfig={vitrineConfig} onSave={handleSaveConfig} isSaving={isSaving} />
+    <div className="container mx-auto py-6">
+      <h1 className="text-3xl font-bold mb-6">Gerenciar Vitrine</h1>
+
+      <Tabs defaultValue="customize">
+        <TabsList className="mb-4">
+          <TabsTrigger value="customize">Personalizar</TabsTrigger>
+          <TabsTrigger value="preview">Visualizar</TabsTrigger>
+          <TabsTrigger value="settings">Configurações</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="customize">
+          <VitrineCustomization />
+        </TabsContent>
+
+        <TabsContent value="preview">
+          <Card>
+            <CardHeader>
+              <CardTitle>Prévia da Vitrine</CardTitle>
+              <CardDescription>Veja como sua vitrine ficará para os clientes.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[600px] w-full border rounded-md flex items-center justify-center bg-muted">
+                <p className="text-muted-foreground">Prévia da vitrine será exibida aqui</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações da Vitrine</CardTitle>
+              <CardDescription>Gerencie as configurações da sua vitrine online.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Configurações da vitrine serão exibidas aqui</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

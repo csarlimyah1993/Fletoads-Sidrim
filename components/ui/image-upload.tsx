@@ -14,7 +14,15 @@ export interface ImageUploadProps {
   onUploadComplete?: (url: string) => void
 }
 
-const ImageUpload = ({ onChange, onRemove, value, disabled, endpoint, onUploadComplete }: ImageUploadProps) => {
+// Export as default instead of named export
+export default function ImageUpload({
+  onChange,
+  onRemove,
+  value,
+  disabled,
+  endpoint,
+  onUploadComplete,
+}: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
 
   const onDrop = useCallback(
@@ -100,5 +108,3 @@ const ImageUpload = ({ onChange, onRemove, value, disabled, endpoint, onUploadCo
     </div>
   )
 }
-
-export default ImageUpload

@@ -1,618 +1,577 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { ImageUpload } from "@/components/ui/image-upload"
-import { Separator } from "@/components/ui/separator"
-import { Info, Tag, Package, Truck, Settings, ArrowLeft, Save, Loader2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import ImageUpload from "@/components/ui/image-upload"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/use-toast"
 
-// Definir o tipo para o produto
-interface ProdutoForm {
-  nome: string
-  descricaoCurta: string
-  descricaoCompleta: string
-  preco: string
-  precoPromocional: string
-  estoque: string
-  sku: string
-  codigoBarras: string
-  imagens: string[]
-  videoUrl: string
-  categoria: string
-  subcategoria: string
-  tags: string
-  marca: string
-  modelo: string
-  peso: string
-  altura: string
-  largura: string
-  comprimento: string
-  tipoFrete: string
-  ativo: boolean
-  destaque: boolean
-  tipoProduto: string
-  variacoes: any[]
-}
+const productFormSchema = z.object({
+  name: z.string().min(2, {
+    message: "O nome do produto deve ter pelo menos 2 caracteres.",
+  }),
+  description: z.string().optional(),
+  price: z.coerce.number().min(0, {
+    message: "O preço deve ser um número positivo.",
+  }),
+  compareAtPrice: z.coerce.number().min(0).optional(),
+  sku: z.string().optional(),
+  barcode: z.string().optional(),
+  category: z.string().optional(),
+  tags: z.string().optional(),
+  weight: z.coerce.number().min(0).optional(),
+  dimensions: z
+    .object({
+      length: z.coerce.number().min(0).optional(),
+      width: z.coerce.number().min(0).optional(),
+      height: z.coerce.number().min(0).optional(),
+    })
+    .optional(),
+  inventory: z
+    .object({
+      trackInventory: z.boolean().default(false),
+      quantity: z.coerce.number().min(0).optional(),
+      allowBackorder: z.boolean().default(false),
+      lowStockThreshold: z.coerce.number().min(0).optional(),
+    })
+    .optional(),
+  shipping: z
+    .object({
+      requiresShipping: z.boolean().default(true),
+      freeShipping: z.boolean().default(false),
+    })
+    .optional(),
+  seo: z
+    .object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+    })
+    .optional(),
+  status: z.enum(["draft", "active", "archived"]).default("draft"),
+  featured: z.boolean().default(false),
+})
 
-export default function NovoProdutoPage() {
+type ProductFormValues = z.infer<typeof productFormSchema>
+
+export default function NewProductPage() {
   const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState("basic")
-  const [isPhysicalProduct, setIsPhysicalProduct] = useState(true)
+  const [images, setImages] = useState<string[]>([])
 
-  // Estado para todos os campos do produto
-  const [produto, setProduto] = useState<ProdutoForm>({
-    // Informações básicas
-    nome: "",
-    descricaoCurta: "",
-    descricaoCompleta: "",
+  const defaultValues: Partial<ProductFormValues> = {
+    name: "",
+    description: "",
+    price: 0,
+    status: "draft",
+    featured: false,
+    inventory: {
+      trackInventory: false,
+      allowBackorder: false,
+    },
+    shipping: {
+      requiresShipping: true,
+      freeShipping: false,
+    },
+  }
 
-    // Preço e Estoque
-    preco: "",
-    precoPromocional: "",
-    estoque: "",
-    sku: "",
-    codigoBarras: "",
-
-    // Mídia
-    imagens: [],
-    videoUrl: "",
-
-    // Categorização
-    categoria: "",
-    subcategoria: "",
-    tags: "",
-    marca: "",
-    modelo: "",
-
-    // Informações de envio
-    peso: "",
-    altura: "",
-    largura: "",
-    comprimento: "",
-    tipoFrete: "padrao",
-
-    // Configurações adicionais
-    ativo: true,
-    destaque: false,
-    tipoProduto: "fisico",
-    variacoes: [],
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues,
   })
 
-  // Atualizar a visibilidade dos campos de envio quando o tipo de produto mudar
-  useEffect(() => {
-    setIsPhysicalProduct(produto.tipoProduto === "fisico")
-  }, [produto.tipoProduto])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setProduto((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSwitchChange = (name: string, checked: boolean) => {
-    setProduto((prev) => ({ ...prev, [name]: checked }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setProduto((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleImageUpload = (url: string) => {
-    setProduto((prev) => ({
-      ...prev,
-      imagens: [...prev.imagens, url],
-    }))
-  }
-
-  const handleRemoveImage = (index?: number) => {
-    if (index === undefined) return
-
-    setProduto((prev) => ({
-      ...prev,
-      imagens: prev.imagens.filter((_, i) => i !== index),
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
+  async function onSubmit(data: ProductFormValues) {
     try {
-      // Validação básica
-      if (!produto.nome || !produto.preco || !produto.estoque) {
-        toast({
-          variant: "destructive",
-          title: "Campos obrigatórios",
-          description: "Nome, preço e estoque são campos obrigatórios.",
-        })
-        setIsLoading(false)
-        return
+      // Add images to the data
+      const productData = {
+        ...data,
+        images,
       }
 
-      // Preparar dados para envio
-      const dadosParaEnviar: any = {
-        ...produto,
-        preco: Number.parseFloat(produto.preco),
-        precoPromocional: produto.precoPromocional ? Number.parseFloat(produto.precoPromocional) : undefined,
-        estoque: Number.parseInt(produto.estoque),
-        tags: produto.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-      }
+      // TODO: Submit to API
+      console.log(productData)
 
-      // Se for produto físico, converter valores numéricos para envio
-      if (isPhysicalProduct) {
-        dadosParaEnviar.peso = produto.peso ? Number.parseFloat(produto.peso) : undefined
-        dadosParaEnviar.altura = produto.altura ? Number.parseFloat(produto.altura) : undefined
-        dadosParaEnviar.largura = produto.largura ? Number.parseFloat(produto.largura) : undefined
-        dadosParaEnviar.comprimento = produto.comprimento ? Number.parseFloat(produto.comprimento) : undefined
-      }
-
-      const response = await fetch("/api/produtos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dadosParaEnviar),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao criar produto")
-      }
-
-      const produtoCriado = await response.json()
       toast({
         title: "Produto criado",
-        description: "O produto foi criado com sucesso!",
+        description: "O produto foi criado com sucesso.",
       })
 
-      router.push(`/dashboard/produtos/${produtoCriado._id}`)
-    } catch (error: any) {
-      console.error("Erro ao criar produto:", error)
+      // Redirect to products list
+      router.push("/dashboard/produtos")
+    } catch (error) {
+      console.error(error)
       toast({
-        variant: "destructive",
         title: "Erro",
-        description: error.message || "Ocorreu um erro ao criar o produto.",
+        description: "Ocorreu um erro ao criar o produto.",
+        variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
+  function handleImageUpload(url: string) {
+    setImages((prev) => [...prev, url])
+  }
+
+  function handleImageRemove(url: string) {
+    setImages((prev) => prev.filter((image) => image !== url))
+  }
+
+  function handleImagesReorder(urls: string[]) {
+    setImages(urls)
+  }
+
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/produtos")} disabled={isLoading}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h2 className="text-2xl font-bold tracking-tight">Novo Produto</h2>
-          </div>
-          <p className="text-muted-foreground">Preencha os dados para criar um novo produto</p>
-        </div>
+    <div className="container mx-auto py-10">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Novo Produto</h1>
+        <Button variant="outline" onClick={() => router.push("/dashboard/produtos")}>
+          Cancelar
+        </Button>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-5 mb-6">
-            <TabsTrigger value="basic" className="flex items-center gap-2">
-              <Info className="h-4 w-4" />
-              <span className="hidden sm:inline">Informações Básicas</span>
-            </TabsTrigger>
-            <TabsTrigger value="price" className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              <span className="hidden sm:inline">Preço e Estoque</span>
-            </TabsTrigger>
-            <TabsTrigger value="media" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Mídia</span>
-            </TabsTrigger>
-            <TabsTrigger value="category" className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              <span className="hidden sm:inline">Categorização</span>
-            </TabsTrigger>
-            {isPhysicalProduct && (
-              <TabsTrigger value="shipping" className="flex items-center gap-2">
-                <Truck className="h-4 w-4" />
-                <span className="hidden sm:inline">Envio</span>
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurações</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Informações Básicas */}
-          <TabsContent value="basic">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informações Básicas</CardTitle>
-                <CardDescription>Informe os dados básicos do produto.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do Produto *</Label>
-                  <Input
-                    id="nome"
-                    name="nome"
-                    value={produto.nome}
-                    onChange={handleChange}
-                    placeholder="Nome do produto"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="descricaoCurta">Descrição Curta</Label>
-                  <Input
-                    id="descricaoCurta"
-                    name="descricaoCurta"
-                    value={produto.descricaoCurta}
-                    onChange={handleChange}
-                    placeholder="Breve descrição para listagens"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="descricaoCompleta">Descrição Completa</Label>
-                  <Textarea
-                    id="descricaoCompleta"
-                    name="descricaoCompleta"
-                    value={produto.descricaoCompleta}
-                    onChange={handleChange}
-                    placeholder="Descrição detalhada do produto"
-                    rows={6}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Preço e Estoque */}
-          <TabsContent value="price">
-            <Card>
-              <CardHeader>
-                <CardTitle>Preço e Estoque</CardTitle>
-                <CardDescription>Configure os preços e estoque do produto.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="preco">Preço *</Label>
-                    <Input
-                      id="preco"
-                      name="preco"
-                      type="number"
-                      step="0.01"
-                      value={produto.preco}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="precoPromocional">Preço Promocional</Label>
-                    <Input
-                      id="precoPromocional"
-                      name="precoPromocional"
-                      type="number"
-                      step="0.01"
-                      value={produto.precoPromocional}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="estoque">Quantidade em Estoque *</Label>
-                    <Input
-                      id="estoque"
-                      name="estoque"
-                      type="number"
-                      value={produto.estoque}
-                      onChange={handleChange}
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sku">SKU (Código do Produto)</Label>
-                    <Input id="sku" name="sku" value={produto.sku} onChange={handleChange} placeholder="SKU123" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="codigoBarras">Código de Barras / EAN / GTIN</Label>
-                  <Input
-                    id="codigoBarras"
-                    name="codigoBarras"
-                    value={produto.codigoBarras}
-                    onChange={handleChange}
-                    placeholder="7891234567890"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Mídia */}
-          <TabsContent value="media">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mídia</CardTitle>
-                <CardDescription>Adicione imagens e vídeos do produto.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Imagens do Produto</Label>
-                  <ImageUpload
-                    value={produto.imagens}
-                    onChange={(urls) =>
-                      setProduto((prev) => ({ ...prev, imagens: Array.isArray(urls) ? urls : [urls] }))
-                    }
-                    onRemove={handleRemoveImage}
-                    multiple={true}
-                  />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Adicione até 10 imagens. A primeira imagem será a principal.
-                  </p>
-                </div>
-                <div className="space-y-2 mt-4">
-                  <Label htmlFor="videoUrl">URL do Vídeo (YouTube, Vimeo, etc.)</Label>
-                  <Input
-                    id="videoUrl"
-                    name="videoUrl"
-                    value={produto.videoUrl}
-                    onChange={handleChange}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Categorização */}
-          <TabsContent value="category">
-            <Card>
-              <CardHeader>
-                <CardTitle>Categorização e Organização</CardTitle>
-                <CardDescription>
-                  Organize seu produto em categorias e adicione tags para facilitar a busca.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="categoria">Categoria</Label>
-                    <Input
-                      id="categoria"
-                      name="categoria"
-                      value={produto.categoria}
-                      onChange={handleChange}
-                      placeholder="Ex: Eletrônicos, Roupas, etc."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subcategoria">Subcategoria</Label>
-                    <Input
-                      id="subcategoria"
-                      name="subcategoria"
-                      value={produto.subcategoria}
-                      onChange={handleChange}
-                      placeholder="Ex: Celulares, Camisetas, etc."
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tags">Tags / Palavras-chave</Label>
-                  <Input
-                    id="tags"
-                    name="tags"
-                    value={produto.tags}
-                    onChange={handleChange}
-                    placeholder="Separe as tags por vírgula (ex: promoção, novidade, destaque)"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">Separe as tags por vírgula.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="marca">Marca</Label>
-                    <Input
-                      id="marca"
-                      name="marca"
-                      value={produto.marca}
-                      onChange={handleChange}
-                      placeholder="Nome da marca"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="modelo">Modelo</Label>
-                    <Input
-                      id="modelo"
-                      name="modelo"
-                      value={produto.modelo}
-                      onChange={handleChange}
-                      placeholder="Modelo do produto"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Informações de Envio - Apenas para produtos físicos */}
-          {isPhysicalProduct && (
-            <TabsContent value="shipping">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="md:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Informações de Envio</CardTitle>
-                  <CardDescription>Adicione informações de peso e dimensões para cálculo de frete.</CardDescription>
+                  <CardTitle>Informações Básicas</CardTitle>
+                  <CardDescription>Preencha as informações básicas do produto.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="peso">Peso (kg)</Label>
-                    <Input
-                      id="peso"
-                      name="peso"
-                      type="number"
-                      step="0.01"
-                      value={produto.peso}
-                      onChange={handleChange}
-                      placeholder="0.00"
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Produto</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome do produto" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Descreva seu produto..." className="min-h-32" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preço</CardTitle>
+                  <CardDescription>Configure o preço do produto.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preço (R$)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="altura">Altura (cm)</Label>
-                      <Input
-                        id="altura"
-                        name="altura"
-                        type="number"
-                        step="0.1"
-                        value={produto.altura}
-                        onChange={handleChange}
-                        placeholder="0.0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="largura">Largura (cm)</Label>
-                      <Input
-                        id="largura"
-                        name="largura"
-                        type="number"
-                        step="0.1"
-                        value={produto.largura}
-                        onChange={handleChange}
-                        placeholder="0.0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="comprimento">Comprimento (cm)</Label>
-                      <Input
-                        id="comprimento"
-                        name="comprimento"
-                        type="number"
-                        step="0.1"
-                        value={produto.comprimento}
-                        onChange={handleChange}
-                        placeholder="0.0"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoFrete">Tipo de Frete</Label>
-                    <Select value={produto.tipoFrete} onValueChange={(value) => handleSelectChange("tipoFrete", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo de frete" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="padrao">Padrão</SelectItem>
-                        <SelectItem value="gratis">Frete Grátis</SelectItem>
-                        <SelectItem value="fixo">Valor Fixo</SelectItem>
-                        <SelectItem value="calculado">Calculado por Distância</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormField
+                      control={form.control}
+                      name="compareAtPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preço Comparativo (R$)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                          </FormControl>
+                          <FormDescription>Preço original antes do desconto.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          )}
 
-          {/* Configurações Adicionais */}
-          <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações Adicionais</CardTitle>
-                <CardDescription>Configure opções avançadas para o produto.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tipoProduto">Tipo de Produto</Label>
-                  <Select
-                    value={produto.tipoProduto}
-                    onValueChange={(value) => handleSelectChange("tipoProduto", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo de produto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fisico">Físico</SelectItem>
-                      <SelectItem value="digital">Digital</SelectItem>
-                      <SelectItem value="servico">Serviço</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {produto.tipoProduto === "fisico"
-                      ? "Produtos físicos possuem informações de envio e estoque."
-                      : produto.tipoProduto === "digital"
-                        ? "Produtos digitais são entregues eletronicamente, sem envio físico."
-                        : "Serviços são prestados sem envio físico."}
-                  </p>
-                </div>
-                <Separator className="my-4" />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="ativo">Produto Ativo</Label>
-                    <p className="text-sm text-muted-foreground">Produtos inativos não aparecem na loja.</p>
-                  </div>
-                  <Switch
-                    id="ativo"
-                    checked={produto.ativo}
-                    onCheckedChange={(checked) => handleSwitchChange("ativo", checked)}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Organização</CardTitle>
+                  <CardDescription>Organize seu produto com categorias e tags.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoria</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="roupas">Roupas</SelectItem>
+                            <SelectItem value="acessorios">Acessórios</SelectItem>
+                            <SelectItem value="calcados">Calçados</SelectItem>
+                            <SelectItem value="eletronicos">Eletrônicos</SelectItem>
+                            <SelectItem value="outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <Separator className="my-4" />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="destaque">Produto em Destaque</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Produtos em destaque aparecem em seções especiais da loja.
-                    </p>
-                  </div>
-                  <Switch
-                    id="destaque"
-                    checked={produto.destaque}
-                    onCheckedChange={(checked) => handleSwitchChange("destaque", checked)}
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tags</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Separe as tags por vírgula" {...field} />
+                        </FormControl>
+                        <FormDescription>Ex: verão, promoção, destaque</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </CardContent>
+              </Card>
 
-        <div className="mt-6 flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Produto
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configurações Avançadas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="inventory">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="inventory">Estoque</TabsTrigger>
+                      <TabsTrigger value="shipping">Envio</TabsTrigger>
+                      <TabsTrigger value="seo">SEO</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="inventory" className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="inventory.trackInventory"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Controlar Estoque</FormLabel>
+                              <FormDescription>Acompanhe a quantidade de produtos disponíveis.</FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("inventory.trackInventory") && (
+                        <>
+                          <FormField
+                            control={form.control}
+                            name="inventory.quantity"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Quantidade em Estoque</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="inventory.allowBackorder"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">Permitir Backorder</FormLabel>
+                                  <FormDescription>
+                                    Permitir vendas mesmo quando o produto estiver fora de estoque.
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="inventory.lowStockThreshold"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Limite de Estoque Baixo</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Receba alertas quando o estoque estiver abaixo deste valor.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="shipping" className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="shipping.requiresShipping"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Requer Envio</FormLabel>
+                              <FormDescription>Este produto precisa ser enviado fisicamente.</FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("shipping.requiresShipping") && (
+                        <>
+                          <FormField
+                            control={form.control}
+                            name="shipping.freeShipping"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">Frete Grátis</FormLabel>
+                                  <FormDescription>Ofereça frete grátis para este produto.</FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <FormField
+                              control={form.control}
+                              name="weight"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Peso (kg)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.01" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="dimensions.length"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Comprimento (cm)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.1" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="dimensions.width"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Largura (cm)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.1" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="dimensions.height"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Altura (cm)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.1" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="seo" className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="seo.title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Título SEO</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormDescription>Título que aparecerá nos resultados de busca.</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="seo.description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Descrição SEO</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} />
+                            </FormControl>
+                            <FormDescription>Descrição que aparecerá nos resultados de busca.</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status do Produto</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="draft">Rascunho</SelectItem>
+                            <SelectItem value="active">Ativo</SelectItem>
+                            <SelectItem value="archived">Arquivado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>Produtos com status "Ativo" ficam visíveis na loja.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="featured"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Produto em Destaque</FormLabel>
+                          <FormDescription>Exibir este produto em seções de destaque.</FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Identificação</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="sku"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormDescription>Código único para identificação do produto.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="barcode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código de Barras</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Imagens</CardTitle>
+                  <CardDescription>Adicione imagens do produto.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ImageUpload
+                    value={images}
+                    endpoint="uploadImages"
+                    onChange={handleImageUpload}
+                    onRemove={handleImageRemove}
+                    onUploadComplete={(url: string) => handleImageUpload(url)}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-4">
+            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/produtos")}>
+              Cancelar
+            </Button>
+            <Button type="submit">Criar Produto</Button>
+          </div>
+        </form>
+      </Form>
     </div>
   )
 }

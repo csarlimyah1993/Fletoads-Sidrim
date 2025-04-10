@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { FREE_PLAN_LIMITS, type ResourceLimits } from "@/lib/models/resource-limits"
-import { Usuario } from "@/lib/models/usuario"
+import Usuario from "@/lib/models/usuario"
 
 // Default limits for users without a plan
 const DEFAULT_LIMITS = {
@@ -15,58 +15,11 @@ export type ResourceType = "panfletos" | "campanhas" | "clientes" | "produtos"
 
 export interface ResourceLimit {
   current: number
-  limit: number
+  limit: number | null
   canCreate: boolean
   remaining: number
   percentUsed: number
 }
-
-/**
- * Check if a user can create more of a specific resource based on their plan limits
- */
-// export async function checkResourceLimit(userId: string, resourceType: ResourceType): Promise<ResourceLimit> {
-//   await connectToDatabase()
-
-//   // Get user with their plan
-//   const user = await Usuario.findById(userId).populate("plano")
-
-//   // Get the plan limits (or use defaults if no plan)
-//   const planLimits = user?.plano?.limites || DEFAULT_LIMITS
-
-//   // Get current count of resources
-//   let currentCount = 0
-
-//   switch (resourceType) {
-//     case "panfletos":
-//       currentCount = await Panfleto.countDocuments({ usuario: userId })
-//       break
-//     case "campanhas":
-//       currentCount = await Campanha.countDocuments({ usuario: userId })
-//       break
-//     case "clientes":
-//       currentCount = await Cliente.countDocuments({ usuario: userId })
-//       break
-//     case "produtos":
-//       currentCount = await Produto.countDocuments({ usuario: userId })
-//       break
-//   }
-
-//   // Get the limit for this resource type
-//   const limit = planLimits[resourceType] || DEFAULT_LIMITS[resourceType]
-
-//   // Calculate if user can create more
-//   const canCreate = currentCount < limit
-//   const remaining = Math.max(0, limit - currentCount)
-//   const percentUsed = (currentCount / limit) * 100
-
-//   return {
-//     current: currentCount,
-//     limit,
-//     canCreate,
-//     remaining,
-//     percentUsed,
-//   }
-// }
 
 // Função para verificar o limite de um recurso específico
 export async function checkResourceLimit(
@@ -74,20 +27,21 @@ export async function checkResourceLimit(
   resourceType: keyof ResourceLimits,
   currentCount: number,
 ): Promise<{
-  limit: number
+  limit: number | null
   current: number
   hasReached: boolean
   percentage: number
 }> {
   try {
     // Get user with their plan
-    const user = await Usuario.findById(userId).populate("plano")
+    const user = await Usuario.findById(userId)
 
     // Get the plan limits (or use defaults if no plan)
     const planLimits = user?.plano?.limites || FREE_PLAN_LIMITS
 
     // Get the specific limit for the requested resource
-    const limit = planLimits[resourceType] as number
+    // Use optional chaining and nullish coalescing to handle missing properties
+    const limit = planLimits[resourceType] ?? null
 
     // Check if the limit has been reached
     const hasReached = typeof limit === "number" && currentCount >= limit
@@ -105,7 +59,7 @@ export async function checkResourceLimit(
     console.error(`Error checking resource limit for ${resourceType}:`, error)
 
     // Return default values in case of error
-    const defaultLimit = FREE_PLAN_LIMITS[resourceType] as number
+    const defaultLimit = FREE_PLAN_LIMITS[resourceType] ?? null
     return {
       limit: defaultLimit,
       current: currentCount,
@@ -115,26 +69,11 @@ export async function checkResourceLimit(
   }
 }
 
-/**
- * Get all resource limits for a user
- */
-// export async function getUserResourceLimits(userId: string): Promise<Record<ResourceType, ResourceLimit>> {
-//   const resourceTypes: ResourceType[] = ["panfletos", "campanhas", "clientes", "produtos"]
-
-//   const limits: Record<ResourceType, ResourceLimit> = {} as Record<ResourceType, ResourceLimit>
-
-//   for (const type of resourceTypes) {
-//     limits[type] = await checkResourceLimit(userId, type)
-//   }
-
-//   return limits
-// }
-
 // Função para obter todos os limites de recursos do usuário
 export async function getUserResourceLimits(userId: string): Promise<ResourceLimits & { usage: Record<string, any> }> {
   try {
     // Get user with their plan
-    const user = await Usuario.findById(userId).populate("plano")
+    const user = await Usuario.findById(userId)
 
     // Get the plan limits (or use defaults if no plan)
     const planLimits = user?.plano?.limites || FREE_PLAN_LIMITS
@@ -146,6 +85,14 @@ export async function getUserResourceLimits(userId: string): Promise<ResourceLim
       produtos: 0,
       integracoes: 0,
       armazenamento: 0,
+      layouts: 0,
+      widgets: 0,
+      promocoes: 0,
+      imagensPorProduto: 0,
+      contasWhatsapp: 0,
+      tourVirtual: false,
+      animacoes: false,
+      personalizacaoFontes: false,
     }
 
     return {
@@ -163,6 +110,14 @@ export async function getUserResourceLimits(userId: string): Promise<ResourceLim
         produtos: 0,
         integracoes: 0,
         armazenamento: 0,
+        layouts: 0,
+        widgets: 0,
+        promocoes: 0,
+        imagensPorProduto: 0,
+        contasWhatsapp: 0,
+        tourVirtual: false,
+        animacoes: false,
+        personalizacaoFontes: false,
       },
     }
   }
@@ -185,4 +140,3 @@ export async function checkCurrentUserResourceLimit(
   // return checkResourceLimit(session.user.id, resourceType)
   return null
 }
-

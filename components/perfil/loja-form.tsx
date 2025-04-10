@@ -1,614 +1,612 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
+import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { toast } from "sonner"
-
+import { useForm } from "react-hook-form"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ImageUpload } from "@/components/ui/image-upload"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BusinessHoursSelector, type BusinessHoursSchedule } from "@/components/ui/business-hours-selector"
-import { useSession } from "next-auth/react"
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { toast } from "@/components/ui/use-toast"
+import ImageUpload from "@/components/ui/image-upload"
 
-// Schema de validação
 const lojaFormSchema = z.object({
   nome: z.string().min(2, {
     message: "O nome da loja deve ter pelo menos 2 caracteres.",
   }),
   descricao: z.string().optional(),
   endereco: z.object({
-    rua: z.string().optional(),
-    numero: z.string().optional(),
+    rua: z.string().min(1, { message: "A rua é obrigatória." }),
+    numero: z.string().min(1, { message: "O número é obrigatório." }),
     complemento: z.string().optional(),
-    bairro: z.string().optional(),
-    cidade: z.string().optional(),
-    estado: z.string().optional(),
-    cep: z.string().optional(),
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
+    bairro: z.string().min(1, { message: "O bairro é obrigatório." }),
+    cidade: z.string().min(1, { message: "A cidade é obrigatória." }),
+    estado: z.string().min(1, { message: "O estado é obrigatório." }),
+    cep: z.string().min(1, { message: "O CEP é obrigatório." }),
   }),
   contato: z.object({
-    telefone: z.string().optional(),
+    telefone: z.string().min(1, { message: "O telefone é obrigatório." }),
+    email: z.string().email({ message: "Email inválido." }),
     whatsapp: z.string().optional(),
-    email: z.string().email({ message: "Email inválido" }).optional().or(z.literal("")),
-    site: z.string().optional(),
-  }),
-  logo: z.string().optional(),
-  banner: z.string().optional(),
-  horarioFuncionamento: z.record(z.string(), z.any()).optional(),
-  redesSociais: z.object({
-    facebook: z.string().optional(),
     instagram: z.string().optional(),
-    twitter: z.string().optional(),
-    linkedin: z.string().optional(),
-    youtube: z.string().optional(),
+    facebook: z.string().optional(),
+  }),
+  horarioFuncionamento: z.object({
+    segunda: z.string().optional(),
+    terca: z.string().optional(),
+    quarta: z.string().optional(),
+    quinta: z.string().optional(),
+    sexta: z.string().optional(),
+    sabado: z.string().optional(),
+    domingo: z.string().optional(),
+  }),
+  configuracoes: z.object({
+    mostrarHorarios: z.boolean().default(true),
+    mostrarEndereco: z.boolean().default(true),
+    mostrarContatos: z.boolean().default(true),
+    permitirComentarios: z.boolean().default(true),
   }),
 })
 
 type LojaFormValues = z.infer<typeof lojaFormSchema>
 
-export interface LojaFormProps {
-  loja?: any
-}
-
-// Default business hours
-const defaultBusinessHours: BusinessHoursSchedule = {
-  segunda: { open: true, abertura: "08:00", fechamento: "18:00" },
-  terca: { open: true, abertura: "08:00", fechamento: "18:00" },
-  quarta: { open: true, abertura: "08:00", fechamento: "18:00" },
-  quinta: { open: true, abertura: "08:00", fechamento: "18:00" },
-  sexta: { open: true, abertura: "08:00", fechamento: "18:00" },
-  sabado: { open: true, abertura: "09:00", fechamento: "13:00" },
-  domingo: { open: false, abertura: "00:00", fechamento: "00:00" },
-}
-
-export function LojaPerfilForm({ loja }: LojaFormProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const { data: session } = useSession()
-  const [userPlan, setUserPlan] = useState("free")
-  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
-  const [errorMessage, setErrorMessage] = useState("")
-
-  console.log("Loja recebida no componente:", loja)
-
-  // Preparar os valores iniciais do formulário
-  const prepareDefaultValues = () => {
-    if (!loja)
-      return {
-        nome: "",
-        descricao: "",
-        endereco: {
-          rua: "",
-          numero: "",
-          complemento: "",
-          bairro: "",
-          cidade: "",
-          estado: "",
-          cep: "",
-          latitude: "",
-          longitude: "",
-        },
-        contato: {
-          telefone: "",
-          whatsapp: "",
-          email: "",
-          site: "",
-        },
-        logo: "",
-        banner: "",
-        horarioFuncionamento: defaultBusinessHours,
-        redesSociais: {
-          facebook: "",
-          instagram: "",
-          twitter: "",
-          linkedin: "",
-          youtube: "",
-        },
-      }
-
-    // Extrair dados de contato da loja
-    const telefone = loja?.contato?.telefone || loja?.telefone || ""
-    const email = loja?.contato?.email || loja?.email || ""
-    const whatsapp = loja?.contato?.whatsapp || loja?.whatsapp || ""
-    const site = loja?.contato?.site || loja?.website || ""
-
-    return {
-      nome: loja.nome || "",
-      descricao: loja.descricao || "",
-      endereco: {
-        rua: loja.endereco?.rua || "",
-        numero: loja.endereco?.numero || "",
-        complemento: loja.endereco?.complemento || "",
-        bairro: loja.endereco?.bairro || "",
-        cidade: loja.endereco?.cidade || "",
-        estado: loja.endereco?.estado || "",
-        cep: loja.endereco?.cep || "",
-        latitude: loja.endereco?.latitude || "",
-        longitude: loja.endereco?.longitude || "",
-      },
-      contato: {
-        telefone: telefone,
-        whatsapp: whatsapp,
-        email: email,
-        site: site,
-      },
-      logo: loja.logo || "",
-      banner: loja.banner || "",
-      horarioFuncionamento: loja.horarioFuncionamento || defaultBusinessHours,
-      redesSociais: {
-        facebook: loja.redesSociais?.facebook || "",
-        instagram: loja.redesSociais?.instagram || "",
-        twitter: loja.redesSociais?.twitter || "",
-        linkedin: loja.redesSociais?.linkedin || "",
-        youtube: loja.redesSociais?.youtube || "",
-      },
-    }
-  }
+export function LojaForm() {
+  const [logoUrl, setLogoUrl] = useState<string[]>([])
+  const [bannerUrl, setBannerUrl] = useState<string[]>([])
 
   const form = useForm<LojaFormValues>({
     resolver: zodResolver(lojaFormSchema),
-    defaultValues: prepareDefaultValues(),
+    defaultValues: {
+      nome: "",
+      descricao: "",
+      endereco: {
+        rua: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+        cep: "",
+      },
+      contato: {
+        telefone: "",
+        email: "",
+        whatsapp: "",
+        instagram: "",
+        facebook: "",
+      },
+      horarioFuncionamento: {
+        segunda: "",
+        terca: "",
+        quarta: "",
+        quinta: "",
+        sexta: "",
+        sabado: "",
+        domingo: "",
+      },
+      configuracoes: {
+        mostrarHorarios: true,
+        mostrarEndereco: true,
+        mostrarContatos: true,
+        permitirComentarios: true,
+      },
+    },
   })
 
-  // Atualizar o formulário quando os dados da loja mudarem
-  useEffect(() => {
-    if (loja) {
-      console.log("Atualizando formulário com dados da loja:", loja)
-      form.reset(prepareDefaultValues())
-    }
-  }, [loja, form])
-
-  // Buscar o plano do usuário
-  useEffect(() => {
-    const fetchUserPlan = async () => {
-      try {
-        const response = await fetch("/api/user/plan")
-        if (response.ok) {
-          const data = await response.json()
-          setUserPlan(data.plan || "free")
-        }
-      } catch (error) {
-        console.error("Erro ao buscar plano do usuário:", error)
-      }
+  function onSubmit(data: LojaFormValues) {
+    // Include the logo and banner URLs
+    const lojaData = {
+      ...data,
+      logo: logoUrl[0],
+      banner: bannerUrl[0],
     }
 
-    fetchUserPlan()
-  }, [])
+    console.log(lojaData)
 
-  const onSubmit = async (data: LojaFormValues) => {
-    setIsSaving(true)
-    setSaveStatus("idle")
-    setErrorMessage("")
+    toast({
+      title: "Perfil da loja atualizado",
+      description: "As informações da sua loja foram atualizadas com sucesso.",
+    })
+  }
 
-    try {
-      console.log("Enviando dados para salvar:", data)
+  const handleLogoChange = (url: string) => {
+    setLogoUrl([url])
+  }
 
-      // Preparar os dados para envio
-      const lojaDataToSubmit = {
-        _id: loja?._id,
-        nome: data.nome,
-        descricao: data.descricao,
-        endereco: data.endereco,
-        contato: {
-          telefone: data.contato.telefone || "",
-          email: data.contato.email || "",
-          whatsapp: data.contato.whatsapp || "",
-          site: data.contato.site || "",
-        },
-        logo: data.logo,
-        banner: data.banner,
-        horarioFuncionamento: data.horarioFuncionamento,
-        redesSociais: data.redesSociais,
-      }
+  const handleLogoRemove = (url: string) => {
+    setLogoUrl([])
+  }
 
-      console.log("Dados formatados para API:", lojaDataToSubmit)
+  const handleBannerChange = (url: string) => {
+    setBannerUrl([url])
+  }
 
-      const response = await fetch("/api/loja/perfil", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(lojaDataToSubmit),
-      })
-
-      const responseData = await response.json()
-      console.log("Resposta da API:", responseData)
-
-      if (!response.ok) {
-        throw new Error(responseData.error || "Erro ao salvar dados da loja")
-      }
-
-      // Mostrar mensagem de sucesso
-      toast.success("Dados da loja salvos com sucesso!")
-      setSaveStatus("success")
-
-      // Redirecionar para a página de perfil da loja após salvar
-      setTimeout(() => {
-        router.push("/dashboard/perfil-da-loja")
-        router.refresh()
-      }, 2000)
-    } catch (error) {
-      console.error("Erro ao salvar dados da loja:", error)
-      const message = error instanceof Error ? error.message : "Erro ao salvar dados da loja"
-      toast.error(message)
-      setErrorMessage(message)
-      setSaveStatus("error")
-    } finally {
-      setIsSaving(false)
-    }
+  const handleBannerRemove = (url: string) => {
+    setBannerUrl([])
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <Tabs defaultValue="informacoes" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-6">
-            <TabsTrigger value="informacoes">Informações</TabsTrigger>
-            <TabsTrigger value="contato">Contato</TabsTrigger>
-            <TabsTrigger value="horarios">Horários</TabsTrigger>
-            <TabsTrigger value="imagens">Imagens</TabsTrigger>
-          </TabsList>
+        <Card>
+          <CardHeader>
+            <CardTitle>Perfil da Loja</CardTitle>
+            <CardDescription>Configure as informações da sua loja que serão exibidas para os clientes.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="informacoes">
+              <TabsList className="mb-6">
+                <TabsTrigger value="informacoes">Informações Básicas</TabsTrigger>
+                <TabsTrigger value="endereco">Endereço</TabsTrigger>
+                <TabsTrigger value="contato">Contato</TabsTrigger>
+                <TabsTrigger value="horarios">Horários</TabsTrigger>
+                <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="informacoes" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium">Informações Básicas</h3>
-              <p className="text-sm text-gray-500">Informações gerais sobre sua loja.</p>
-            </div>
+              <TabsContent value="informacoes" className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="nome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Loja</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome da sua loja" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="nome"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome da Loja</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nome da sua loja" {...field} />
-                  </FormControl>
-                  <FormDescription>Este é o nome que será exibido para seus clientes.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="descricao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Descreva sua loja em poucas palavras..." {...field} />
+                      </FormControl>
+                      <FormDescription>Esta descrição será exibida na página principal da sua loja.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="descricao"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descreva sua loja em poucas palavras" {...field} value={field.value || ""} />
-                  </FormControl>
-                  <FormDescription>Uma breve descrição da sua loja e dos produtos que você vende.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Logo</h3>
+                    <ImageUpload
+                      value={logoUrl}
+                      endpoint="upload"
+                      onChange={handleLogoChange}
+                      onRemove={handleLogoRemove}
+                      onUploadComplete={(url: string) => handleLogoChange(url)}
+                    />
+                  </div>
 
-          <TabsContent value="contato" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium">Informações de Contato</h3>
-              <p className="text-sm text-gray-500">
-                Detalhes para que seus clientes possam entrar em contato com você.
-              </p>
-            </div>
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Banner</h3>
+                    <ImageUpload
+                      value={bannerUrl}
+                      endpoint="upload"
+                      onChange={handleBannerChange}
+                      onRemove={handleBannerRemove}
+                      onUploadComplete={(url: string) => handleBannerChange(url)}
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Recomendamos uma imagem de pelo menos 1200x400 pixels.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="contato.telefone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(00) 00000-0000" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormDescription>Número de telefone para contato.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <TabsContent value="endereco" className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="endereco.rua"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rua</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome da rua" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="contato.whatsapp"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>WhatsApp</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(00) 00000-0000" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormDescription>Número de WhatsApp para contato.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="endereco.numero"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Número" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="contato.email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email de Contato</FormLabel>
-                    <FormControl>
-                      <Input placeholder="contato@sualoja.com" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormDescription>Endereço de email para contato.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="endereco.complemento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Complemento</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Complemento (opcional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="contato.site"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://www.sualoja.com" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormDescription>Endereço do seu website (opcional).</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="endereco.bairro"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bairro</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bairro" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            <h3 className="text-lg font-medium">Endereço</h3>
-            <p className="text-sm text-gray-500">
-              Localização da sua loja para que seus clientes possam encontrá-la facilmente.
-            </p>
+                  <FormField
+                    control={form.control}
+                    name="endereco.cidade"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cidade</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Cidade" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="endereco.rua"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rua</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Rua" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="endereco.estado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o estado" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="AC">Acre</SelectItem>
+                            <SelectItem value="AL">Alagoas</SelectItem>
+                            <SelectItem value="AP">Amapá</SelectItem>
+                            <SelectItem value="AM">Amazonas</SelectItem>
+                            <SelectItem value="BA">Bahia</SelectItem>
+                            <SelectItem value="CE">Ceará</SelectItem>
+                            <SelectItem value="DF">Distrito Federal</SelectItem>
+                            <SelectItem value="ES">Espírito Santo</SelectItem>
+                            <SelectItem value="GO">Goiás</SelectItem>
+                            <SelectItem value="MA">Maranhão</SelectItem>
+                            <SelectItem value="MT">Mato Grosso</SelectItem>
+                            <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                            <SelectItem value="MG">Minas Gerais</SelectItem>
+                            <SelectItem value="PA">Pará</SelectItem>
+                            <SelectItem value="PB">Paraíba</SelectItem>
+                            <SelectItem value="PR">Paraná</SelectItem>
+                            <SelectItem value="PE">Pernambuco</SelectItem>
+                            <SelectItem value="PI">Piauí</SelectItem>
+                            <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                            <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                            <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                            <SelectItem value="RO">Rondônia</SelectItem>
+                            <SelectItem value="RR">Roraima</SelectItem>
+                            <SelectItem value="SC">Santa Catarina</SelectItem>
+                            <SelectItem value="SP">São Paulo</SelectItem>
+                            <SelectItem value="SE">Sergipe</SelectItem>
+                            <SelectItem value="TO">Tocantins</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="endereco.numero"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Número" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="endereco.cep"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>CEP</FormLabel>
+                        <FormControl>
+                          <Input placeholder="CEP" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="endereco.complemento"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Complemento</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Complemento" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <TabsContent value="contato" className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="contato.telefone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 0000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="endereco.bairro"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bairro</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Bairro" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="contato.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="contato@sualoja.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="endereco.cidade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cidade</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Cidade" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="contato.whatsapp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>WhatsApp</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(00) 00000-0000" {...field} />
+                      </FormControl>
+                      <FormDescription>Inclua o código do país (ex: +55).</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="endereco.estado"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Estado" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="contato.instagram"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instagram</FormLabel>
+                        <FormControl>
+                          <Input placeholder="@sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="endereco.cep"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CEP</FormLabel>
-                    <FormControl>
-                      <Input placeholder="00000-000" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
+                  <FormField
+                    control={form.control}
+                    name="contato.facebook"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Facebook</FormLabel>
+                        <FormControl>
+                          <Input placeholder="facebook.com/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
 
-          <TabsContent value="horarios">
-            <div>
-              <h3 className="text-lg font-medium">Horário de Funcionamento</h3>
-              <p className="text-sm text-gray-500">
-                Defina o horário de funcionamento da sua loja para cada dia da semana.
-              </p>
-            </div>
-            <FormField
-              control={form.control}
-              name="horarioFuncionamento"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Horário de Funcionamento</FormLabel>
-                  <FormControl>
-                    <BusinessHoursSelector value={field.value || defaultBusinessHours} onChange={field.onChange} />
-                  </FormControl>
-                  <FormDescription>Configure os horários de abertura e fechamento da sua loja.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
+              <TabsContent value="horarios" className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.segunda"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Segunda-feira</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 18:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-          <TabsContent value="imagens" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium">Imagens da Loja</h3>
-              <p className="text-sm text-gray-500">Adicione o logo e o banner da sua loja para personalizá-la.</p>
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.terca"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Terça-feira</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 18:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <FormField
-              control={form.control}
-              name="logo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Logo da Loja</FormLabel>
-                  <FormControl>
-                    <ImageUpload value={field.value || ""} onChange={field.onChange} tipo="logo" />
-                  </FormControl>
-                  <FormDescription>Adicione o logo da sua loja para identificação visual.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.quarta"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quarta-feira</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 18:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            <FormField
-              control={form.control}
-              name="banner"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Banner da Loja</FormLabel>
-                  <FormControl>
-                    <ImageUpload value={field.value || ""} onChange={field.onChange} tipo="banner" />
-                  </FormControl>
-                  <FormDescription>Adicione um banner para destacar sua loja.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.quinta"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quinta-feira</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 18:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <h3 className="text-lg font-medium">Redes Sociais</h3>
-            <p className="text-sm text-gray-500">Links para as redes sociais da sua loja.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="redesSociais.facebook"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Facebook</FormLabel>
-                    <FormControl>
-                      <Input placeholder="URL do Facebook" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.sexta"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sexta-feira</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 18:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="redesSociais.instagram"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instagram</FormLabel>
-                    <FormControl>
-                      <Input placeholder="URL do Instagram" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+                  <FormField
+                    control={form.control}
+                    name="horarioFuncionamento.sabado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sábado</FormLabel>
+                        <FormControl>
+                          <Input placeholder="08:00 - 12:00" {...field} />
+                        </FormControl>
+                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-        {saveStatus === "success" && (
-          <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Sucesso!</AlertTitle>
-            <AlertDescription>Dados da loja salvos com sucesso. Redirecionando...</AlertDescription>
-          </Alert>
-        )}
+                <FormField
+                  control={form.control}
+                  name="horarioFuncionamento.domingo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Domingo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Fechado" {...field} />
+                      </FormControl>
+                      <FormDescription>Deixe em branco para "Fechado".</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
 
-        {saveStatus === "error" && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription>{errorMessage || "Ocorreu um erro ao salvar os dados da loja."}</AlertDescription>
-          </Alert>
-        )}
+              <TabsContent value="configuracoes" className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="configuracoes.mostrarHorarios"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Mostrar Horários</FormLabel>
+                        <FormDescription>Exibir os horários de funcionamento na sua loja.</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-        <div className="flex justify-end space-x-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/dashboard/perfil-da-loja")}
-            disabled={isSaving}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar"
-            )}
-          </Button>
-        </div>
+                <FormField
+                  control={form.control}
+                  name="configuracoes.mostrarEndereco"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Mostrar Endereço</FormLabel>
+                        <FormDescription>Exibir o endereço físico da sua loja.</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="configuracoes.mostrarContatos"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Mostrar Contatos</FormLabel>
+                        <FormDescription>Exibir informações de contato na sua loja.</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="configuracoes.permitirComentarios"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Permitir Comentários</FormLabel>
+                        <FormDescription>Permitir que clientes deixem comentários nos produtos.</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+          <CardFooter className="flex justify-end">
+            <Button type="submit">Salvar Alterações</Button>
+          </CardFooter>
+        </Card>
       </form>
     </Form>
   )
 }
-
