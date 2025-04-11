@@ -1,40 +1,42 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Loader2 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 
 interface ClientesAtivosProps {
-  data: Array<{
-    periodo: string
-    quantidade: number
-  }>
-  loading?: boolean
+  data: Array<{ periodo: string; quantidade: number }>
 }
 
-export function ClientesAtivos({ data, loading = false }: ClientesAtivosProps) {
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+export function ClientesAtivos({ data }: ClientesAtivosProps) {
+  // Verificar se os dados estão no formato correto
+  const isValidData = Array.isArray(data) && data.length > 0 && "periodo" in data[0] && "quantidade" in data[0]
 
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-muted-foreground">Nenhum dado disponível</p>
-      </div>
-    )
-  }
+  // Se os dados não estiverem no formato correto, criar dados de exemplo
+  const chartData = isValidData
+    ? data
+    : [
+        { periodo: "Jan", quantidade: 0 },
+        { periodo: "Fev", quantidade: 0 },
+        { periodo: "Mar", quantidade: 0 },
+        { periodo: "Abr", quantidade: 0 },
+        { periodo: "Mai", quantidade: 0 },
+        { periodo: "Jun", quantidade: 0 },
+      ]
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="periodo" />
-        <YAxis />
-        <Tooltip formatter={(value) => [`${value} clientes`, "Quantidade"]} />
-        <Bar dataKey="quantidade" fill="#00C49F" name="Clientes Ativos" />
-      </BarChart>
-    </ResponsiveContainer>
+    <Card>
+      <CardHeader>
+        <CardTitle>Clientes Ativos</CardTitle>
+        <CardDescription>Número de clientes ativos por mês</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="periodo" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="quantidade" fill="#3b82f6" />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
   )
 }

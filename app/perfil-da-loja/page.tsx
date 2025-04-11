@@ -1,122 +1,120 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
-import { useToast } from "@/hooks/use-toast"
-import { Plus } from "lucide-react"
 
-export default function PerfilDaLojaPage() {
-  const [loja, setLoja] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
-  const { toast } = useToast()
+// Interface para mapear o documento do MongoDB para o tipo Loja
+interface LojaDocument {
+  _id: mongoose.Types.ObjectId
+  nome?: string
+  descricao?: string
+  logo?: string
+  banner?: string
+  endereco?: {
+    rua?: string
+    numero?: string
+    complemento?: string
+    bairro?: string
+    cidade?: string
+    estado?: string
+    cep?: string
+  }
+  contato?: {
+    telefone?: string
+    email?: string
+    whatsapp?: string
+    site?: string
+  }
+  horarioFuncionamento?: Record<
+    string,
+    {
+      abertura: string
+      fechamento: string
+      open: boolean
+    }
+  >
+  usuarioId?: string
+}
 
-  useEffect(() => {
-    let isMounted = true
+export default async function PerfilDaLojaPage() {
+  const session = await getServerSession(authOptions)
 
-    const fetchLoja = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/loja/perfil")
+  if (!session) {
+    redirect("/login")
+  }
 
-        if (!isMounted) return
+  // Connect to database
+  await connectToDatabase()
 
-        if (response.status === 404) {
-          // Loja não encontrada, mostrar página para criar
-          setLoja(null)
-          setLoading(false)
-          return
-        }
+  // Check if user has a store profile
+  let hasStore = false
+  let lojaDoc: LojaDocument | null = null
 
-        if (!response.ok) {
-          throw new Error("Erro ao buscar dados da loja")
-        }
+  try {
+    // Get database connection
+    const connection = mongoose.connection
+    if (!connection || !connection.db) {
+      throw new Error("Database connection not established")
+    }
 
-        const data = await response.json()
-        setLoja(data.loja)
-      } catch (err) {
-        console.error("Erro ao buscar loja:", err)
-        if (isMounted) {
-          toast({
-            title: "Erro",
-            description: "Não foi possível carregar os dados da loja. Tente novamente mais tarde.",
-            variant: "destructive",
-          })
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+    const db = connection.db
+
+    // Find user
+    const usuario = await db.collection("usuarios").findOne({
+      email: session.user.email,
+    })
+
+    if (!usuario) {
+      throw new Error("User not found")
+    }
+
+    // Check if user has a store
+    lojaDoc = (await db.collection("lojas").findOne({
+      usuarioId: usuario._id.toString(),
+    })) as LojaDocument | null
+
+    hasStore = !!lojaDoc
+  } catch (error) {
+    console.error("Error checking store profile:", error)
+  }
+
+  // Converter o documento do MongoDB para o formato esperado pelo componente
+  const loja = lojaDoc
+    ? {
+        _id: lojaDoc._id.toString(), // Converter ObjectId para string
+        nome: lojaDoc.nome,
+        descricao: lojaDoc.descricao,
+        logo: lojaDoc.logo,
+        banner: lojaDoc.banner,
+        endereco: lojaDoc.endereco,
+        contato: lojaDoc.contato,
+        horarioFuncionamento: lojaDoc.horarioFuncionamento,
       }
-    }
+    : null
 
-    fetchLoja()
-
-    return () => {
-      isMounted = false
-    }
-  }, [toast])
-
-  const handleCriarLoja = () => {
-    router.push("/dashboard/perfil-da-loja/criar")
-  }
-
-  if (loading) {
+  // Redirect based on whether user has a store or not
+  if (hasStore) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Perfil da Loja</h1>
-        </div>
-        <div className="relative h-48 bg-gray-200 dark:bg-gray-800 rounded-lg">
-          <Skeleton className="h-full w-full" />
-          <div className="absolute -bottom-16 left-8">
-            <Skeleton className="h-32 w-32 rounded-full" />
-          </div>
-        </div>
-        <div className="pt-20">
-          <Skeleton className="h-10 w-1/3 mb-4" />
-          <Skeleton className="h-4 w-2/3 mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-          </div>
-        </div>
+      <div className="container mx-auto py-6">
+        <LojaPerfilContent
+          loja={loja}
+          plano={{}}
+          uso={{
+            panfletos: 0,
+            produtos: 0,
+            clientes: 0,
+            integracoes: 0,
+          }}
+          vitrine={null}
+        />
       </div>
     )
+  } else {
+    redirect("/dashboard/perfil-da-loja/criar")
   }
 
-  if (!loja) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Perfil da Loja</h1>
-        </div>
-        <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-semibold mb-2">Você ainda não tem uma loja</h2>
-            <p className="text-muted-foreground">
-              Crie sua loja para ter uma vitrine online e começar a vender seus produtos e serviços.
-            </p>
-          </div>
-          <Button onClick={handleCriarLoja}>
-            <Plus className="h-4 w-4 mr-2" />
-            Criar Loja
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Perfil da Loja</h1>
-      </div>
-      <LojaPerfilContent loja={loja} />
-    </div>
-  )
+  // This will never be reached due to redirects, but TypeScript requires a return
+  return null
 }

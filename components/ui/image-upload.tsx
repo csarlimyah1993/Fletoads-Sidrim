@@ -1,110 +1,160 @@
 "use client"
 
-import { useCallback, useState } from "react"
-import { useDropzone } from "react-dropzone"
+import type React from "react"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Trash2, Upload, Loader2 } from "lucide-react"
 import Image from "next/image"
-import { Upload, X } from "lucide-react"
 
 export interface ImageUploadProps {
-  onChange: (value: string) => void
-  onRemove: (value: string) => void
-  value: string[]
-  disabled?: boolean
-  endpoint?: string
-  onUploadComplete?: (url: string) => void
+  value: string | string[]
+  onChange: (value: string | string[]) => void
+  onUpload?: (url: string) => void
+  onRemove?: (index?: number) => void
+  multiple?: boolean
+  className?: string
 }
 
-// Export as default instead of named export
-export default function ImageUpload({
-  onChange,
-  onRemove,
-  value,
-  disabled,
-  endpoint,
-  onUploadComplete,
-}: ImageUploadProps) {
+export function ImageUpload({ value, onChange, onUpload, onRemove, multiple = false, className }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      setIsUploading(true)
+  // Converter value para array sempre
+  const images = Array.isArray(value) ? value : value ? [value] : []
 
-      const file = acceptedFiles[0]
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
-      if (!file || !endpoint) {
-        setIsUploading(false)
-        return
-      }
+    setIsUploading(true)
+    setUploadProgress(0)
 
-      try {
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
         const formData = new FormData()
         formData.append("file", file)
 
-        const response = await fetch(`/api/${endpoint}`, {
+        // Simular progresso de upload
+        const interval = setInterval(() => {
+          setUploadProgress((prev) => {
+            const newProgress = prev + 5
+            if (newProgress >= 95) {
+              clearInterval(interval)
+              return 95
+            }
+            return newProgress
+          })
+        }, 100)
+
+        const response = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         })
 
+        clearInterval(interval)
+        setUploadProgress(100)
+
         if (!response.ok) {
-          throw new Error("Upload failed")
+          throw new Error("Erro ao fazer upload da imagem")
         }
 
         const data = await response.json()
+        const imageUrl = data.url
 
-        if (data.url) {
-          onChange(data.url)
-          if (onUploadComplete) {
-            onUploadComplete(data.url)
-          }
+        if (multiple) {
+          const newImages = [...images, imageUrl]
+          onChange(newImages)
+        } else {
+          onChange(imageUrl)
         }
-      } catch (error) {
-        console.error("Error uploading image:", error)
-      } finally {
-        setIsUploading(false)
-      }
-    },
-    [onChange, endpoint, onUploadComplete],
-  )
 
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop,
-    accept: {
-      "image/*": [],
-    },
-    disabled: disabled || isUploading,
-    maxFiles: 1,
-  })
+        if (onUpload) {
+          onUpload(imageUrl)
+        }
+      }
+    } catch (error) {
+      console.error("Erro no upload:", error)
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      // Limpar o input para permitir selecionar o mesmo arquivo novamente
+      if (e.target) {
+        e.target.value = ""
+      }
+    }
+  }
+
+  const handleRemove = (index: number) => {
+    if (multiple) {
+      const newImages = [...images]
+      newImages.splice(index, 1)
+      onChange(newImages)
+    } else {
+      onChange("")
+    }
+
+    if (onRemove) {
+      onRemove(index)
+    }
+  }
 
   return (
-    <div>
-      <div
-        {...getRootProps({
-          className:
-            "border-2 border-dashed border-primary/50 rounded-md p-4 transition flex flex-col items-center justify-center hover:opacity-70 cursor-pointer",
-        })}
-      >
-        <input {...getInputProps()} />
-        <div className="flex flex-col items-center justify-center gap-2">
-          <Upload className="h-10 w-10 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            {isUploading ? "Uploading..." : "Drag & drop or click to upload"}
-          </p>
-        </div>
-      </div>
-      {value && value.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-4">
-          {value.map((url) => (
-            <div key={url} className="relative w-24 h-24 rounded-md overflow-hidden">
-              <div className="absolute top-1 right-1 z-10">
-                <button type="button" onClick={() => onRemove(url)} className="bg-rose-500 text-white p-1 rounded-full">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <Image fill className="object-cover" alt="Image" src={url || "/placeholder.svg"} />
+    <div className={className}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        {images.map((image, index) => (
+          <div key={`${image}-${index}`} className="relative aspect-square border rounded-md overflow-hidden group">
+            <Image
+              src={image || "/placeholder.svg"}
+              alt={`Imagem ${index + 1}`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 50vw, 25vw"
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleRemove(index)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+
+        {isUploading && (
+          <div className="aspect-square border rounded-md overflow-hidden flex flex-col items-center justify-center bg-muted">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+            <div className="w-3/4 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">{uploadProgress}%</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-center">
+        <Button type="button" variant="outline" className="w-full max-w-xs" disabled={isUploading} asChild>
+          <label className="cursor-pointer flex items-center justify-center">
+            <Upload className="h-4 w-4 mr-2" />
+            {isUploading ? "Enviando..." : multiple ? "Adicionar imagens" : "Adicionar imagem"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUpload}
+              multiple={multiple}
+              disabled={isUploading}
+            />
+          </label>
+        </Button>
+      </div>
     </div>
   )
 }

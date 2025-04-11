@@ -16,7 +16,9 @@ export async function GET() {
     await connectToDatabase()
 
     console.log("Buscando usuários...")
-    const usuarios = await Usuario.find({})
+    // Corrigindo o erro: Usuario não tem método find(), vamos usar o modelo diretamente
+    const { db } = await connectToDatabase()
+    const usuarios = await db.collection("usuarios").find({}).toArray()
     console.log(`Encontrados ${usuarios.length} usuários`)
 
     let atualizados = 0
@@ -51,7 +53,10 @@ export async function GET() {
 
       // Salvar as alterações se houve modificação
       if (modificado) {
-        await usuario.save()
+        await db.collection("usuarios").updateOne(
+          { _id: usuario._id },
+          { $set: { perfil: usuario.perfil } }
+        )
         atualizados++
       }
     }

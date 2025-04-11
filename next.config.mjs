@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
@@ -35,6 +36,21 @@ const nextConfig = {
   },
   experimental: {
     serverExternalPackages: ['mongoose'],
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Não incluir módulos do lado do servidor no bundle do cliente
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        dns: false,
+        child_process: false,
+        aws4: false,
+      };
+    }
+    return config;
   },
 };
 

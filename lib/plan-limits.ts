@@ -1,142 +1,237 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { FREE_PLAN_LIMITS, type ResourceLimits } from "@/lib/models/resource-limits"
-import Usuario from "@/lib/models/usuario"
+import { connectToDatabase } from "./mongodb"
+import { ObjectId } from "mongodb"
 
-// Default limits for users without a plan
-const DEFAULT_LIMITS = {
-  panfletos: 3,
-  campanhas: 1,
-  clientes: 5,
-  produtos: 20,
+interface PlanLimits {
+  panfletos?: number | null
+  produtos?: number | null
+  clientes?: number | null
+  integracoes?: number | null
+  campanhas?: number | null
+  personalizacaoVitrine?: string
+  bannerPersonalizado?: boolean
+  layoutsVitrine?: number
+  widgets?: number
+  animacoes?: boolean
+  personalizacaoFonte?: boolean
+  imagensPorProduto?: number
+  tourVirtual?: string | boolean
+  [key: string]: number | null | string | boolean | undefined
 }
 
-export type ResourceType = "panfletos" | "campanhas" | "clientes" | "produtos"
-
-export interface ResourceLimit {
-  current: number
-  limit: number | null
-  canCreate: boolean
-  remaining: number
-  percentUsed: number
-}
-
-// Função para verificar o limite de um recurso específico
-export async function checkResourceLimit(
-  userId: string,
-  resourceType: keyof ResourceLimits,
-  currentCount: number,
-): Promise<{
+interface ResourceUsage {
   limit: number | null
   current: number
   hasReached: boolean
   percentage: number
-}> {
+}
+
+export interface ResourceLimits {
+  panfletos: ResourceUsage
+  produtos: ResourceUsage
+  clientes: ResourceUsage
+  integracoes: ResourceUsage
+  campanhas: ResourceUsage
+  [key: string]: ResourceUsage
+}
+
+// Definição dos limites de cada plano conforme fornecido
+export const PLAN_LIMITS: Record<string, PlanLimits> = {
+  gratuito: {
+    nome: "Grátis",
+    preco: "Grátis",
+    produtos: 10,
+    personalizacaoVitrine: "básica",
+    bannerPersonalizado: true,
+    layoutsVitrine: 2,
+    widgets: 3,
+    animacoes: false,
+    personalizacaoFonte: false,
+    panfletos: 0,
+    campanhas: 0, // promocoesDestaque
+    imagensPorProduto: 1,
+    integracoes: 0, // integracaoWhatsApp
+    tourVirtual: false,
+    clientes: 20, // valor padrão para clientes
+  },
+  start: {
+    nome: "Start",
+    preco: "R$ 297,00/mês",
+    produtos: 30,
+    personalizacaoVitrine: "avançada",
+    bannerPersonalizado: true,
+    layoutsVitrine: 4,
+    widgets: 5,
+    animacoes: false,
+    personalizacaoFonte: true,
+    panfletos: 20,
+    campanhas: 5, // promocoesDestaque
+    imagensPorProduto: 2,
+    integracoes: 1, // integracaoWhatsApp
+    tourVirtual: false,
+    clientes: 50, // valor padrão para clientes
+  },
+  basico: {
+    nome: "Básico",
+    preco: "R$ 799,00/mês",
+    produtos: 50, // Ajustado de 0 para um valor razoável
+    personalizacaoVitrine: "avançada",
+    bannerPersonalizado: true,
+    layoutsVitrine: 4,
+    widgets: 5,
+    animacoes: false,
+    personalizacaoFonte: true,
+    panfletos: 30,
+    campanhas: 10, // promocoesDestaque
+    imagensPorProduto: 3,
+    integracoes: 1, // integracaoWhatsApp
+    tourVirtual: false,
+    clientes: 100, // valor padrão para clientes
+  },
+  completo: {
+    nome: "Completo",
+    preco: "R$ 1599,00/mês",
+    produtos: 60,
+    personalizacaoVitrine: "avançada",
+    bannerPersonalizado: true,
+    layoutsVitrine: 6,
+    widgets: 7,
+    animacoes: true,
+    personalizacaoFonte: true,
+    panfletos: 50,
+    campanhas: 20, // promocoesDestaque
+    imagensPorProduto: 3,
+    integracoes: 1, // integracaoWhatsApp
+    tourVirtual: "Básico",
+    clientes: 200, // valor padrão para clientes
+  },
+  premium: {
+    nome: "Premium",
+    preco: "R$ 2200,00/mês",
+    produtos: 120,
+    personalizacaoVitrine: "avançada",
+    bannerPersonalizado: true,
+    layoutsVitrine: 8,
+    widgets: 10,
+    animacoes: true,
+    personalizacaoFonte: true,
+    panfletos: 100,
+    campanhas: 50, // promocoesDestaque
+    imagensPorProduto: 5,
+    integracoes: 2, // integracaoWhatsApp
+    tourVirtual: "Completo",
+    clientes: 300, // valor padrão para clientes
+  },
+  empresarial: {
+    nome: "Empresarial",
+    preco: "Personalizado",
+    produtos: 400,
+    personalizacaoVitrine: "avançada",
+    bannerPersonalizado: true,
+    layoutsVitrine: 12,
+    widgets: 12,
+    animacoes: true,
+    personalizacaoFonte: true,
+    panfletos: 200,
+    campanhas: 100, // promocoesDestaque
+    imagensPorProduto: 5,
+    integracoes: 4, // integracaoWhatsApp
+    tourVirtual: "Premium",
+    clientes: 500, // valor padrão para clientes
+  },
+}
+
+export async function getUserPlanLimits(userId: string): Promise<PlanLimits> {
   try {
-    // Get user with their plan
-    const user = await Usuario.findById(userId)
+    const { db } = await connectToDatabase()
 
-    // Get the plan limits (or use defaults if no plan)
-    const planLimits = user?.plano?.limites || FREE_PLAN_LIMITS
+    // Buscar o usuário
+    const user = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
+    if (!user) {
+      throw new Error("Usuário não encontrado")
+    }
 
-    // Get the specific limit for the requested resource
-    // Use optional chaining and nullish coalescing to handle missing properties
-    const limit = planLimits[resourceType] ?? null
+    // Buscar o plano do usuário
+    const planName = user.plano || "gratuito"
 
-    // Check if the limit has been reached
-    const hasReached = typeof limit === "number" && currentCount >= limit
+    // Verificar se o plano existe em nossa definição de limites
+    if (PLAN_LIMITS[planName]) {
+      return PLAN_LIMITS[planName]
+    }
 
-    // Calculate percentage of usage
-    const percentage = typeof limit === "number" ? Math.min(Math.round((currentCount / limit) * 100), 100) : 0
+    // Buscar o plano do banco de dados como fallback
+    const plan = await db.collection("planos").findOne({ nome: planName })
+
+    // Se não encontrar o plano, retorna limites do plano gratuito
+    if (!plan) {
+      return PLAN_LIMITS.gratuito
+    }
+
+    return plan.limites
+  } catch (error) {
+    console.error("Erro ao buscar limites do plano:", error)
+    return PLAN_LIMITS.gratuito
+  }
+}
+
+export async function checkResourceLimit(userId: string, resource: string): Promise<ResourceUsage> {
+  try {
+    const { db } = await connectToDatabase()
+    const limits = await getUserPlanLimits(userId)
+
+    // Converter o limite para number ou null
+    let limit: number | null = null
+
+    if (typeof limits[resource] === "number") {
+      limit = limits[resource] as number
+      // Se o limite for -1, significa que é ilimitado
+      if (limit === -1) {
+        limit = null
+      }
+    }
+
+    // Contar recursos do usuário
+    const count = await db.collection(resource).countDocuments({
+      usuarioId: new ObjectId(userId),
+    })
+
+    // Verificar se atingiu o limite
+    // Se o limite for null, significa que é ilimitado
+    const hasReached = limit !== null && count >= limit
+
+    // Calcular porcentagem
+    const percentage = limit !== null ? Math.min((count / limit) * 100, 100) : 0
 
     return {
       limit,
-      current: currentCount,
+      current: count,
       hasReached,
       percentage,
     }
   } catch (error) {
-    console.error(`Error checking resource limit for ${resourceType}:`, error)
-
-    // Return default values in case of error
-    const defaultLimit = FREE_PLAN_LIMITS[resourceType] ?? null
+    console.error(`Erro ao verificar limite de ${resource}:`, error)
     return {
-      limit: defaultLimit,
-      current: currentCount,
-      hasReached: typeof defaultLimit === "number" && currentCount >= defaultLimit,
-      percentage: typeof defaultLimit === "number" ? Math.min(Math.round((currentCount / defaultLimit) * 100), 100) : 0,
+      limit: null,
+      current: 0,
+      hasReached: false,
+      percentage: 0,
     }
   }
 }
 
-// Função para obter todos os limites de recursos do usuário
-export async function getUserResourceLimits(userId: string): Promise<ResourceLimits & { usage: Record<string, any> }> {
-  try {
-    // Get user with their plan
-    const user = await Usuario.findById(userId)
+export async function getAllResourceLimits(userId: string): Promise<ResourceLimits> {
+  const resources = ["panfletos", "produtos", "clientes", "integracoes", "campanhas"]
 
-    // Get the plan limits (or use defaults if no plan)
-    const planLimits = user?.plano?.limites || FREE_PLAN_LIMITS
-
-    // TODO: Get actual usage counts from database
-    // For now, we'll use dummy values
-    const usage = {
-      panfletos: 0,
-      produtos: 0,
-      integracoes: 0,
-      armazenamento: 0,
-      layouts: 0,
-      widgets: 0,
-      promocoes: 0,
-      imagensPorProduto: 0,
-      contasWhatsapp: 0,
-      tourVirtual: false,
-      animacoes: false,
-      personalizacaoFontes: false,
-    }
-
-    return {
-      ...planLimits,
-      usage,
-    }
-  } catch (error) {
-    console.error("Error getting user resource limits:", error)
-
-    // Return default values in case of error
-    return {
-      ...FREE_PLAN_LIMITS,
-      usage: {
-        panfletos: 0,
-        produtos: 0,
-        integracoes: 0,
-        armazenamento: 0,
-        layouts: 0,
-        widgets: 0,
-        promocoes: 0,
-        imagensPorProduto: 0,
-        contasWhatsapp: 0,
-        tourVirtual: false,
-        animacoes: false,
-        personalizacaoFontes: false,
-      },
-    }
-  }
-}
-
-/**
- * Check if the current user can create more of a specific resource
- * Returns null if not authenticated
- */
-export async function checkCurrentUserResourceLimit(
-  req: Request,
-  resourceType: ResourceType,
-): Promise<ResourceLimit | null> {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id) {
-    return null
+  const limits: ResourceLimits = {
+    panfletos: { limit: null, current: 0, hasReached: false, percentage: 0 },
+    produtos: { limit: null, current: 0, hasReached: false, percentage: 0 },
+    clientes: { limit: null, current: 0, hasReached: false, percentage: 0 },
+    integracoes: { limit: null, current: 0, hasReached: false, percentage: 0 },
+    campanhas: { limit: null, current: 0, hasReached: false, percentage: 0 },
   }
 
-  // return checkResourceLimit(session.user.id, resourceType)
-  return null
+  for (const resource of resources) {
+    limits[resource] = await checkResourceLimit(userId, resource)
+  }
+
+  return limits
 }

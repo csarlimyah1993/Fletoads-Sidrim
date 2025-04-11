@@ -1,58 +1,93 @@
-// This is a simplified model for the Usuario (User) entity
-// In a real application, this would be connected to your database
+import mongoose, { Schema, type Document } from "mongoose"
 
-export interface IUsuario {
-  _id: string
+export interface IUsuario extends Document {
   nome: string
   email: string
-  plano?: {
-    nome: string
-    limites: {
-      panfletos: number | null
-      produtos: number | null
-      integracoes: number | null
-      armazenamento: number | null
-      layouts: number | null
-      widgets: number | null
-      promocoes: number | null
-      imagensPorProduto: number | null
-      contasWhatsapp: number | null
-      tourVirtual: boolean
-      animacoes: boolean
-      personalizacaoFontes: boolean
+  senha?: string
+  role: string
+  plano?: string
+  dataExpiracaoPlano?: Date
+  perfil?: {
+    foto?: string
+    telefone?: string
+    bio?: string
+    endereco?: {
+      rua?: string
+      numero?: string
+      complemento?: string
+      bairro?: string
+      cidade?: string
+      estado?: string
+      cep?: string
+      latitude?: number
+      longitude?: number
+    }
+    redesSociais?: {
+      facebook?: string
+      instagram?: string
+      twitter?: string
+      linkedin?: string
+      youtube?: string
+      tiktok?: string
+    }
+    preferencias?: {
+      notificacoes?: boolean
+      newsletter?: boolean
+      tema?: string
     }
   }
+  ativo: boolean
+  dataCriacao: Date
+  dataAtualizacao: Date
+  ultimoLogin?: Date
 }
 
-// Mock implementation for the Usuario model
-const Usuario = {
-  findById: async (id: string): Promise<IUsuario> => {
-    // In a real app, this would query the database
-    // For now, we'll return a mock user
-    return {
-      _id: id,
-      nome: "Usuário Teste",
-      email: "teste@example.com",
-      plano: {
-        nome: "Básico",
-        limites: {
-          panfletos: 30,
-          produtos: 0, // No web showcase in Basic plan
-          integracoes: 1,
-          armazenamento: 1000,
-          layouts: 4,
-          widgets: 5,
-          promocoes: 10,
-          imagensPorProduto: 3,
-          contasWhatsapp: 1,
-          tourVirtual: false,
-          animacoes: false,
-          personalizacaoFontes: true,
-        },
+const UsuarioSchema = new Schema<IUsuario>(
+  {
+    nome: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    senha: { type: String },
+    role: { type: String, default: "user" },
+    plano: { type: String, default: "gratuito" },
+    dataExpiracaoPlano: { type: Date },
+    perfil: {
+      foto: { type: String },
+      telefone: { type: String },
+      bio: { type: String },
+      endereco: {
+        rua: { type: String },
+        numero: { type: String },
+        complemento: { type: String },
+        bairro: { type: String },
+        cidade: { type: String },
+        estado: { type: String },
+        cep: { type: String },
+        latitude: { type: Number },
+        longitude: { type: Number },
       },
-    }
+      redesSociais: {
+        facebook: { type: String },
+        instagram: { type: String },
+        twitter: { type: String },
+        linkedin: { type: String },
+        youtube: { type: String },
+        tiktok: { type: String },
+      },
+      preferencias: {
+        notificacoes: { type: Boolean, default: true },
+        newsletter: { type: Boolean, default: true },
+        tema: { type: String, default: "light" },
+      },
+    },
+    ativo: { type: Boolean, default: true },
+    dataCriacao: { type: Date, default: Date.now },
+    dataAtualizacao: { type: Date, default: Date.now },
+    ultimoLogin: { type: Date },
   },
-}
+  { timestamps: { createdAt: "dataCriacao", updatedAt: "dataAtualizacao" } },
+)
 
-export { Usuario }
+// Verificar se o modelo já foi compilado para evitar erros de sobrescrita
+const Usuario = mongoose.models.Usuario || mongoose.model<IUsuario>("Usuario", UsuarioSchema)
+
 export default Usuario

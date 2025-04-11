@@ -8,11 +8,11 @@ interface PanfletosPorMesProps {
     mes: string
     quantidade: number
   }>
-  loading?: boolean
+  isLoading?: boolean
 }
 
-export function PanfletosPorMes({ data, loading = false }: PanfletosPorMesProps) {
-  if (loading) {
+export function PanfletosPorMes({ data, isLoading = false }: PanfletosPorMesProps) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -46,7 +46,7 @@ export function PanfletosPorMes({ data, loading = false }: PanfletosPorMesProps)
         />
         <YAxis />
         <Tooltip
-          formatter={(value) => [`${value} vendas`, "Quantidade"]}
+          formatter={(value) => [`${value} panfletos`, "Quantidade"]}
           labelFormatter={(value) => {
             if (!value) return ""
             try {
@@ -59,7 +59,7 @@ export function PanfletosPorMes({ data, loading = false }: PanfletosPorMesProps)
             }
           }}
         />
-        <Line type="monotone" dataKey="quantidade" stroke="#8884d8" name="Vendas" />
+        <Line type="monotone" dataKey="quantidade" stroke="#8884d8" name="Panfletos" />
       </LineChart>
     </ResponsiveContainer>
   )

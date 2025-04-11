@@ -8,76 +8,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, MapPin, Phone, Mail, Globe, ShoppingBag, Clock, ChevronRight, Star } from "lucide-react"
+import { Edit, MapPin, Phone, Mail, Globe, ShoppingBag, Clock, ChevronRight, Star, Palette, Layout, ImageIcon, Settings, BarChart } from 'lucide-react'
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { GoogleMap } from "@/components/ui/google-map"
 
-interface Loja {
-  _id: string
-  nome: string
-  descricao?: string
-  logo?: string
-  banner?: string
-  capa?: string
-  endereco?: {
-    rua?: string
-    numero?: string
-    complemento?: string
-    bairro?: string
-    cidade?: string
-    estado?: string
-    cep?: string
-    latitude?: number
-    longitude?: number
-    logradouro?: string
-  }
-  contato?: {
-    telefone?: string
-    whatsapp?: string
-    email?: string
-    site?: string
-  }
-  horarioFuncionamento?: {
-    segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    quarta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    quinta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    sexta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    sabado?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  }
-  vitrineId?: string
-}
-
-interface Produto {
-  _id: string
-  nome: string
-  descricaoCurta?: string
-  preco: number
-  precoPromocional?: number
-  imagens?: string[]
-  destaque?: boolean
-  ativo?: boolean
-}
-
-export interface LojaPerfilContentProps {
+interface PerfilDaLojaContentProps {
   loja: any
-  produtos?: Produto[]
-  isLoading?: boolean
-  planoInfo?: any
-  plano?: any
-  uso?: any
+  produtos: any[]
+  plano: any
+  limites: any
+  vitrine: any
 }
 
-export function LojaPerfilContent({
-  loja,
-  produtos = [],
-  isLoading = false,
-  planoInfo,
-  plano,
-  uso,
-}: LojaPerfilContentProps) {
+export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitrine }: PerfilDaLojaContentProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("info")
 
@@ -94,7 +38,7 @@ export function LojaPerfilContent({
   }
 
   const endereco = loja.endereco
-    ? `${loja.endereco.logradouro}, ${loja.endereco.numero}, ${loja.endereco.bairro}, ${loja.endereco.cidade} - ${loja.endereco.estado}`
+    ? `${loja.endereco.logradouro || ""}, ${loja.endereco.numero || ""}, ${loja.endereco.bairro || ""}, ${loja.endereco.cidade || ""} - ${loja.endereco.estado || ""}`
     : "Endereço não cadastrado"
 
   const vitrineUrl = loja._id ? `/vitrines/${loja._id}` : "#"
@@ -108,20 +52,24 @@ export function LojaPerfilContent({
   }
 
   const handleVerVitrine = () => {
-    if (loja.vitrineId) {
-      window.open(`/vitrines/${loja.vitrineId}`, "_blank")
+    if (loja._id) {
+      window.open(`/vitrines/${loja._id}`, "_blank")
     } else {
       router.push("/dashboard/vitrine")
     }
   }
 
+  const handleEditarVitrine = () => {
+    router.push("/dashboard/vitrine")
+  }
+
   const formatarEndereco = () => {
     if (!loja.endereco) return "Endereço não cadastrado"
 
-    const { rua, numero, bairro, cidade, estado } = loja.endereco
+    const { logradouro, numero, bairro, cidade, estado } = loja.endereco
     const partes = []
 
-    if (rua) partes.push(rua + (numero ? `, ${numero}` : ""))
+    if (logradouro) partes.push(logradouro + (numero ? `, ${numero}` : ""))
     if (bairro) partes.push(bairro)
     if (cidade) partes.push(cidade + (estado ? ` - ${estado}` : ""))
 
@@ -173,24 +121,6 @@ export function LojaPerfilContent({
   }
 
   const renderProdutos = () => {
-    if (isLoading) {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <div className="aspect-square relative bg-gray-100 dark:bg-gray-800">
-                <Skeleton className="h-full w-full" />
-              </div>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )
-    }
-
     if (!produtos || produtos.length === 0) {
       return (
         <div className="text-center py-8">
@@ -276,10 +206,238 @@ export function LojaPerfilContent({
     )
   }
 
+  const renderVitrinePreview = () => {
+    const corPrimaria = vitrine?.configuracoes?.corPrimaria || "#3b82f6"
+    const corSecundaria = vitrine?.configuracoes?.corSecundaria || "#8b5cf6"
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold">Prévia da Vitrine</h3>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleEditarVitrine}>
+              <Edit className="h-4 w-4 mr-2" />
+              Personalizar
+            </Button>
+            <Button onClick={handleVerVitrine}>
+              <Globe className="h-4 w-4 mr-2" />
+              Ver Vitrine
+            </Button>
+          </div>
+        </div>
+        
+        <div className="border rounded-lg overflow-hidden">
+          {/* Header da Vitrine */}
+          <div 
+            className="h-16 flex items-center justify-between px-4"
+            style={{ backgroundColor: corPrimaria, color: "#fff" }}
+          >
+            <div className="flex items-center gap-2">
+              {loja.logo && (
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-white">
+                  <Image 
+                    src={loja.logo || "/placeholder.svg"} 
+                    alt={loja.nome} 
+                    width={32} 
+                    height={32} 
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              <span className="font-bold">{loja.nome}</span>
+            </div>
+            <div className="flex gap-2">
+              <div className="w-6 h-6 rounded-full bg-white/20"></div>
+              <div className="w-6 h-6 rounded-full bg-white/20"></div>
+            </div>
+          </div>
+          
+          {/* Banner */}
+          <div className="h-40 relative">
+            {loja.banner ? (
+              <Image
+                src={loja.banner || "/placeholder.svg"}
+                alt="Banner"
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div 
+                className="w-full h-full flex items-center justify-center"
+                style={{ 
+                  background: `linear-gradient(to right, ${corPrimaria}, ${corSecundaria})` 
+                }}
+              >
+                <h2 className="text-2xl font-bold text-white">{loja.nome}</h2>
+              </div>
+            )}
+          </div>
+          
+          {/* Conteúdo */}
+          <div className="p-4 space-y-4">
+            {/* Produtos em destaque */}
+            <div>
+              <h3 className="font-semibold mb-2">Produtos em Destaque</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {produtos.length > 0 ? (
+                  produtos.slice(0, 2).map((produto, index) => (
+                    <div key={index} className="border rounded-md overflow-hidden">
+                      <div className="aspect-square relative bg-gray-100">
+                        {produto.imagens && produto.imagens.length > 0 ? (
+                          <Image
+                            src={produto.imagens[0] || "/placeholder.svg"}
+                            alt={produto.nome}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <ShoppingBag className="h-8 w-8 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <p className="text-sm font-medium truncate">{produto.nome}</p>
+                        <p className="text-sm font-bold">R$ {produto.preco.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 text-center py-4 text-sm text-muted-foreground">
+                    Nenhum produto cadastrado
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Informações de contato */}
+            <div>
+              <h3 className="font-semibold mb-2">Contato</h3>
+              <div className="text-sm space-y-1">
+                {loja.contato?.telefone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    <span>{loja.contato.telefone}</span>
+                  </div>
+                )}
+                {loja.contato?.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3 w-3" />
+                    <span>{loja.contato.email}</span>
+                  </div>
+                )}
+                {!loja.contato?.telefone && !loja.contato?.email && (
+                  <p className="text-muted-foreground">Nenhum contato cadastrado</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderVitrineConfig = () => {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Palette className="h-5 w-5 text-blue-500" />
+                Aparência
+              </CardTitle>
+              <CardDescription>Cores e fontes da vitrine</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Cor Primária</span>
+                <div 
+                  className="w-6 h-6 rounded-full border"
+                  style={{ backgroundColor: vitrine?.configuracoes?.corPrimaria || "#3b82f6" }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Cor Secundária</span>
+                <div 
+                  className="w-6 h-6 rounded-full border"
+                  style={{ backgroundColor: vitrine?.configuracoes?.corSecundaria || "#8b5cf6" }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Fonte Principal</span>
+                <span className="text-sm font-medium">{vitrine?.configuracoes?.fontePrincipal || "Inter"}</span>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" size="sm" className="w-full" onClick={handleEditarVitrine}>
+                Editar Aparência
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Layout className="h-5 w-5 text-green-500" />
+                Layout
+              </CardTitle>
+              <CardDescription>Estrutura da vitrine</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Estilo</span>
+                <span className="text-sm font-medium capitalize">{vitrine?.configuracoes?.layout || "Padrão"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Banner</span>
+                <span className="text-sm font-medium">{vitrine?.configuracoes?.mostrarBanner !== false ? "Visível" : "Oculto"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Produtos em Destaque</span>
+                <span className="text-sm font-medium">{vitrine?.configuracoes?.mostrarProdutosDestaque !== false ? "Visível" : "Oculto"}</span>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" size="sm" className="w-full" onClick={handleEditarVitrine}>
+                Editar Layout
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-purple-500" />
+                Imagens
+              </CardTitle>
+              <CardDescription>Banner e logo da vitrine</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Banner</span>
+                <span className="text-sm font-medium">{loja.banner ? "Configurado" : "Não configurado"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Logo</span>
+                <span className="text-sm font-medium">{loja.logo ? "Configurado" : "Não configurado"}</span>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" size="sm" className="w-full" onClick={handleEditarVitrine}>
+                Editar Imagens
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="relative">
-        {/* Banner com imagem real */}
+        {/* Banner com im agem real */}
         <div
           className="w-full h-48 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 overflow-hidden"
           style={{
@@ -328,6 +486,7 @@ export function LojaPerfilContent({
           <TabsList className="mb-6">
             <TabsTrigger value="info">Informações</TabsTrigger>
             <TabsTrigger value="produtos">Produtos</TabsTrigger>
+            <TabsTrigger value="vitrine">Vitrine</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info">
@@ -455,7 +614,7 @@ export function LojaPerfilContent({
                       variant="outline"
                       className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0"
                     >
-                      {planoInfo?.nome || "Plano Básico"}
+                      {plano?.nome || "Plano Básico"}
                     </Badge>
                   </div>
                   <CardDescription>Acompanhe o uso dos recursos do seu plano</CardDescription>
@@ -483,18 +642,15 @@ export function LojaPerfilContent({
                         <span>Panfletos</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {planoInfo?.panfletos?.usado || 0} de {planoInfo?.panfletos?.limite || "∞"}
+                        {limites?.panfletos?.current || 0} de {limites?.panfletos?.limit === null ? "∞" : limites?.panfletos?.limit || 0}
                       </div>
                     </div>
-                    {planoInfo?.panfletos?.limite && (
+                    {limites?.panfletos?.limit && (
                       <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
                           style={{
-                            width: `${Math.min(
-                              ((planoInfo?.panfletos?.usado || 0) / (planoInfo?.panfletos?.limite || 1)) * 100,
-                              100,
-                            )}%`,
+                            width: `${limites?.panfletos?.percentage || 0}%`,
                           }}
                         />
                       </div>
@@ -508,18 +664,15 @@ export function LojaPerfilContent({
                         <span>Produtos</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {planoInfo?.produtos?.usado || 0} de {planoInfo?.produtos?.limite || "∞"}
+                        {limites?.produtos?.current || 0} de {limites?.produtos?.limit === null ? "∞" : limites?.produtos?.limit || 0}
                       </div>
                     </div>
-                    {planoInfo?.produtos?.limite && (
+                    {limites?.produtos?.limit && (
                       <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
                           style={{
-                            width: `${Math.min(
-                              ((planoInfo?.produtos?.usado || 0) / (planoInfo?.produtos?.limite || 1)) * 100,
-                              100,
-                            )}%`,
+                            width: `${limites?.produtos?.percentage || 0}%`,
                           }}
                         />
                       </div>
@@ -553,18 +706,15 @@ export function LojaPerfilContent({
                         <span>Integrações</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {planoInfo?.integracoes?.usado || 0} de {planoInfo?.integracoes?.limite || "∞"}
+                        {limites?.integracoes?.current || 0} de {limites?.integracoes?.limit === null ? "∞" : limites?.integracoes?.limit || 0}
                       </div>
                     </div>
-                    {planoInfo?.integracoes?.limite && (
+                    {limites?.integracoes?.limit && (
                       <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
                           style={{
-                            width: `${Math.min(
-                              ((planoInfo?.integracoes?.usado || 0) / (planoInfo?.integracoes?.limite || 1)) * 100,
-                              100,
-                            )}%`,
+                            width: `${limites?.integracoes?.percentage || 0}%`,
                           }}
                         />
                       </div>
@@ -594,7 +744,7 @@ export function LojaPerfilContent({
                   </p>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="default" className="w-full" onClick={handleVerVitrine}>
+                  <Button variant="default" className="w-full" onClick={handleEditarVitrine}>
                     <span>Configurar Vitrine</span>
                     <ChevronRight className="h-4 w-4 ml-2" />
                   </Button>
@@ -613,6 +763,55 @@ export function LojaPerfilContent({
                 </Button>
               </div>
               {renderProdutos()}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="vitrine">
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Configurações da Vitrine</h2>
+                  {renderVitrineConfig()}
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Prévia da Vitrine</h2>
+                  {renderVitrinePreview()}
+                </div>
+              </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart className="h-5 w-5 text-blue-500" />
+                    Estatísticas da Vitrine
+                  </CardTitle>
+                  <CardDescription>
+                    Acompanhe o desempenho da sua vitrine online
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="border rounded-lg p-4 text-center">
+                      <p className="text-muted-foreground text-sm">Visualizações</p>
+                      <p className="text-3xl font-bold">0</p>
+                    </div>
+                    <div className="border rounded-lg p-4 text-center">
+                      <p className="text-muted-foreground text-sm">Cliques</p>
+                      <p className="text-3xl font-bold">0</p>
+                    </div>
+                    <div className="border rounded-lg p-4 text-center">
+                      <p className="text-muted-foreground text-sm">Conversões</p>
+                      <p className="text-3xl font-bold">0</p>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full">
+                    <BarChart className="h-4 w-4 mr-2" />
+                    Ver Estatísticas Detalhadas
+                  </Button>
+                </CardFooter>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>

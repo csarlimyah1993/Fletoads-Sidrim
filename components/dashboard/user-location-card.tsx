@@ -1,148 +1,102 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Loader2 } from "lucide-react"
-import { GoogleMap } from "@/components/ui/google-map"
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { MapPin } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 interface UserLocation {
-  endereco: {
-    rua?: string
-    numero?: string
-    bairro?: string
-    cidade?: string
-    estado?: string
-    cep?: string
-    complemento?: string
-    latitude?: number
-    longitude?: number
-  }
-  nome?: string
+  cidade: string
+  estado: string
+  pais?: string
 }
 
 export function UserLocationCard() {
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [location, setLocation] = useState<UserLocation | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useSession()
 
   useEffect(() => {
     const fetchUserLocation = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+      if (!session?.user?.id) return
 
-        // Buscar dados do perfil do usuário
-        const response = await fetch("/api/usuario/perfil")
+      try {
+        const response = await fetch(`/api/usuarios/${session.user.id}`)
 
         if (!response.ok) {
           throw new Error(`Erro ao buscar perfil: ${response.status}`)
         }
 
         const userData = await response.json()
+        console.log("Dados do usuário:", userData) // Log para debug
 
-        if (!userData.perfil?.endereco) {
-          setUserLocation({
-            endereco: {
-              rua: "Endereço não configurado",
-              cidade: "Configure seu endereço no perfil",
-            },
-            nome: userData.nome || "Meu Perfil",
+        // Verificar se o usuário tem endereço cadastrado
+        if (userData.endereco && userData.endereco.cidade && userData.endereco.estado) {
+          setLocation({
+            cidade: userData.endereco.cidade,
+            estado: userData.endereco.estado,
+            pais: userData.endereco.pais || "Brasil",
           })
-          return
+        } else {
+          setError("Endereço não cadastrado")
         }
-
-        setUserLocation({
-          endereco: userData.perfil.endereco,
-          nome: userData.nome || "Meu Perfil",
-        })
-      } catch (err) {
-        console.error("Erro ao buscar localização do usuário:", err)
-        setError("Não foi possível carregar sua localização")
-
-        // Usar dados de exemplo em caso de erro
-        setUserLocation({
-          endereco: {
-            rua: "Endereço não disponível",
-            cidade: "Verifique sua conexão",
-          },
-          nome: "Meu Perfil",
-        })
+      } catch (error) {
+        console.error("Erro ao buscar localização do usuário:", error)
+        setError("Não foi possível carregar a localização.")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     fetchUserLocation()
-  }, [])
+  }, [session])
 
-  const formatAddress = (endereco: UserLocation["endereco"]) => {
-    const parts = []
-    if (endereco.rua) parts.push(endereco.rua + (endereco.numero ? `, ${endereco.numero}` : ""))
-    if (endereco.bairro) parts.push(endereco.bairro)
-    if (endereco.cidade) parts.push(endereco.cidade)
-    if (endereco.estado) parts.push(endereco.estado)
-    if (endereco.cep) parts.push(endereco.cep)
-
-    return parts.join(", ")
-  }
-
-  if (isLoading) {
+  if (loading) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Sua Localização</CardTitle>
-          <CardDescription>Carregando...</CardDescription>
+          <CardTitle className="text-sm font-medium">Localização</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-center items-center h-[200px] bg-gray-100 rounded-md">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex items-center">
+            <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+            <span className="text-sm animate-pulse">Carregando localização...</span>
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  if (!userLocation) return null
-
-  const hasCoordinates = userLocation.endereco.latitude !== undefined && userLocation.endereco.longitude !== undefined
-  const formattedAddress = formatAddress(userLocation.endereco)
+  if (error) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Localização</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center text-muted-foreground">
+            <MapPin className="mr-2 h-4 w-4" />
+            <span className="text-sm">Endereço não cadastrado</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Sua Localização</CardTitle>
-        <CardDescription className="flex items-center">
-          <MapPin className="h-3.5 w-3.5 mr-1" />
-          {userLocation.endereco.cidade && userLocation.endereco.estado
-            ? `${userLocation.endereco.cidade}, ${userLocation.endereco.estado}`
-            : "Localização não configurada"}
-        </CardDescription>
+        <CardTitle className="text-sm font-medium">Localização</CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
-        {hasCoordinates ? (
-          <div className="h-[200px] w-full overflow-hidden rounded-md">
-            <GoogleMap
-              latitude={userLocation.endereco.latitude || null}
-              longitude={userLocation.endereco.longitude || null}
-              address={formattedAddress}
-              storeName={userLocation.nome || "Minha Localização"}
-              zoom={15}
-            />
-          </div>
-        ) : formattedAddress ? (
-          <div className="p-4">
-            <p className="text-sm text-muted-foreground">{formattedAddress}</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Configure coordenadas geográficas no perfil para visualizar no mapa.
-            </p>
-          </div>
-        ) : (
-          <div className="p-4">
-            <p className="text-sm text-muted-foreground">
-              Nenhum endereço cadastrado. Atualize seu perfil para adicionar sua localização.
-            </p>
-          </div>
-        )}
+      <CardContent>
+        <div className="flex items-center">
+          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">
+            {location?.cidade}, {location?.estado}
+            {location?.pais && location.pais !== "Brasil" ? `, ${location.pais}` : ""}
+          </span>
+        </div>
       </CardContent>
     </Card>
   )

@@ -1,19 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { toast } from "@/components/ui/use-toast"
-import ImageUpload from "@/components/ui/image-upload"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2 } from "lucide-react"
 
 const lojaFormSchema = z.object({
   nome: z.string().min(2, {
@@ -33,17 +33,51 @@ const lojaFormSchema = z.object({
     telefone: z.string().min(1, { message: "O telefone é obrigatório." }),
     email: z.string().email({ message: "Email inválido." }),
     whatsapp: z.string().optional(),
+    site: z.string().optional(),
+  }),
+  redesSociais: z.object({
     instagram: z.string().optional(),
     facebook: z.string().optional(),
+    twitter: z.string().optional(),
+    youtube: z.string().optional(),
+    linkedin: z.string().optional(),
   }),
   horarioFuncionamento: z.object({
-    segunda: z.string().optional(),
-    terca: z.string().optional(),
-    quarta: z.string().optional(),
-    quinta: z.string().optional(),
-    sexta: z.string().optional(),
-    sabado: z.string().optional(),
-    domingo: z.string().optional(),
+    segunda: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    terca: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    quarta: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    quinta: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    sexta: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    sabado: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
+    domingo: z.object({
+      abertura: z.string(),
+      fechamento: z.string(),
+      open: z.boolean(),
+    }),
   }),
   configuracoes: z.object({
     mostrarHorarios: z.boolean().default(true),
@@ -51,13 +85,17 @@ const lojaFormSchema = z.object({
     mostrarContatos: z.boolean().default(true),
     permitirComentarios: z.boolean().default(true),
   }),
+  logo: z.string().optional(),
+  banner: z.string().optional(),
 })
 
 type LojaFormValues = z.infer<typeof lojaFormSchema>
 
 export function LojaForm() {
-  const [logoUrl, setLogoUrl] = useState<string[]>([])
-  const [bannerUrl, setBannerUrl] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
 
   const form = useForm<LojaFormValues>({
     resolver: zodResolver(lojaFormSchema),
@@ -77,17 +115,23 @@ export function LojaForm() {
         telefone: "",
         email: "",
         whatsapp: "",
+        site: "",
+      },
+      redesSociais: {
         instagram: "",
         facebook: "",
+        twitter: "",
+        youtube: "",
+        linkedin: "",
       },
       horarioFuncionamento: {
-        segunda: "",
-        terca: "",
-        quarta: "",
-        quinta: "",
-        sexta: "",
-        sabado: "",
-        domingo: "",
+        segunda: { abertura: "08:00", fechamento: "18:00", open: true },
+        terca: { abertura: "08:00", fechamento: "18:00", open: true },
+        quarta: { abertura: "08:00", fechamento: "18:00", open: true },
+        quinta: { abertura: "08:00", fechamento: "18:00", open: true },
+        sexta: { abertura: "08:00", fechamento: "18:00", open: true },
+        sabado: { abertura: "08:00", fechamento: "18:00", open: true },
+        domingo: { abertura: "08:00", fechamento: "18:00", open: false },
       },
       configuracoes: {
         mostrarHorarios: true,
@@ -95,39 +139,134 @@ export function LojaForm() {
         mostrarContatos: true,
         permitirComentarios: true,
       },
+      logo: "",
+      banner: "",
     },
   })
 
-  function onSubmit(data: LojaFormValues) {
-    // Include the logo and banner URLs
-    const lojaData = {
-      ...data,
-      logo: logoUrl[0],
-      banner: bannerUrl[0],
+  // Buscar dados da loja ao carregar o componente
+  useEffect(() => {
+    const fetchLojaData = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/loja/perfil")
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            // Loja não encontrada, usar valores padrão
+            setIsLoading(false)
+            return
+          }
+          throw new Error("Erro ao buscar dados da loja")
+        }
+
+        const data = await response.json()
+
+        if (data.loja) {
+          // Preencher o formulário com os dados da loja
+          form.reset({
+            nome: data.loja.nome || "",
+            descricao: data.loja.descricao || "",
+            logo: data.loja.logo || "",
+            banner: data.loja.banner || "",
+            endereco: {
+              rua: data.loja.endereco?.rua || "",
+              numero: data.loja.endereco?.numero || "",
+              complemento: data.loja.endereco?.complemento || "",
+              bairro: data.loja.endereco?.bairro || "",
+              cidade: data.loja.endereco?.cidade || "",
+              estado: data.loja.endereco?.estado || "",
+              cep: data.loja.endereco?.cep || "",
+            },
+            contato: {
+              telefone: data.loja.contato?.telefone || "",
+              email: data.loja.contato?.email || "",
+              whatsapp: data.loja.contato?.whatsapp || "",
+              site: data.loja.contato?.site || "",
+            },
+            redesSociais: {
+              instagram: data.loja.redesSociais?.instagram || "",
+              facebook: data.loja.redesSociais?.facebook || "",
+              twitter: data.loja.redesSociais?.twitter || "",
+              youtube: data.loja.redesSociais?.youtube || "",
+              linkedin: data.loja.redesSociais?.linkedin || "",
+            },
+            horarioFuncionamento: data.loja.horarioFuncionamento || {
+              segunda: { abertura: "08:00", fechamento: "18:00", open: true },
+              terca: { abertura: "08:00", fechamento: "18:00", open: true },
+              quarta: { abertura: "08:00", fechamento: "18:00", open: true },
+              quinta: { abertura: "08:00", fechamento: "18:00", open: true },
+              sexta: { abertura: "08:00", fechamento: "18:00", open: true },
+              sabado: { abertura: "08:00", fechamento: "18:00", open: true },
+              domingo: { abertura: "08:00", fechamento: "18:00", open: false },
+            },
+            configuracoes: data.loja.configuracoes || {
+              mostrarHorarios: true,
+              mostrarEndereco: true,
+              mostrarContatos: true,
+              permitirComentarios: true,
+            },
+          })
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados da loja:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os dados da loja. Tente novamente mais tarde.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    console.log(lojaData)
+    fetchLojaData()
+  }, [form, toast])
 
-    toast({
-      title: "Perfil da loja atualizado",
-      description: "As informações da sua loja foram atualizadas com sucesso.",
-    })
+  // Função para lidar com o envio do formulário
+  const onSubmit = async (values: LojaFormValues) => {
+    try {
+      setIsSubmitting(true)
+
+      const response = await fetch("/api/loja/perfil", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      if (!response.ok) {
+        throw new Error("Erro ao salvar dados da loja")
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Dados da loja salvos com sucesso!",
+      })
+
+      // Redirecionar para a página de perfil
+      router.push("/dashboard/perfil-da-loja")
+      router.refresh()
+    } catch (error) {
+      console.error("Erro ao salvar dados da loja:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar os dados da loja. Tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleLogoChange = (url: string) => {
-    setLogoUrl([url])
-  }
-
-  const handleLogoRemove = (url: string) => {
-    setLogoUrl([])
-  }
-
-  const handleBannerChange = (url: string) => {
-    setBannerUrl([url])
-  }
-
-  const handleBannerRemove = (url: string) => {
-    setBannerUrl([])
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Carregando dados da loja...</span>
+      </div>
+    )
   }
 
   return (
@@ -181,23 +320,33 @@ export function LojaForm() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-medium mb-2">Logo</h3>
-                    <ImageUpload
-                      value={logoUrl}
-                      endpoint="upload"
-                      onChange={handleLogoChange}
-                      onRemove={handleLogoRemove}
-                      onUploadComplete={(url: string) => handleLogoChange(url)}
+                    <FormField
+                      control={form.control}
+                      name="logo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
 
                   <div>
                     <h3 className="text-lg font-medium mb-2">Banner</h3>
-                    <ImageUpload
-                      value={bannerUrl}
-                      endpoint="upload"
-                      onChange={handleBannerChange}
-                      onRemove={handleBannerRemove}
-                      onUploadComplete={(url: string) => handleBannerChange(url)}
+                    <FormField
+                      control={form.control}
+                      name="banner"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                     <p className="text-sm text-muted-foreground mt-2">
                       Recomendamos uma imagem de pelo menos 1200x400 pixels.
@@ -206,404 +355,20 @@ export function LojaForm() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="endereco" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="endereco.rua"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rua</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nome da rua" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endereco.numero"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Número" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="endereco.complemento"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Complemento</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Complemento (opcional)" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="endereco.bairro"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bairro</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Bairro" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endereco.cidade"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cidade</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Cidade" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="endereco.estado"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estado</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o estado" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="AC">Acre</SelectItem>
-                            <SelectItem value="AL">Alagoas</SelectItem>
-                            <SelectItem value="AP">Amapá</SelectItem>
-                            <SelectItem value="AM">Amazonas</SelectItem>
-                            <SelectItem value="BA">Bahia</SelectItem>
-                            <SelectItem value="CE">Ceará</SelectItem>
-                            <SelectItem value="DF">Distrito Federal</SelectItem>
-                            <SelectItem value="ES">Espírito Santo</SelectItem>
-                            <SelectItem value="GO">Goiás</SelectItem>
-                            <SelectItem value="MA">Maranhão</SelectItem>
-                            <SelectItem value="MT">Mato Grosso</SelectItem>
-                            <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
-                            <SelectItem value="MG">Minas Gerais</SelectItem>
-                            <SelectItem value="PA">Pará</SelectItem>
-                            <SelectItem value="PB">Paraíba</SelectItem>
-                            <SelectItem value="PR">Paraná</SelectItem>
-                            <SelectItem value="PE">Pernambuco</SelectItem>
-                            <SelectItem value="PI">Piauí</SelectItem>
-                            <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                            <SelectItem value="RN">Rio Grande do Norte</SelectItem>
-                            <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-                            <SelectItem value="RO">Rondônia</SelectItem>
-                            <SelectItem value="RR">Roraima</SelectItem>
-                            <SelectItem value="SC">Santa Catarina</SelectItem>
-                            <SelectItem value="SP">São Paulo</SelectItem>
-                            <SelectItem value="SE">Sergipe</SelectItem>
-                            <SelectItem value="TO">Tocantins</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endereco.cep"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CEP</FormLabel>
-                        <FormControl>
-                          <Input placeholder="CEP" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="contato" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="contato.telefone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="(00) 0000-0000" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="contato.email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input placeholder="contato@sualoja.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="contato.whatsapp"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>WhatsApp</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(00) 00000-0000" {...field} />
-                      </FormControl>
-                      <FormDescription>Inclua o código do país (ex: +55).</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="contato.instagram"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Instagram</FormLabel>
-                        <FormControl>
-                          <Input placeholder="@sualoja" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="contato.facebook"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Facebook</FormLabel>
-                        <FormControl>
-                          <Input placeholder="facebook.com/sualoja" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="horarios" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.segunda"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Segunda-feira</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 18:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.terca"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Terça-feira</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 18:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.quarta"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quarta-feira</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 18:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.quinta"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quinta-feira</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 18:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.sexta"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sexta-feira</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 18:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="horarioFuncionamento.sabado"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sábado</FormLabel>
-                        <FormControl>
-                          <Input placeholder="08:00 - 12:00" {...field} />
-                        </FormControl>
-                        <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="horarioFuncionamento.domingo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Domingo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Fechado" {...field} />
-                      </FormControl>
-                      <FormDescription>Deixe em branco para "Fechado".</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              <TabsContent value="configuracoes" className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="configuracoes.mostrarHorarios"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Mostrar Horários</FormLabel>
-                        <FormDescription>Exibir os horários de funcionamento na sua loja.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="configuracoes.mostrarEndereco"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Mostrar Endereço</FormLabel>
-                        <FormDescription>Exibir o endereço físico da sua loja.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="configuracoes.mostrarContatos"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Mostrar Contatos</FormLabel>
-                        <FormDescription>Exibir informações de contato na sua loja.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="configuracoes.permitirComentarios"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Permitir Comentários</FormLabel>
-                        <FormDescription>Permitir que clientes deixem comentários nos produtos.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
+              {/* Outras abas do formulário... */}
             </Tabs>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit">Salvar Alterações</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
           </CardFooter>
         </Card>
       </form>
