@@ -7,8 +7,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, MapPin, Phone, Mail, Globe, ShoppingBag, Clock, ChevronRight, Star, Palette, Layout, ImageIcon, Settings, BarChart } from 'lucide-react'
+import {
+  Edit,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  ShoppingBag,
+  Clock,
+  ChevronRight,
+  Star,
+  Palette,
+  Layout,
+  ImageIcon,
+  BarChart,
+} from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { GoogleMap } from "@/components/ui/google-map"
@@ -209,7 +222,7 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
   const renderVitrinePreview = () => {
     const corPrimaria = vitrine?.configuracoes?.corPrimaria || "#3b82f6"
     const corSecundaria = vitrine?.configuracoes?.corSecundaria || "#8b5cf6"
-    
+
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -225,21 +238,21 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
             </Button>
           </div>
         </div>
-        
+
         <div className="border rounded-lg overflow-hidden">
           {/* Header da Vitrine */}
-          <div 
+          <div
             className="h-16 flex items-center justify-between px-4"
             style={{ backgroundColor: corPrimaria, color: "#fff" }}
           >
             <div className="flex items-center gap-2">
               {loja.logo && (
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-white">
-                  <Image 
-                    src={loja.logo || "/placeholder.svg"} 
-                    alt={loja.nome} 
-                    width={32} 
-                    height={32} 
+                  <Image
+                    src={loja.logo || "/placeholder.svg"}
+                    alt={loja.nome}
+                    width={32}
+                    height={32}
                     className="object-cover"
                   />
                 </div>
@@ -251,28 +264,23 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
               <div className="w-6 h-6 rounded-full bg-white/20"></div>
             </div>
           </div>
-          
+
           {/* Banner */}
           <div className="h-40 relative">
             {loja.banner ? (
-              <Image
-                src={loja.banner || "/placeholder.svg"}
-                alt="Banner"
-                fill
-                className="object-cover"
-              />
+              <Image src={loja.banner || "/placeholder.svg"} alt="Banner" fill className="object-cover" />
             ) : (
-              <div 
+              <div
                 className="w-full h-full flex items-center justify-center"
-                style={{ 
-                  background: `linear-gradient(to right, ${corPrimaria}, ${corSecundaria})` 
+                style={{
+                  background: `linear-gradient(to right, ${corPrimaria}, ${corSecundaria})`,
                 }}
               >
                 <h2 className="text-2xl font-bold text-white">{loja.nome}</h2>
               </div>
             )}
           </div>
-          
+
           {/* Conteúdo */}
           <div className="p-4 space-y-4">
             {/* Produtos em destaque */}
@@ -298,7 +306,7 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                       </div>
                       <div className="p-2">
                         <p className="text-sm font-medium truncate">{produto.nome}</p>
-                        <p className="text-sm font-bold">R$ {produto.preco.toFixed(2)}</p>
+                        <p className="text-sm font-bol">R$ {produto.preco.toFixed(2)}</p>
                       </div>
                     </div>
                   ))
@@ -309,7 +317,7 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                 )}
               </div>
             </div>
-            
+
             {/* Informações de contato */}
             <div>
               <h3 className="font-semibold mb-2">Contato</h3>
@@ -352,14 +360,14 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
             <CardContent className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm">Cor Primária</span>
-                <div 
+                <div
                   className="w-6 h-6 rounded-full border"
                   style={{ backgroundColor: vitrine?.configuracoes?.corPrimaria || "#3b82f6" }}
                 ></div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Cor Secundária</span>
-                <div 
+                <div
                   className="w-6 h-6 rounded-full border"
                   style={{ backgroundColor: vitrine?.configuracoes?.corSecundaria || "#8b5cf6" }}
                 ></div>
@@ -375,7 +383,7 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
               </Button>
             </CardFooter>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -391,11 +399,15 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Banner</span>
-                <span className="text-sm font-medium">{vitrine?.configuracoes?.mostrarBanner !== false ? "Visível" : "Oculto"}</span>
+                <span className="text-sm font-medium">
+                  {vitrine?.configuracoes?.mostrarBanner !== false ? "Visível" : "Oculto"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Produtos em Destaque</span>
-                <span className="text-sm font-medium">{vitrine?.configuracoes?.mostrarProdutosDestaque !== false ? "Visível" : "Oculto"}</span>
+                <span className="text-sm font-medium">
+                  {vitrine?.configuracoes?.mostrarProdutosDestaque !== false ? "Visível" : "Oculto"}
+                </span>
               </div>
             </CardContent>
             <CardFooter>
@@ -404,7 +416,7 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
               </Button>
             </CardFooter>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -642,7 +654,8 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                         <span>Panfletos</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {limites?.panfletos?.current || 0} de {limites?.panfletos?.limit === null ? "∞" : limites?.panfletos?.limit || 0}
+                        {limites?.panfletos?.current || 0} de{" "}
+                        {limites?.panfletos?.limit === null ? "∞" : limites?.panfletos?.limit || 0}
                       </div>
                     </div>
                     {limites?.panfletos?.limit && (
@@ -664,7 +677,8 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                         <span>Produtos</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {limites?.produtos?.current || 0} de {limites?.produtos?.limit === null ? "∞" : limites?.produtos?.limit || 0}
+                        {limites?.produtos?.current || 0} de{" "}
+                        {limites?.produtos?.limit === null ? "∞" : limites?.produtos?.limit || 0}
                       </div>
                     </div>
                     {limites?.produtos?.limit && (
@@ -706,7 +720,8 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                         <span>Integrações</span>
                       </div>
                       <div className="text-sm font-medium">
-                        {limites?.integracoes?.current || 0} de {limites?.integracoes?.limit === null ? "∞" : limites?.integracoes?.limit || 0}
+                        {limites?.integracoes?.current || 0} de{" "}
+                        {limites?.integracoes?.limit === null ? "∞" : limites?.integracoes?.limit || 0}
                       </div>
                     </div>
                     {limites?.integracoes?.limit && (
@@ -778,16 +793,14 @@ export function PerfilDaLojaContent({ loja, produtos = [], plano, limites, vitri
                   {renderVitrinePreview()}
                 </div>
               </div>
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart className="h-5 w-5 text-blue-500" />
                     Estatísticas da Vitrine
                   </CardTitle>
-                  <CardDescription>
-                    Acompanhe o desempenho da sua vitrine online
-                  </CardDescription>
+                  <CardDescription>Acompanhe o desempenho da sua vitrine online</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

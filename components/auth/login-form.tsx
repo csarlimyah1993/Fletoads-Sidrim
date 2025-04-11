@@ -36,6 +36,11 @@ export default function LoginForm() {
 
       console.log("Resultado do login:", result)
 
+      if (result?.ok) {
+        // Force a hard refresh to ensure session is updated
+        router.refresh()
+      }
+
       if (result?.error) {
         setError(`Credenciais inválidas. Por favor, tente novamente. (${result.error})`)
 

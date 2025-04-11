@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/config"
 import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,61 +12,121 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
-    await connectToDatabase()
+    const userId = session.user.id
+    const { db } = await connectToDatabase()
 
-    // Verificar se a conexão está estabelecida
-    const connection = mongoose.connection
-    if (!connection || !connection.db) {
-      throw new Error("Conexão com o banco de dados não estabelecida")
-    }
-
-    // Obter o usuário atual
-    const db = connection.db
-    const usuariosCollection = db.collection("usuarios")
-    const usuario = await usuariosCollection.findOne({ email: session.user.email })
+    // Buscar o usuário para obter o ID da loja
+    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    // Buscar a loja do usuário
-    const lojasCollection = db.collection("lojas")
-    const userId = usuario._id.toString()
+    // Verificar se o usuário tem uma loja associada
+    if (!usuario.lojaId) {
+      return NextResponse.json({ error: "Usuário não possui loja" }, { status: 404 })
+    }
 
-    const loja = await lojasCollection.findOne({
-      $or: [
-        { usuarioId: userId },
-        { usuarioId: new mongoose.Types.ObjectId(userId) },
-        { proprietarioId: userId },
-        { proprietarioId: new mongoose.Types.ObjectId(userId) },
-      ],
-    })
+    // Buscar a loja
+    const loja = await db.collection("lojas").findOne({ _id: new ObjectId(usuario.lojaId.toString()) })
 
     if (!loja) {
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Converter o ObjectId para string antes de retornar
-    const lojaSerializada = JSON.parse(
-      JSON.stringify(loja, (key, value) => {
-        if (key === "_id" && value && typeof value === "object" && value.toString) {
-          return value.toString()
-        }
-        if (value instanceof Date) {
-          return value.toISOString()
-        }
-        return value
-      }),
-    )
+    // Buscar produtos da loja
+    const produtos = await db.collection("produtos").find({ lojaId: usuario.lojaId.toString() }).toArray()
 
-    return NextResponse.json({
-      success: true,
-      loja: lojaSerializada,
-    })
+    // Adicionar produtos à resposta
+    const lojaComProdutos = {
+      ...loja,
+      produtos: produtos || [],
+    }
+
+    return NextResponse.json(lojaComProdutos)
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
     return NextResponse.json({ error: "Erro ao buscar loja" }, { status: 500 })
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const userId = session.user.id
+    const { db } = await connectToDatabase()
+
+    // Verificar se o usuário já tem uma loja
+    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
+
+    if (!usuario) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
+    }
+
+    if (usuario.lojaId) {
+      return NextResponse.json({ error: "Usuário já possui uma loja" }, { status: 400 })
+    }
+
+    const data = await request.json()
+
+    // Criar a loja
+    const resultado = await db.collection("lojas").insertOne({
+      ...data,
+      usuarioId: userId,
+      dataCriacao: new Date(),
+      vitrineConfigurada: false,
+    })
+
+    // Atualizar o usuário com o ID da loja
+    await db.collection("usuarios").updateOne({ _id: new ObjectId(userId) }, { $set: { lojaId: resultado.insertedId } })
+
+    return NextResponse.json({
+      message: "Loja criada com sucesso",
+      lojaId: resultado.insertedId,
+    })
+  } catch (error) {
+    console.error("Erro ao criar loja:", error)
+    return NextResponse.json({ error: "Erro ao criar loja" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const userId = session.user.id
+    const { db } = await connectToDatabase()
+
+    // Buscar o usuário para obter o ID da loja
+    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
+
+    if (!usuario) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
+    }
+
+    if (!usuario.lojaId) {
+      return NextResponse.json({ error: "Usuário não possui loja" }, { status: 404 })
+    }
+
+    const data = await request.json()
+
+    // Atualizar a loja
+    await db
+      .collection("lojas")
+      .updateOne({ _id: new ObjectId(usuario.lojaId.toString()) }, { $set: { ...data, dataAtualizacao: new Date() } })
+
+    return NextResponse.json({ message: "Loja atualizada com sucesso" })
+  } catch (error) {
+    console.error("Erro ao atualizar loja:", error)
+    return NextResponse.json({ error: "Erro ao atualizar loja" }, { status: 500 })
+  }
+}

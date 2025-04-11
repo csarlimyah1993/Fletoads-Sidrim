@@ -1,154 +1,147 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { LojaPerfilContent } from "./loja-perfil-content"
-import { Loader2 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
-
-// Definindo interfaces para os tipos
-export interface LojaData {
-  _id: string
-  nome: string
-  descricao?: string
-  logo?: string
-  banner?: string
-  endereco?: {
-    rua: string
-    numero: string
-    complemento?: string
-    bairro: string
-    cidade: string
-    estado: string
-    cep: string
-    latitude?: string
-    longitude?: string
-  }
-  contato?: {
-    telefone: string
-    email: string
-    whatsapp?: string
-    site?: string
-  }
-  redesSociais?: {
-    instagram?: string
-    facebook?: string
-    twitter?: string
-    youtube?: string
-    linkedin?: string
-  }
-  horarioFuncionamento?: {
-    [key: string]: {
-      abertura: string
-      fechamento: string
-      open: boolean
-    }
-  }
-  proprietarioId: string
-  dataCriacao: string
-  dataAtualizacao: string
-}
-
-export interface PlanoData {
-  nome: string
-  preco: number
-  limites: {
-    panfletos: number
-    produtos: number
-    clientes: number
-    integracoes: number
-  }
-}
-
-export interface UsoData {
-  panfletos: number
-  produtos: number
-  clientes: number
-  integracoes: number
-}
-
-export interface VitrineData {
-  _id: string
-  titulo?: string
-  descricao?: string
-  banner?: string
-  logo?: string
-  lojaId: string
-  tema?: string
-  corPrimaria?: string
-  fonte?: string
-  exibirCategorias?: boolean
-  produtosPorPagina?: number
-  layoutProdutos?: string
-  estatisticas?: {
-    visualizacoes: number
-    cliques: number
-  }
-}
-
-export interface PerfilLojaData {
-  loja: LojaData | null
-  plano: PlanoData
-  uso: UsoData
-  vitrine: VitrineData | null
-}
+import { useSessionRefresh } from "@/lib/refresh-session"
 
 export function PerfilDaLojaClient() {
+  const { data: session } = useSession()
+  const { refreshSession } = useSessionRefresh()
+  const router = useRouter()
+  const [loja, setLoja] = useState<any>(null)
+  const [vitrine, setVitrine] = useState<any>(null)
+  const [produtos, setProdutos] = useState<any[]>([])
+  const [plano, setPlano] = useState<any>(null)
+  const [limites, setLimites] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<PerfilLojaData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/loja/perfil-dashboard")
+    // Atualizar a sessão ao montar o componente
+    refreshSession()
+  }, [refreshSession])
 
-        if (!response.ok) {
-          throw new Error("Erro ao buscar dados da loja")
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+
+      try {
+        // Buscar dados da loja
+        const lojaResponse = await fetch(`/api/loja?userId=${session.user.id}`)
+        if (!lojaResponse.ok) {
+          throw new Error("Falha ao carregar dados da loja")
+        }
+        const lojaData = await lojaResponse.json()
+        setLoja(lojaData.loja || null)
+
+        // Se tiver loja, buscar produtos e vitrine
+        if (lojaData.loja?._id) {
+          const lojaId = lojaData.loja._id
+
+          // Buscar produtos
+          const produtosResponse = await fetch(`/api/produtos?lojaId=${lojaId}&limit=5`)
+          if (produtosResponse.ok) {
+            const produtosData = await produtosResponse.json()
+            setProdutos(produtosData.produtos || [])
+          }
+
+          // Buscar configurações da vitrine
+          const vitrineResponse = await fetch(`/api/loja/${lojaId}/vitrine/configuracoes`)
+          if (vitrineResponse.ok) {
+            const vitrineData = await vitrineResponse.json()
+            setVitrine(vitrineData || null)
+          }
         }
 
-        const result = await response.json()
-        setData(result)
+        // Buscar dados do plano
+        const planoResponse = await fetch(`/api/usuarios/${session.user.id}/plano`)
+        if (planoResponse.ok) {
+          const planoData = await planoResponse.json()
+          setPlano(planoData || null)
+        }
+
+        // Buscar limites de uso
+        const limitesResponse = await fetch(`/api/usuarios/${session.user.id}/usage`)
+        if (limitesResponse.ok) {
+          const limitesData = await limitesResponse.json()
+          setLimites(limitesData || null)
+        }
       } catch (err) {
-        console.error("Erro ao buscar dados da loja:", err)
-        setError("Não foi possível carregar os dados da loja. Tente novamente mais tarde.")
+        console.error("Erro ao carregar dados:", err)
+        setError(err instanceof Error ? err.message : "Erro desconhecido")
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [])
+  }, [session])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Carregando dados da loja...</span>
+      <div className="space-y-4">
+        <div className="h-48 w-full bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
+        <div className="h-8 w-1/3 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-md" />
+        <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-md" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-64 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
+          <div className="h-64 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erro</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="text-center py-10">
+        <h2 className="text-2xl font-bold mb-2">Erro ao carregar dados</h2>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          Tentar novamente
+        </button>
+      </div>
     )
   }
 
-  if (!data) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Sem dados</AlertTitle>
-        <AlertDescription>Nenhum dado encontrado para a loja.</AlertDescription>
-      </Alert>
-    )
-  }
+  // Processar os limites para evitar passar objetos diretamente como children
+  const processedLimites = limites
+    ? {
+        panfletos: {
+          current: limites.panfletos?.current || 0,
+          limit: limites.panfletos?.limit || 0,
+          percentage: limites.panfletos?.percentage || 0,
+          hasReached: limites.panfletos?.hasReached || false,
+        },
+        produtos: {
+          current: limites.produtos?.current || 0,
+          limit: limites.produtos?.limit || 0,
+          percentage: limites.produtos?.percentage || 0,
+          hasReached: limites.produtos?.hasReached || false,
+        },
+        integracoes: {
+          current: limites.integracoes?.current || 0,
+          limit: limites.integracoes?.limit || 0,
+          percentage: limites.integracoes?.percentage || 0,
+          hasReached: limites.integracoes?.hasReached || false,
+        },
+      }
+    : null
 
-  return <LojaPerfilContent loja={data.loja} plano={data.plano} uso={data.uso} vitrine={data.vitrine} />
+  return (
+    <LojaPerfilContent
+      loja={loja}
+      vitrine={vitrine}
+      produtos={Array.isArray(produtos) ? produtos : []}
+      plano={plano}
+      limites={processedLimites}
+    />
+  )
 }

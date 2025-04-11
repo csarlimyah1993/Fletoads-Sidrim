@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
-import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
+import { PerfilDaLojaContent } from "@/components/perfil/perfil-da-loja-content"
 
 // Interface para mapear o documento do MongoDB para o tipo Loja
 interface LojaDocument {
@@ -98,14 +98,18 @@ export default async function PerfilDaLojaPage() {
   if (hasStore) {
     return (
       <div className="container mx-auto py-6">
-        <LojaPerfilContent
+        <PerfilDaLojaContent
           loja={loja}
-          plano={{}}
-          uso={{
-            panfletos: 0,
-            produtos: 0,
-            clientes: 0,
-            integracoes: 0,
+          produtos={[]}
+          plano={{
+            nome: "gratuito",
+            preco: 0,
+          }}
+          limites={{
+            panfletos: { current: 0, limit: 10, percentage: 0 },
+            produtos: { current: 0, limit: 20, percentage: 0 },
+            clientes: { current: 0, limit: 50, percentage: 0 },
+            integracoes: { current: 0, limit: 1, percentage: 0 },
           }}
           vitrine={null}
         />

@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/config"
 import { getAllResourceLimits } from "@/lib/plan-limits"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
+    const params = await context.params
 
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })

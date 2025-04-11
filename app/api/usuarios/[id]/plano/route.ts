@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/config"
-import { PLAN_LIMITS } from "@/lib/plan-limits"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
+    const params = await context.params
 
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -15,49 +15,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const userId = params.id
 
-    // Verificar se o usuário está tentando acessar seu próprio plano ou se é admin
+    // Verificar se o usuário está tentando acessar seus próprios dados ou se é admin
     if (session.user.id !== userId && session.user.role !== "admin") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
     }
 
     const { db } = await connectToDatabase()
 
-    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
+    const usuario = await db.collection("usuarios").findOne({
+      _id: new ObjectId(userId),
+    })
 
     if (!usuario) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    const planName = usuario.plano || "gratuito"
-
-    // Verificar se o plano existe em nossa definição de limites
-    if (PLAN_LIMITS[planName]) {
-      return NextResponse.json({
-        nome: PLAN_LIMITS[planName].nome || planName,
-        preco: PLAN_LIMITS[planName].preco || "Grátis",
-        recursos: PLAN_LIMITS[planName],
-      })
-    }
-
-    // Buscar o plano do banco de dados como fall back
-    const plano = await db.collection("planos").findOne({ nome: planName })
-
-    if (!plano) {
-      // Se não encontrar o plano, retorna o plano gratuito
-      return NextResponse.json({
-        nome: "Plano Gratuito",
-        preco: "Grátis",
-        recursos: PLAN_LIMITS.gratuito,
-      })
-    }
-
     return NextResponse.json({
-      nome: plano.nome,
-      preco: plano.preco,
-      recursos: plano.recursos,
+      plano: usuario.plano || "gratuito",
+      dataAssinatura: usuario.dataAssinatura || null,
+      dataExpiracao: usuario.dataExpiracao || null,
     })
   } catch (error) {
-    console.error("Erro ao buscar plano:", error)
-    return NextResponse.json({ error: "Erro ao buscar plano" }, { status: 500 })
+    console.error("Erro ao buscar plano do usuário:", error)
+    return NextResponse.json({ error: "Erro ao buscar plano do usuário" }, { status: 500 })
   }
 }

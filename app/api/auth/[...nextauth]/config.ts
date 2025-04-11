@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import { connectToDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
+import { ObjectId } from "mongodb"
 
 // Função para comparar senhas com suporte a texto plano e hash bcrypt
 const comparePasswords = async (plainPassword: string, storedPassword: string): Promise<boolean> => {
@@ -30,6 +31,31 @@ const comparePasswords = async (plainPassword: string, storedPassword: string): 
   const result = plainPassword === storedPassword
   console.log(`Comparação direta: ${result ? "sucesso" : "falha"}`)
   return result
+}
+
+// Função para obter dados atualizados do usuário
+const getUserData = async (userId: string) => {
+  try {
+    const { db } = await connectToDatabase()
+    // Converter string para ObjectId
+    const objectId = new ObjectId(userId)
+    const user = await db.collection("usuarios").findOne({ _id: objectId })
+    if (!user) return null
+
+    return {
+      id: user._id.toString(),
+      name: user.nome || "",
+      email: user.email,
+      role: user.role || "user",
+      nome: user.nome || "",
+      cargo: user.cargo || "user",
+      permissoes: user.permissoes || [],
+      plano: user.plano || "gratuito",
+    }
+  } catch (error) {
+    console.error("Erro ao buscar dados atualizados do usuário:", error)
+    return null
+  }
 }
 
 export const authOptions: NextAuthOptions = {
@@ -102,7 +128,7 @@ export const authOptions: NextAuthOptions = {
           if (normalizedEmail === "sidrimthiago@gmail.com" && credentials.password === "sidrinho123") {
             console.log("Login especial bem-sucedido para:", user.email)
 
-            // Atualizar último login
+            // Atualizar último login e garantir permissões de admin
             await db.collection("usuarios").updateOne(
               { _id: user._id },
               {
@@ -206,7 +232,8 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      // Quando o usuário faz login inicialmente
       if (user) {
         token.id = user.id || ""
         token.role = user.role || "user"
@@ -224,6 +251,24 @@ export const authOptions: NextAuthOptions = {
         token.plano = "admin"
       }
 
+      // Atualizar token quando a sessão for atualizada
+      if (trigger === "update" && session) {
+        // Mesclar dados da sessão com o token
+        token = { ...token, ...session }
+      }
+
+      // Atualizar dados do usuário a cada solicitação de token
+      if (token.id) {
+        const updatedUser = await getUserData(token.id as string)
+        if (updatedUser) {
+          token.role = updatedUser.role
+          token.nome = updatedUser.nome
+          token.cargo = updatedUser.cargo
+          token.permissoes = updatedUser.permissoes
+          token.plano = updatedUser.plano
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
@@ -235,6 +280,8 @@ export const authOptions: NextAuthOptions = {
         session.user.permissoes = token.permissoes || []
         session.user.plano = token.plano || "gratuito"
       }
+
+      console.log("Session callback - session data:", session)
       return session
     },
   },
@@ -244,6 +291,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,

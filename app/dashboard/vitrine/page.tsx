@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import { authOptions } from "@/app/api/auth/[...nextauth]/config"
+import { authOptions } from "@/lib/auth"
 import VitrineClientPage from "./VitrineClientPage"
 
 export const dynamic = "force-dynamic"
@@ -12,18 +12,34 @@ export default async function VitrinePage() {
     redirect("/login?callbackUrl=/dashboard/vitrine")
   }
 
+  console.log("Session in vitrine page:", {
+    userId: session?.user?.id,
+    userEmail: session?.user?.email,
+  })
+
   // Buscar dados da loja e vitrine do usuário
   const fetchLoja = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/loja`, {
+      // Use absolute URL with proper environment variable
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "http://localhost:3000"
+
+      // Add the user ID directly in the URL to ensure it's passed correctly
+      const userId = session?.user?.id
+      console.log("Fetching loja with userId:", userId)
+
+      const response = await fetch(`${baseUrl}/api/loja?userId=${userId}`, {
         cache: "no-store",
+        // Don't use cookies() here since it's causing issues
+        // Just rely on the userId in the query parameter
       })
 
       if (!response.ok) {
+        console.error(`Erro ao buscar loja: ${response.status} ${response.statusText}`)
         return null
       }
 
-      return await response.json()
+      const data = await response.json()
+      return data.loja
     } catch (error) {
       console.error("Erro ao buscar loja:", error)
       return null
@@ -34,8 +50,12 @@ export default async function VitrinePage() {
     if (!lojaId) return null
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/vitrines?lojaId=${lojaId}`, {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "http://localhost:3000"
+
+      const response = await fetch(`${baseUrl}/api/vitrines?lojaId=${lojaId}`, {
         cache: "no-store",
+        // Don't use cookies() here since it's causing issues
+        // Just rely on the lojaId in the query parameter
       })
 
       if (!response.ok) {
