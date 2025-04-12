@@ -11,7 +11,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Instagram, Facebook, Twitter, Linkedin, Youtube, Mail, MapPin, Phone, ShoppingCart, Search, ChevronRight, ChevronLeft, AlertCircle, Star, Share2 } from 'lucide-react'
+import {
+  Instagram,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Youtube,
+  Mail,
+  MapPin,
+  Phone,
+  ShoppingCart,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  AlertCircle,
+  Star,
+  Share2,
+} from "lucide-react"
 
 // Tipos
 interface VitrinePublicaProps {
@@ -257,19 +273,24 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        setLoading(true)
-        // Verificar se estamos no navegador antes de fazer a requisição
-        if (typeof window === 'undefined') {
-          return; // Não executar no servidor
+        if (!slug) {
+          console.error("Slug não fornecido")
+          setError("Slug não fornecido")
+          setLoading(false)
+          return
         }
-        
+
+        setLoading(true)
+        console.log(`Buscando dados da vitrine com slug: ${slug}`)
         const response = await fetch(`/api/vitrines/${slug}`)
 
         if (!response.ok) {
+          console.error(`Erro na resposta da API: ${response.status}`)
           throw new Error("Erro ao carregar dados da vitrine")
         }
 
         const data = await response.json()
+        console.log("Dados recebidos:", data)
         setLoja(data.loja)
         setProdutos(data.produtos || [])
         setFilteredProdutos(data.produtos || [])
@@ -319,10 +340,8 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
       setShowScrollTop(window.scrollY > 200)
     }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener("scroll", handleScroll)
-      return () => window.removeEventListener("scroll", handleScroll)
-    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
   // Efeito para filtrar produtos
@@ -377,12 +396,12 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
 
   // Função para avançar slide
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % (produtos?.length || 1))
+    setCurrentSlide((prev) => (prev + 1) % produtos.length)
   }
 
   // Função para voltar slide
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + (produtos?.length || 1)) % (produtos?.length || 1))
+    setCurrentSlide((prev) => (prev - 1 + produtos.length) % produtos.length)
   }
 
   // Função para enviar newsletter
@@ -401,23 +420,21 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
 
   // Função para voltar ao topo
   const scrollToTop = () => {
-    if (typeof window !== 'undefined') {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      })
-    }
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    })
   }
 
   // Função para compartilhar produto
   const compartilharProduto = (produto: Produto) => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    if (navigator.share) {
       navigator.share({
         title: produto.nome,
         text: produto.descricaoCurta || `Confira ${produto.nome}`,
         url: window.location.href,
       })
-    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    } else {
       // Fallback para navegadores que não suportam Web Share API
       navigator.clipboard.writeText(window.location.href)
       alert("Link copiado para a área de transferência!")

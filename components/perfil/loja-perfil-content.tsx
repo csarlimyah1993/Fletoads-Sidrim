@@ -13,14 +13,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import type { LojaPerfilContentProps } from "@/types/loja"
 
-export function LojaPerfilContent({
-  loja,
-  produtos = [],
-  isLoading = false,
-  planoInfo,
-  plano,
-  uso,
-}: LojaPerfilContentProps) {
+export function LojaPerfilContent({ loja, produtos = [], isLoading = false, planoInfo }: LojaPerfilContentProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("info")
 
@@ -54,8 +47,10 @@ export function LojaPerfilContent({
 
   const handleVerVitrine = () => {
     if (loja.vitrineId) {
+      console.log(`Redirecionando para vitrine com ID: ${loja.vitrineId}`)
       window.open(`/vitrines/${loja.vitrineId}`, "_blank")
     } else {
+      console.log("Nenhuma vitrineId encontrada, redirecionando para configuração")
       router.push("/dashboard/vitrine")
     }
   }
