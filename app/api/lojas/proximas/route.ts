@@ -4,23 +4,30 @@ import { connectToDatabase } from "@/lib/mongodb"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const lat = searchParams.get("lat")
-    const lng = searchParams.get("lng")
+    const lat = searchParams.get("latitude")
+    const lng = searchParams.get("longitude")
     const raio = searchParams.get("raio") || "10" // Raio em km, padrão 10km
     const categoria = searchParams.get("categoria")
     const limit = Number.parseInt(searchParams.get("limit") || "20")
     const page = Number.parseInt(searchParams.get("page") || "1")
     const skip = (page - 1) * limit
 
+    // Verificar se latitude e longitude foram fornecidos
     if (!lat || !lng) {
+      console.error("Parâmetros de latitude e longitude são obrigatórios")
       return NextResponse.json({ error: "Parâmetros de latitude e longitude são obrigatórios" }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
-
-    // Converter para números
+    // Verificar se são números válidos
     const latitude = Number.parseFloat(lat)
     const longitude = Number.parseFloat(lng)
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      console.error("Latitude e longitude devem ser números válidos")
+      return NextResponse.json({ error: "Latitude e longitude devem ser números válidos" }, { status: 400 })
+    }
+
+    const { db } = await connectToDatabase()
     const raioKm = Number.parseFloat(raio)
 
     // Criar índice geoespacial se não existir
@@ -33,7 +40,11 @@ export async function GET(request: NextRequest) {
     // Construir a query
     const query: any = {
       ativo: true,
-      "localizacao.coordinates": {
+    }
+
+    // Adicionar filtro geoespacial se houver coordenadas
+    if (latitude && longitude) {
+      query["localizacao.coordinates"] = {
         $near: {
           $geometry: {
             type: "Point",
@@ -41,13 +52,15 @@ export async function GET(request: NextRequest) {
           },
           $maxDistance: raioKm * 1000, // Converter km para metros
         },
-      },
+      }
     }
 
     // Adicionar filtro por categoria se fornecido
     if (categoria) {
       query.categorias = { $in: [categoria] }
     }
+
+    console.log("Query de busca:", JSON.stringify(query))
 
     // Buscar lojas próximas
     const lojas = await db.collection("lojas").find(query).skip(skip).limit(limit).toArray()
@@ -66,6 +79,7 @@ export async function GET(request: NextRequest) {
 
       return {
         ...loja,
+        _id: loja._id.toString(),
         distancia: Number.parseFloat(distancia.toFixed(2)), // Arredondar para 2 casas decimais
       }
     })

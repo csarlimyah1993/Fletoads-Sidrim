@@ -31,7 +31,7 @@ import {
 
 // Tipos
 interface VitrinePublicaProps {
-  slug: string
+  id: string // Alterado de slug para id
 }
 
 interface Produto {
@@ -244,7 +244,8 @@ function isDiaAtual(diaSemana: string): boolean {
 }
 
 // Componente principal
-export default function VitrinePublica({ slug }: VitrinePublicaProps) {
+export default function VitrinePublica({ id }: VitrinePublicaProps) {
+  // Alterado de slug para id
   const [loja, setLoja] = useState<any>(null)
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [config, setConfig] = useState<VitrineConfig | null>(null)
@@ -273,16 +274,16 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        if (!slug) {
-          console.error("Slug não fornecido")
-          setError("Slug não fornecido")
+        if (!id) {
+          console.error("ID não fornecido")
+          setError("ID não fornecido")
           setLoading(false)
           return
         }
 
         setLoading(true)
-        console.log(`Buscando dados da vitrine com slug: ${slug}`)
-        const response = await fetch(`/api/vitrines/${slug}`)
+        console.log(`Buscando dados da vitrine com ID: ${id}`)
+        const response = await fetch(`/api/vitrines/${id}`)
 
         if (!response.ok) {
           console.error(`Erro na resposta da API: ${response.status}`)
@@ -332,8 +333,9 @@ export default function VitrinePublica({ slug }: VitrinePublicaProps) {
     }
 
     fetchData()
-  }, [slug])
+  }, [id]) // Alterado de slug para id
 
+  // Resto do componente permanece o mesmo...
   // Efeito para detectar scroll
   useEffect(() => {
     const handleScroll = () => {

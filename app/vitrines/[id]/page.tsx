@@ -2,20 +2,33 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { connectToDatabase } from "@/lib/mongodb"
 import VitrinePublica from "@/components/vitrine/vitrine-publica"
+import { ObjectId } from "mongodb"
 
 interface VitrinePageProps {
   params: {
-    slug: string
+    id: string
   }
 }
 
 export default async function VitrinePage({ params }: VitrinePageProps) {
-  const { slug } = params
+  const id = params.id
 
   // Verificar se a vitrine existe
   const { db } = await connectToDatabase()
+
+  // Tentar converter para ObjectId se for um ID válido
+  let objectId = null
+  try {
+    if (ObjectId.isValid(id)) {
+      objectId = new ObjectId(id)
+    }
+  } catch (error) {
+    console.log("ID não é um ObjectId válido, continuando com busca por string")
+  }
+
+  // Buscar a loja com várias condições
   const loja = await db.collection("lojas").findOne({
-    $or: [{ "vitrine.slug": slug }, { vitrineId: slug }],
+    $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": id }, { vitrineId: id }],
   })
 
   if (!loja) {
@@ -33,19 +46,31 @@ export default async function VitrinePage({ params }: VitrinePageProps) {
         </div>
       }
     >
-      <VitrinePublica slug={slug} />
+      <VitrinePublica id={id} />
     </Suspense>
   )
 }
 
 // Gerar metadados dinâmicos para SEO
 export async function generateMetadata({ params }: VitrinePageProps) {
-  const { slug } = params
+  const id = params.id
 
   try {
     const { db } = await connectToDatabase()
+
+    // Tentar converter para ObjectId se for um ID válido
+    let objectId = null
+    try {
+      if (ObjectId.isValid(id)) {
+        objectId = new ObjectId(id)
+      }
+    } catch (error) {
+      console.log("ID não é um ObjectId válido, continuando com busca por string")
+    }
+
+    // Buscar a loja com várias condições
     const loja = await db.collection("lojas").findOne({
-      $or: [{ "vitrine.slug": slug }, { vitrineId: slug }],
+      $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": id }, { vitrineId: id }],
     })
 
     if (!loja) {

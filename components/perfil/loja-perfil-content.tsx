@@ -49,8 +49,11 @@ export function LojaPerfilContent({ loja, produtos = [], isLoading = false, plan
     if (loja.vitrineId) {
       console.log(`Redirecionando para vitrine com ID: ${loja.vitrineId}`)
       window.open(`/vitrines/${loja.vitrineId}`, "_blank")
+    } else if (loja._id) {
+      console.log(`Nenhuma vitrineId encontrada, usando _id: ${loja._id}`)
+      window.open(`/vitrines/${loja._id}`, "_blank")
     } else {
-      console.log("Nenhuma vitrineId encontrada, redirecionando para configuração")
+      console.log("Nenhum ID encontrado, redirecionando para configuração")
       router.push("/dashboard/vitrine")
     }
   }
