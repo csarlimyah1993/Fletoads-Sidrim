@@ -5,6 +5,38 @@ import UsuarioModel from "@/lib/models/usuario"
 import bcrypt from "bcryptjs"
 import { ObjectId } from "mongodb"
 
+// Funções de utilidade para senhas
+export async function hashPassword(password: string): Promise<string> {
+  return await bcrypt.hash(password, 10)
+}
+
+export function validatePasswordStrength(password: string): { valid: boolean; message?: string } {
+  if (password.length < 8) {
+    return { valid: false, message: "A senha deve ter pelo menos 8 caracteres" }
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra maiúscula" }
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra minúscula" }
+  }
+
+  // Verificar se tem pelo menos um número
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos um número" }
+  }
+
+  return { valid: true }
+}
+
+export async function comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  return await bcrypt.compare(plainPassword, hashedPassword)
+}
+
 // Definindo tipos para o usuário
 interface UserData {
   id: string
@@ -15,6 +47,8 @@ interface UserData {
   cargo: string
   permissoes: string[]
   plano: string
+  emailVerificado?: boolean
+  lojaId?: string
 }
 
 // Interface para usuário customizado
@@ -27,6 +61,8 @@ interface CustomUser {
   plano: string
   ultimoLogin: Date
   permissoes?: string[]
+  emailVerificado?: boolean
+  lojaId?: string
   save: () => Promise<any>
   compararSenha: (senha: string) => Promise<boolean>
 }
@@ -69,6 +105,8 @@ export const authOptions: NextAuthOptions = {
                 plano: userFromUsers.plano || "gratuito",
                 ultimoLogin: new Date(),
                 permissoes: userFromUsers.permissoes || [],
+                emailVerificado: userFromUsers.emailVerificado || false,
+                lojaId: userFromUsers.lojaId || undefined,
                 // Implementação de save() para usuários da coleção "users"
                 save: async function () {
                   try {
@@ -102,6 +140,7 @@ export const authOptions: NextAuthOptions = {
           console.log("Tentando autenticar usuário:", credentials.email)
           console.log("Cargo do usuário:", user.role || "não definido")
           console.log("ID do usuário:", user._id)
+          console.log("LojaId do usuário:", user.lojaId || "não definido")
 
           // Caso especial para sidrimthiago@gmail.com
           if (
@@ -123,6 +162,8 @@ export const authOptions: NextAuthOptions = {
               cargo: user.role || "user",
               permissoes: user.permissoes || [],
               plano: user.plano || "gratuito",
+              emailVerificado: user.emailVerificado || false,
+              lojaId: user.lojaId,
             } as UserData
 
             console.log("Returning user data:", userData)
@@ -146,6 +187,8 @@ export const authOptions: NextAuthOptions = {
               cargo: "admin",
               permissoes: user.permissoes || [],
               plano: user.plano || "admin",
+              emailVerificado: user.emailVerificado || false,
+              lojaId: user.lojaId,
             } as UserData
 
             console.log("Returning admin user data:", userData)
@@ -188,9 +231,12 @@ export const authOptions: NextAuthOptions = {
             cargo: user.role || "user",
             permissoes: user.permissoes || [],
             plano: user.plano || "gratuito",
+            emailVerificado: user.emailVerificado || false,
+            lojaId: user.lojaId,
           } as UserData
 
           console.log("Returning regular user data:", userData)
+          console.log("LojaId incluído na userData:", userData.lojaId)
           return userData
         } catch (error) {
           console.error("Erro na autenticação:", error)
@@ -200,7 +246,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: any; user: any }) {
       if (user) {
         console.log("JWT callback - user data:", user)
         token.id = user.id || ""
@@ -209,11 +255,42 @@ export const authOptions: NextAuthOptions = {
         token.cargo = user.cargo || "user"
         token.permissoes = user.permissoes || []
         token.plano = user.plano || "gratuito"
+        token.emailVerificado = user.emailVerificado || false
+
+        // Garantir que o lojaId seja incluído no token
+        if (user.lojaId) {
+          token.lojaId = user.lojaId
+          console.log("LojaId adicionado ao token:", user.lojaId)
+        } else {
+          // Se não encontrar lojaId no user, tentar buscar no banco de dados
+          try {
+            const { db } = await connectToDatabase()
+            const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(user.id) })
+            if (usuario && usuario.lojaId) {
+              token.lojaId = usuario.lojaId
+              console.log("LojaId encontrado no banco e adicionado ao token:", usuario.lojaId)
+            } else {
+              // Tentar encontrar uma loja onde o usuário é proprietário
+              const loja = await db.collection("lojas").findOne({ proprietarioId: user.id })
+              if (loja) {
+                token.lojaId = loja._id.toString()
+                console.log("LojaId encontrado pela proprietarioId e adicionado ao token:", loja._id.toString())
+
+                // Atualizar o usuário com o lojaId encontrado
+                await db
+                  .collection("usuarios")
+                  .updateOne({ _id: new ObjectId(user.id) }, { $set: { lojaId: loja._id.toString() } })
+              }
+            }
+          } catch (error) {
+            console.error("Erro ao buscar lojaId:", error)
+          }
+        }
       }
       console.log("JWT callback - token data:", token)
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       if (session.user) {
         console.log("Session callback - token data:", token)
         session.user.id = token.id || ""
@@ -222,6 +299,13 @@ export const authOptions: NextAuthOptions = {
         session.user.cargo = token.cargo || "user"
         session.user.permissoes = token.permissoes || []
         session.user.plano = token.plano || "gratuito"
+        session.user.emailVerificado = token.emailVerificado || false
+
+        // Garantir que o lojaId seja incluído na sessão
+        if (token.lojaId) {
+          session.user.lojaId = token.lojaId
+          console.log("LojaId adicionado à sessão:", token.lojaId)
+        }
       }
       console.log("Session callback - session data:", session)
       return session
@@ -232,7 +316,7 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,

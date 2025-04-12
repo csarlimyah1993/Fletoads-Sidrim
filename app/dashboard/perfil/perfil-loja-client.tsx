@@ -117,7 +117,7 @@ export function PerfilDaLojaClient() {
       vitrine={vitrine}
       produtos={Array.isArray(produtos) ? produtos : []}
       plano={plano}
-      limites={processedLimites}
+      limites={limites === null ? undefined : limites}
     />
   )
 }

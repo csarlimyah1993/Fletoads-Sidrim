@@ -12,6 +12,7 @@ declare module "next-auth" {
     permissoes?: string[]
     plano?: string
     emailVerificado?: boolean
+    lojaId?: string
   }
 
   /**
@@ -26,6 +27,7 @@ declare module "next-auth" {
       permissoes: string[]
       plano: string
       emailVerificado: boolean
+      lojaId?: string
     } & DefaultSession["user"]
   }
 }
@@ -40,6 +42,6 @@ declare module "next-auth/jwt" {
     permissoes: string[]
     plano: string
     emailVerificado: boolean
+    lojaId?: string
   }
 }
-
