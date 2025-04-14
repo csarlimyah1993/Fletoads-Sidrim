@@ -10,8 +10,13 @@ interface VitrinePageProps {
   }
 }
 
-export default async function VitrinePage({ params }: VitrinePageProps) {
-  const id = params.id
+export default async function VitrinePage(props: VitrinePageProps) {
+  // Properly await the params
+  const vitrineId = props.params.id
+
+  if (!vitrineId) {
+    notFound()
+  }
 
   // Verificar se a vitrine existe
   const { db } = await connectToDatabase()
@@ -19,8 +24,8 @@ export default async function VitrinePage({ params }: VitrinePageProps) {
   // Tentar converter para ObjectId se for um ID válido
   let objectId = null
   try {
-    if (ObjectId.isValid(id)) {
-      objectId = new ObjectId(id)
+    if (ObjectId.isValid(vitrineId)) {
+      objectId = new ObjectId(vitrineId)
     }
   } catch (error) {
     console.log("ID não é um ObjectId válido, continuando com busca por string")
@@ -28,7 +33,7 @@ export default async function VitrinePage({ params }: VitrinePageProps) {
 
   // Buscar a loja com várias condições
   const loja = await db.collection("lojas").findOne({
-    $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": id }, { vitrineId: id }],
+    $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": vitrineId }, { vitrineId: vitrineId }],
   })
 
   if (!loja) {
@@ -46,14 +51,22 @@ export default async function VitrinePage({ params }: VitrinePageProps) {
         </div>
       }
     >
-      <VitrinePublica id={id} />
+      <VitrinePublica id={vitrineId} />
     </Suspense>
   )
 }
 
 // Gerar metadados dinâmicos para SEO
-export async function generateMetadata({ params }: VitrinePageProps) {
-  const id = params.id
+export async function generateMetadata(props: VitrinePageProps) {
+  // Properly await the params
+  const vitrineId = props.params.id
+
+  if (!vitrineId) {
+    return {
+      title: "Vitrine não encontrada",
+      description: "A vitrine solicitada não foi encontrada.",
+    }
+  }
 
   try {
     const { db } = await connectToDatabase()
@@ -61,8 +74,8 @@ export async function generateMetadata({ params }: VitrinePageProps) {
     // Tentar converter para ObjectId se for um ID válido
     let objectId = null
     try {
-      if (ObjectId.isValid(id)) {
-        objectId = new ObjectId(id)
+      if (ObjectId.isValid(vitrineId)) {
+        objectId = new ObjectId(vitrineId)
       }
     } catch (error) {
       console.log("ID não é um ObjectId válido, continuando com busca por string")
@@ -70,7 +83,7 @@ export async function generateMetadata({ params }: VitrinePageProps) {
 
     // Buscar a loja com várias condições
     const loja = await db.collection("lojas").findOne({
-      $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": id }, { vitrineId: id }],
+      $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": vitrineId }, { vitrineId: vitrineId }],
     })
 
     if (!loja) {

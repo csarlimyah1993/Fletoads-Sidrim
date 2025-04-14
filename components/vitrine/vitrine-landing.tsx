@@ -29,6 +29,7 @@ import {
   Instagram,
   Facebook,
   Twitter,
+  Linkedin,
   Sun,
   Moon,
 } from "lucide-react"
@@ -443,7 +444,10 @@ export default function VitrineLanding({ id, slug }: VitrineLandingProps) {
         setConfig(vitrineConfig)
 
         // Registrar visualização
-        registrarVisualizacao(identifier)
+        // registrarVisualizacao(identifier)
+        if (identifier) {
+          registrarVisualizacao(identifier)
+        }
 
         // Carregar avaliações
         carregarAvaliacoes(identifier)
@@ -512,7 +516,9 @@ export default function VitrineLanding({ id, slug }: VitrineLandingProps) {
   }
 
   // Função para carregar avaliações
-  const carregarAvaliacoes = async (identifier: string) => {
+  const carregarAvaliacoes = async (identifier: string | undefined) => {
+    if (!identifier) return
+
     try {
       const response = await fetch(`/api/vitrines/${identifier}/avaliacoes`)
       if (response.ok) {
@@ -871,32 +877,34 @@ export default function VitrineLanding({ id, slug }: VitrineLandingProps) {
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Informações</h3>
                   <ul className="space-y-3">
-                    {loja.telefone && (
+                    {loja.contato?.telefone && (
                       <li className="flex items-center gap-2">
                         <Phone className="h-5 w-5 text-gray-500" />
-                        <a href={`tel:${loja.telefone}`} className="hover:text-blue-500 transition-colors">
-                          {loja.telefone}
+                        <a href={`tel:${loja.contato?.telefone}`} className="hover:text-blue-500 transition-colors">
+                          {loja.contato?.telefone}
                         </a>
                       </li>
                     )}
-                    {loja.email && (
+                    {loja.contato?.email && (
                       <li className="flex items-center gap-2">
                         <Mail className="h-5 w-5 text-gray-500" />
-                        <a href={`mailto:${loja.email}`} className="hover:text-blue-500 transition-colors">
-                          {loja.email}
+                        <a href={`mailto:${loja.contato?.email}`} className="hover:text-blue-500 transition-colors">
+                          {loja.contato?.email}
                         </a>
                       </li>
                     )}
-                    {loja.site && (
+                    {loja.contato?.site && (
                       <li className="flex items-center gap-2">
                         <Globe className="h-5 w-5 text-gray-500" />
                         <a
-                          href={loja.site}
+                          href={
+                            loja.contato?.site.startsWith("http") ? loja.contato?.site : `https://${loja.contato?.site}`
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-blue-500 transition-colors"
                         >
-                          {loja.site}
+                          {loja.contato?.site}
                         </a>
                       </li>
                     )}
@@ -914,13 +922,13 @@ export default function VitrineLanding({ id, slug }: VitrineLandingProps) {
                         </div>
                       </li>
                     )}
-                    {config.mostrarHorarios && loja.horariosFuncionamento && (
+                    {config.mostrarHorarios && loja.horarioFuncionamento && (
                       <>
                         <li className="flex items-center gap-2">
                           <Clock className="h-5 w-5 text-gray-500" /> Horário de Funcionamento:
                         </li>
                         <ul className="ml-7 space-y-1">
-                          {Object.entries(loja.horariosFuncionamento).map(([diaSemana, horario]) => (
+                          {Object.entries(loja.horarioFuncionamento).map(([diaSemana, horario]) => (
                             <li key={diaSemana} className="flex items-center gap-2">
                               <span className="capitalize">{diaSemana}:</span>
                               <span>
@@ -1061,6 +1069,9 @@ export default function VitrineLanding({ id, slug }: VitrineLandingProps) {
                 </a>
                 <a href="#" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                   <Twitter className="h-5 w-5" />
+                </a>
+                <a href="#" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                  <Linkedin className="h-5 w-5" />
                 </a>
               </div>
             </div>

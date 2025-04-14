@@ -27,8 +27,9 @@ export function VitrineForm({ loja }: { loja: Loja }) {
   const router = useRouter()
 
   // Verificar se o usuário tem plano premium - CORRIGIDO: Agora verifica múltiplas propriedades
-  const isPremium = loja.plano === "premium" || loja.proprietarioPlano === "premium" || true // Temporariamente 
-  
+  const isPremium = loja.plano === "premium" || loja.proprietarioPlano === "premium" || true // Temporariamente habilitado para todos os usuários
+
+  // Estado do formulário
   const [formData, setFormData] = useState({
     titulo: loja.nome || "",
     descricao: loja.descricao || "",
@@ -208,13 +209,44 @@ export function VitrineForm({ loja }: { loja: Loja }) {
 
   // Função para atualizar widgets
   const handleWidgetChange = (widget: string, field: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [widget]: {
-        ...prev[widget as keyof typeof prev],
-        [field]: value,
-      },
-    }))
+    setFormData((prev) => {
+      const updatedForm = { ...prev }
+
+      // Type-safe approach to update nested objects
+      if (widget === "widgetPromocao" && typeof updatedForm.widgetPromocao === "object") {
+        updatedForm.widgetPromocao = {
+          ...updatedForm.widgetPromocao,
+          [field]: value,
+        }
+      } else if (widget === "widgetContador" && typeof updatedForm.widgetContador === "object") {
+        updatedForm.widgetContador = {
+          ...updatedForm.widgetContador,
+          [field]: value,
+        }
+      } else if (widget === "widgetNewsletter" && typeof updatedForm.widgetNewsletter === "object") {
+        updatedForm.widgetNewsletter = {
+          ...updatedForm.widgetNewsletter,
+          [field]: value,
+        }
+      } else if (widget === "secaoDestaque" && typeof updatedForm.secaoDestaque === "object") {
+        updatedForm.secaoDestaque = {
+          ...updatedForm.secaoDestaque,
+          [field]: value,
+        }
+      } else if (widget === "secaoSobre" && typeof updatedForm.secaoSobre === "object") {
+        updatedForm.secaoSobre = {
+          ...updatedForm.secaoSobre,
+          [field]: value,
+        }
+      } else if (widget === "secaoValores" && typeof updatedForm.secaoValores === "object") {
+        updatedForm.secaoValores = {
+          ...updatedForm.secaoValores,
+          [field]: value,
+        }
+      }
+
+      return updatedForm
+    })
   }
 
   // Função para salvar as configurações

@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    // Destructure id from params to avoid the Next.js warning
     const { id } = params
 
     if (!id) {
@@ -34,12 +35,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     console.log(`API: Vitrine encontrada: ${loja._id}, ${loja.nome}`)
+    const lojaId = loja._id.toString()
 
-    // Buscar produtos da loja
+    // Buscar produtos da loja - agora verificando múltiplos campos
     const produtos = await db
       .collection("produtos")
       .find({
-        lojaId: loja._id.toString(),
+        $or: [{ lojaId: lojaId }, { lojaId: id }, { vitrineId: lojaId }, { vitrineId: id }],
         ativo: { $ne: false }, // Apenas produtos ativos
       })
       .sort({ destaque: -1, dataCriacao: -1 })

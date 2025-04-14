@@ -10,8 +10,10 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  // Extrair o nome do usuário da sessão
   const userName = session.user?.name || session.user?.email?.split("@")[0] || "Usuário"
+  const plan = session.user?.plano || "gratuito"
 
-  return <DashboardContent userName={userName} />
+  const planExpiresAt = undefined
+
+  return <DashboardContent userName={userName} plan={plan} planExpiresAt={planExpiresAt} />
 }

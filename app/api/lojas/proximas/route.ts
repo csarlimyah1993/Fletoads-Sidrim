@@ -32,27 +32,15 @@ export async function GET(request: NextRequest) {
 
     // Criar índice geoespacial se não existir
     try {
-      await db.collection("lojas").createIndex({ localizacao: "2dsphere" })
+      await db.collection("lojas").createIndex({ "localizacao.coordinates": "2dsphere" })
+      console.log("Índice geoespacial criado ou já existente")
     } catch (error) {
-      console.log("Índice já existe ou erro ao criar:", error)
+      console.log("Erro ao criar índice geoespacial:", error)
     }
 
-    // Construir a query
+    // Construir a query sem usar $near para evitar problemas com índices
     const query: any = {
       ativo: true,
-    }
-
-    // Adicionar filtro geoespacial se houver coordenadas
-    if (latitude && longitude) {
-      query["localizacao.coordinates"] = {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: [longitude, latitude],
-          },
-          $maxDistance: raioKm * 1000, // Converter km para metros
-        },
-      }
     }
 
     // Adicionar filtro por categoria se fornecido
@@ -62,27 +50,30 @@ export async function GET(request: NextRequest) {
 
     console.log("Query de busca:", JSON.stringify(query))
 
-    // Buscar lojas próximas
+    // Buscar todas as lojas ativas
     const lojas = await db.collection("lojas").find(query).skip(skip).limit(limit).toArray()
 
+    // Calcular distância para cada loja e filtrar pelo raio
+    const lojasComDistancia = lojas
+      .map((loja: any) => {
+        let distancia = 0
+        if (loja.localizacao && loja.localizacao.coordinates) {
+          // Calcular distância em km usando a fórmula de Haversine
+          const [lonLoja, latLoja] = loja.localizacao.coordinates
+          distancia = calcularDistancia(latitude, longitude, latLoja, lonLoja)
+        }
+
+        return {
+          ...loja,
+          _id: loja._id.toString(),
+          distancia: Number.parseFloat(distancia.toFixed(2)), // Arredondar para 2 casas decimais
+        }
+      })
+      .filter((loja: any) => loja.distancia <= raioKm) // Filtrar pelo raio
+      .sort((a: any, b: any) => a.distancia - b.distancia) // Ordenar por distância
+
     // Contar total de resultados para paginação
-    const total = await db.collection("lojas").countDocuments(query)
-
-    // Calcular distância para cada loja
-    const lojasComDistancia = lojas.map((loja: any) => {
-      let distancia = 0
-      if (loja.localizacao && loja.localizacao.coordinates) {
-        // Calcular distância em km usando a fórmula de Haversine
-        const [lonLoja, latLoja] = loja.localizacao.coordinates
-        distancia = calcularDistancia(latitude, longitude, latLoja, lonLoja)
-      }
-
-      return {
-        ...loja,
-        _id: loja._id.toString(),
-        distancia: Number.parseFloat(distancia.toFixed(2)), // Arredondar para 2 casas decimais
-      }
-    })
+    const total = lojasComDistancia.length
 
     return NextResponse.json({
       lojas: lojasComDistancia,

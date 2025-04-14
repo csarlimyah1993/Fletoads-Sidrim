@@ -1,80 +1,128 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import IntegracaoAtiva from "@/lib/models/integracao-ativa"
-import mongoose from "mongoose"
+import { ObjectId } from "mongodb"
 
-// Desativar uma integração
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+// Limites de integrações por plano
+const limitesPorPlano = {
+  gratuito: 1,
+  basico: 5,
+  premium: 10,
+  empresarial: 999, // ilimitado
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await connectToDatabase()
-
     const session = await getServerSession(authOptions)
+    const id = await params.id
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const integracaoId = params.id
+    const { db } = await connectToDatabase()
 
-    // Verificar se a integração existe e pertence ao usuário
-    const integracao = await IntegracaoAtiva.findOne({
-      _id: new mongoose.Types.ObjectId(integracaoId),
-      usuarioId: new mongoose.Types.ObjectId(session.user.id),
+    // Buscar a integração ativa
+    const integracao = await db.collection("integracoes_ativas").findOne({
+      _id: new ObjectId(id),
+      usuarioId: session.user.id,
     })
 
     if (!integracao) {
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    // Remover a integração
-    await IntegracaoAtiva.deleteOne({ _id: new mongoose.Types.ObjectId(integracaoId) })
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ integracao })
   } catch (error) {
-    console.error("Erro ao desativar integração:", error)
-    return NextResponse.json({ error: "Erro ao desativar integração" }, { status: 500 })
+    console.error("Erro ao buscar integração:", error)
+    return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
   }
 }
 
-// Atualizar configuração de uma integração
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await connectToDatabase()
-
     const session = await getServerSession(authOptions)
+    const id = await params.id
+
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const integracaoId = params.id
-    const { configuracao, status } = await req.json()
+    const { db } = await connectToDatabase()
+    const body = await request.json()
+    const { configuracao } = body
 
     // Verificar se a integração existe e pertence ao usuário
-    const integracao = await IntegracaoAtiva.findOne({
-      _id: new mongoose.Types.ObjectId(integracaoId),
-      usuarioId: new mongoose.Types.ObjectId(session.user.id),
+    const integracao = await db.collection("integracoes_ativas").findOne({
+      _id: new ObjectId(id),
+      usuarioId: session.user.id,
     })
 
     if (!integracao) {
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    // Atualizar a configuração
-    const atualizacao: any = {}
-    if (configuracao) atualizacao.configuracao = configuracao
-    if (status) atualizacao.status = status
-    if (status === "ativa") atualizacao.ultimaSincronizacao = new Date()
-
-    const integracaoAtualizada = await IntegracaoAtiva.findByIdAndUpdate(
-      integracaoId,
-      { $set: atualizacao },
-      { new: true },
+    // Atualizar configuração
+    await db.collection("integracoes_ativas").updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          configuracao: configuracao || {},
+          dataAtualizacao: new Date(),
+        },
+      },
     )
 
-    return NextResponse.json({ success: true, integracao: integracaoAtualizada })
+    return NextResponse.json({ success: true, message: "Configuração atualizada com sucesso" })
   } catch (error) {
     console.error("Erro ao atualizar integração:", error)
-    return NextResponse.json({ error: "Erro ao atualizar integração" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    const id = await params.id
+
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const { db } = await connectToDatabase()
+
+    // Verificar se a integração existe e pertence ao usuário
+    const integracao = await db.collection("integracoes_ativas").findOne({
+      _id: new ObjectId(id),
+      usuarioId: session.user.id,
+    })
+
+    if (!integracao) {
+      return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
+    }
+
+    // Remover integração
+    await db.collection("integracoes_ativas").deleteOne({ _id: new ObjectId(id) })
+
+    // Buscar o usuário para obter o plano
+    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(session.user.id) })
+    const planoUsuario = usuario?.plano || "gratuito"
+
+    // Buscar integrações ativas do usuário
+    const integracoesAtivas = await db.collection("integracoes_ativas").find({ usuarioId: session.user.id }).toArray()
+
+    // Calcular limite de integrações com base no plano
+    const limiteIntegracoes = limitesPorPlano[planoUsuario as keyof typeof limitesPorPlano] || limitesPorPlano.gratuito
+    const integracoesRestantes = Math.max(0, limiteIntegracoes - integracoesAtivas.length)
+
+    return NextResponse.json({
+      success: true,
+      message: "Integração desativada com sucesso",
+      integracoesRestantes,
+    })
+  } catch (error) {
+    console.error("Erro ao desativar integração:", error)
+    return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
   }
 }

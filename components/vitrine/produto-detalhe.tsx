@@ -18,15 +18,38 @@ import {
   Phone,
   MapPin,
   ChevronRight,
+  ShoppingBag,
+  X,
+  AlertCircle,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import type { Loja, Produto } from "@/types/loja"
 import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import { toast } from "@/hooks/use-toast"
 
 interface ProdutoDetalheProps {
   loja: Loja
   produto: Produto
   vitrineId: string
+}
+
+interface CartItem {
+  id: string
+  nome: string
+  preco: number
+  precoPromocional?: number
+  quantidade: number
+  imagem?: string
 }
 
 export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDetalheProps) {
@@ -35,6 +58,9 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
   const [favorito, setFavorito] = useState(false)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [cartOpen, setCartOpen] = useState(false)
+  const [reservaDialogOpen, setReservaDialogOpen] = useState(false)
   const router = useRouter()
 
   // Adicione uma verificação de tema no início do componente
@@ -46,6 +72,27 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
     corTexto: "#ffffff",
     corDestaque: "#f59e0b",
   }
+
+  // Carregar carrinho do localStorage
+  useEffect(() => {
+    const savedCart = localStorage.getItem(`cart-${vitrineId}`)
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart))
+      } catch (e) {
+        console.error("Erro ao carregar carrinho:", e)
+      }
+    }
+  }, [vitrineId])
+
+  // Salvar carrinho no localStorage quando mudar
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      localStorage.setItem(`cart-${vitrineId}`, JSON.stringify(cartItems))
+    } else {
+      localStorage.removeItem(`cart-${vitrineId}`)
+    }
+  }, [cartItems, vitrineId])
 
   // Efeito para controlar a visibilidade do header ao rolar
   useEffect(() => {
@@ -81,7 +128,10 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
     } else {
       // Fallback para navegadores que não suportam Web Share API
       navigator.clipboard.writeText(window.location.href)
-      alert("Link copiado para a área de transferência!")
+      toast({
+        title: "Link copiado!",
+        description: "O link foi copiado para a área de transferência.",
+      })
     }
   }
 
@@ -93,6 +143,98 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
   const diminuirQuantidade = () => {
     if (quantidade <= 1) return
     setQuantidade((prev) => prev - 1)
+  }
+
+  const adicionarAoCarrinho = () => {
+    const precoAtual =
+      produto.precoPromocional && produto.precoPromocional < produto.preco ? produto.precoPromocional : produto.preco
+
+    // Verificar se o produto já está no carrinho
+    const existingItemIndex = cartItems.findIndex((item) => item.id === produto._id)
+
+    if (existingItemIndex >= 0) {
+      // Atualizar quantidade se já existe
+      const updatedItems = [...cartItems]
+      updatedItems[existingItemIndex].quantidade += quantidade
+      setCartItems(updatedItems)
+    } else {
+      // Adicionar novo item
+      const newItem: CartItem = {
+        id: produto._id,
+        nome: produto.nome,
+        preco: produto.preco,
+        precoPromocional: produto.precoPromocional,
+        quantidade: quantidade,
+        imagem: produto.imagens && produto.imagens.length > 0 ? produto.imagens[0] : undefined,
+      }
+      setCartItems([...cartItems, newItem])
+    }
+
+    toast({
+      title: "Produto adicionado!",
+      description: `${produto.nome} foi adicionado ao carrinho.`,
+    })
+
+    // Resetar quantidade
+    setQuantidade(1)
+
+    // Abrir o carrinho
+    setCartOpen(true)
+  }
+
+  const removerDoCarrinho = (id: string) => {
+    setCartItems(cartItems.filter((item) => item.id !== id))
+  }
+
+  const atualizarQuantidadeCarrinho = (id: string, novaQuantidade: number) => {
+    if (novaQuantidade < 1) return
+
+    setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantidade: novaQuantidade } : item)))
+  }
+
+  const calcularTotal = () => {
+    return cartItems.reduce((total, item) => {
+      const precoItem = item.precoPromocional && item.precoPromocional < item.preco ? item.precoPromocional : item.preco
+      return total + precoItem * item.quantidade
+    }, 0)
+  }
+
+  const enviarParaWhatsApp = () => {
+    // Formatar a mensagem para o WhatsApp
+    const telefone = loja.contato?.whatsapp?.replace(/\D/g, "") || loja.contato?.telefone?.replace(/\D/g, "")
+
+    if (!telefone) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível encontrar um número de contato para esta loja.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    let mensagem = `Olá! Gostaria de reservar os seguintes produtos da ${loja.nome}:\n\n`
+
+    cartItems.forEach((item) => {
+      const precoExibido =
+        item.precoPromocional && item.precoPromocional < item.preco ? item.precoPromocional : item.preco
+
+      mensagem += `• ${item.quantidade}x ${item.nome} - ${precoExibido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} cada\n`
+    })
+
+    mensagem += `\nTotal: ${calcularTotal().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+
+    // Codificar a mensagem para URL
+    const mensagemCodificada = encodeURIComponent(mensagem)
+
+    // Criar o link do WhatsApp
+    const whatsappUrl = `https://wa.me/${telefone}?text=${mensagemCodificada}`
+
+    // Abrir em uma nova aba
+    window.open(whatsappUrl, "_blank")
+
+    // Fechar o diálogo e limpar o carrinho
+    setReservaDialogOpen(false)
+    setCartItems([])
   }
 
   return (
@@ -126,6 +268,19 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
               <h1 className="text-xl font-bold truncate">{loja.nome}</h1>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCartOpen(true)}
+                className="hover:bg-white/20 relative"
+              >
+                <ShoppingBag className="h-5 w-5" />
+                {cartItems.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {cartItems.reduce((total, item) => total + item.quantidade, 0)}
+                  </span>
+                )}
+              </Button>
               <Button variant="ghost" size="icon" onClick={handleCompartilhar} className="hover:bg-white/20">
                 <Share2 className="h-5 w-5" />
               </Button>
@@ -316,10 +471,215 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
                   backgroundColor: config.corPrimaria,
                   color: config.corTexto,
                 }}
+                onClick={adicionarAoCarrinho}
               >
-                <ShoppingCart className="h-5 w-5 mr-2" />
+                <ShoppingBag className="h-5 w-5 mr-2" />
                 Adicionar ao Carrinho
               </Button>
+
+              <Dialog open={cartItems.length > 0 && cartOpen} onOpenChange={setCartOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("relative", isDarkTheme ? "border-gray-700 text-gray-300 hover:bg-gray-700" : "")}
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    {cartItems.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartItems.reduce((total, item) => total + item.quantidade, 0)}
+                      </span>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Carrinho</DialogTitle>
+                    <DialogDescription>Produtos adicionados para reserva</DialogDescription>
+                  </DialogHeader>
+
+                  {cartItems.length === 0 ? (
+                    <div className="py-6 text-center">
+                      <ShoppingBag className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">Seu carrinho está vazio</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-[50vh] overflow-y-auto">
+                        {cartItems.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 py-3">
+                            {item.imagem ? (
+                              <div className="w-16 h-16 relative rounded overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={item.imagem || "/placeholder.svg"}
+                                  alt={item.nome}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+                                <ShoppingBag className="h-6 w-6 text-gray-400" />
+                              </div>
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm truncate">{item.nome}</h4>
+                              <div className="flex items-center text-sm text-gray-500">
+                                {item.precoPromocional && item.precoPromocional < item.preco ? (
+                                  <>
+                                    <span className="font-medium text-green-600">
+                                      {item.precoPromocional.toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      })}
+                                    </span>
+                                    <span className="line-through ml-1">
+                                      {item.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span>
+                                    {item.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center mt-1">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => atualizarQuantidadeCarrinho(item.id, item.quantidade - 1)}
+                                  disabled={item.quantidade <= 1}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center text-sm">{item.quantidade}</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => atualizarQuantidadeCarrinho(item.id, item.quantidade + 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-500 hover:text-red-500"
+                              onClick={() => removerDoCarrinho(item.id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex justify-between items-center py-2">
+                        <span className="font-medium">Total:</span>
+                        <span className="font-bold text-lg">
+                          {calcularTotal().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      </div>
+
+                      <DialogFooter className="sm:justify-between">
+                        <Button variant="outline" onClick={() => setCartItems([])}>
+                          Limpar carrinho
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setCartOpen(false)
+                            setReservaDialogOpen(true)
+                          }}
+                          style={{
+                            backgroundColor: config.corPrimaria,
+                            color: config.corTexto,
+                          }}
+                        >
+                          Reservar produtos
+                        </Button>
+                      </DialogFooter>
+                    </>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={reservaDialogOpen} onOpenChange={setReservaDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirmar reserva</DialogTitle>
+                    <DialogDescription>
+                      Você será redirecionado para o WhatsApp para finalizar sua reserva com {loja.nome}.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="py-4">
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md">
+                        <h4 className="font-medium mb-2">Resumo do pedido:</h4>
+                        {cartItems.map((item) => (
+                          <div key={item.id} className="flex justify-between text-sm py-1">
+                            <span>
+                              {item.quantidade}x {item.nome}
+                            </span>
+                            <span className="font-medium">
+                              {(
+                                (item.precoPromocional && item.precoPromocional < item.preco
+                                  ? item.precoPromocional
+                                  : item.preco) * item.quantidade
+                              ).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                          </div>
+                        ))}
+                        <Separator className="my-2" />
+                        <div className="flex justify-between font-bold">
+                          <span>Total:</span>
+                          <span>{calcularTotal().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 text-sm">
+                        <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-gray-600 dark:text-gray-400">
+                          Esta é uma pré-reserva. O pagamento e detalhes adicionais serão combinados diretamente com a
+                          loja através do WhatsApp.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setReservaDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={enviarParaWhatsApp}
+                      style={{
+                        backgroundColor: "#25D366", // Cor do WhatsApp
+                        color: "#ffffff",
+                      }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="mr-2"
+                      >
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                      Continuar no WhatsApp
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Button
                 variant="outline"
                 className={cn(isDarkTheme ? "border-gray-700 text-gray-300 hover:bg-gray-700" : "")}
@@ -471,7 +831,7 @@ export default function ProdutoDetalhe({ loja, produto, vitrineId }: ProdutoDeta
             <div>
               <h3 className="text-lg font-bold mb-4">Newsletter</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Inscreva-se para receber as últimas novidades e ofertas.
+                Inscreva-se para receber as últimas novidades e oferas.
               </p>
               <div className="flex">
                 <input

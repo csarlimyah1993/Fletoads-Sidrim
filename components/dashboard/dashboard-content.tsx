@@ -9,7 +9,7 @@ import { PanfletosPorMes } from "@/components/dashboard/panfletos-por-mes"
 import { CampanhasPerformance } from "@/components/dashboard/campanhas-performace"
 import { ClientesAtivos } from "@/components/dashboard/clientes-ativos"
 import { TipsCard } from "@/components/dashboard/tips-card"
-import { PlanoInfoCard } from "@/components/dashboard/plano-info-card"
+import { PlanCard } from "@/components/planos/plano-card"
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card"
 import { UserLocationCard } from "@/components/dashboard/user-location-card"
 import { useEstatisticas } from "@/hooks/use-estatisticas"
@@ -22,11 +22,14 @@ import { LojaStatusCard } from "./loja-status-card"
 
 interface DashboardContentProps {
   userName?: string
+  plan?: string
+  planExpiresAt?: string
 }
 
-export function DashboardContent({ userName }: DashboardContentProps) {
+export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }: DashboardContentProps) {
   const { estatisticas, isLoading } = useEstatisticas()
   const [greeting, setGreeting] = useState("Bom dia")
+  const [activeTab, setActiveTab] = useState("overview")
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -198,7 +201,7 @@ export function DashboardContent({ userName }: DashboardContentProps) {
                 <Store className="h-5 w-5 text-primary" />
                 Seu Plano
               </h3>
-              <PlanoInfoCard />
+              <PlanCard />
             </div>
           </section>
         </TabsContent>

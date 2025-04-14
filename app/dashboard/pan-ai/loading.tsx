@@ -1,12 +1,12 @@
+import { Loader2 } from "lucide-react"
+
 export default function Loading() {
-    return (
-      <div className="flex-1 p-4 md:p-8 pt-6">
-        <h1 className="text-2xl font-bold mb-6">Pan AI</h1>
-        <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Carregando Pan AI Assistant...</p>
       </div>
-    )
-  }
-  
-  
+    </div>
+  )
+}

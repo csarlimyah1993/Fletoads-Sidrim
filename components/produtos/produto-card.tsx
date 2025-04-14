@@ -1,186 +1,205 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Edit, Trash2, Share2 } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
-import { formatDistanceToNow } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Star, Share2, ShoppingCart, Heart } from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { Produto } from "@/types/loja"
+import type { VitrineConfig } from "@/types/vitrine"
 
 interface ProdutoCardProps {
-  produto: {
-    _id: string
-    name: string
-    description: string
-    price: number
-    images: string[]
-    createdAt: string
-    status: "active" | "inactive"
-  }
+  produto: Produto
+  config: VitrineConfig
+  onShare: (produto: Produto) => void
+  onFavorite?: (produto: Produto) => void
+  isFavorite?: boolean
+  layout?: string
+  animationProps?: any
 }
 
-export function ProdutoCard({ produto }: ProdutoCardProps) {
+export function ProdutoCard({
+  produto,
+  config,
+  onShare,
+  onFavorite,
+  isFavorite = false,
+  layout = "padrao",
+  animationProps = {},
+}: ProdutoCardProps) {
+  const [isHovered, setIsHovered] = useState(false)
   const router = useRouter()
-  const { toast } = useToast()
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/produtos/${produto._id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Falha ao excluir produto")
-      }
-
-      toast({
-        title: "Produto excluído",
-        description: "O produto foi excluído com sucesso.",
-      })
-
-      // Recarregar a página para atualizar a lista
-      router.refresh()
-    } catch (error) {
-      console.error("Erro ao excluir produto:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o produto. Tente novamente mais tarde.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-      setShowDeleteDialog(false)
+  const handleClick = () => {
+    if (produto._id) {
+      // Navegar para a página do produto
+      const vitrineId = window.location.pathname.split("/").pop()
+      router.push(`/vitrines/${vitrineId}/produto/${produto._id}`)
     }
   }
 
-  const handleShare = () => {
-    // Implementação futura de compartilhamento
-    toast({
-      title: "Link copiado",
-      description: "O link do produto foi copiado para a área de transferência.",
-    })
-  }
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(price)
-  }
-
   return (
-    <>
-      <Card className="overflow-hidden flex flex-col h-full">
-        <div className="relative h-48 bg-muted">
-          {produto.images && produto.images.length > 0 ? (
-            <Carousel className="w-full h-full">
-              <CarouselContent className="h-full">
-                {produto.images.map((image, index) => (
-                  <CarouselItem key={index} className="h-full">
-                    <div className="h-full w-full relative">
-                      <Image
-                        src={image || "/placeholder.svg"}
-                        alt={`${produto.name} - Imagem ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {produto.images.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-2" />
-                  <CarouselNext className="right-2" />
-                </>
-              )}
-            </Carousel>
+    <motion.div {...animationProps}>
+      <Card
+        className={cn(
+          "h-full flex flex-col overflow-hidden border transition-all duration-300",
+          isHovered ? "shadow-lg transform translate-y-[-5px]" : "",
+          config.tema === "escuro" ? "bg-gray-800 border-gray-700" : "bg-white",
+          layout === "magazine" ? "flex-row" : "flex-col",
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={handleClick}
+      >
+        <div className={cn("relative overflow-hidden", layout === "magazine" ? "w-1/3" : "aspect-square w-full")}>
+          {produto.imagens && produto.imagens.length > 0 ? (
+            <Image
+              src={produto.imagens[0] || "/placeholder.svg"}
+              alt={produto.nome}
+              fill
+              className={cn("object-cover transition-transform duration-500", isHovered ? "scale-110" : "scale-100")}
+            />
           ) : (
-            <div className="flex items-center justify-center h-full bg-muted">
-              <p className="text-muted-foreground">Sem imagens</p>
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <ShoppingCart className="h-12 w-12 text-gray-400" />
             </div>
           )}
-          <Badge variant={produto.status === "active" ? "default" : "secondary"} className="absolute top-2 right-2">
-            {produto.status === "active" ? "Ativo" : "Inativo"}
-          </Badge>
-        </div>
-        <CardHeader>
-          <CardTitle className="line-clamp-1">{produto.name}</CardTitle>
-          <CardDescription className="line-clamp-2">{produto.description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-grow">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-bold">{formatPrice(produto.price)}</div>
-            <div className="text-sm text-muted-foreground">
-              {formatDistanceToNow(new Date(produto.createdAt), {
-                addSuffix: true,
-                locale: ptBR,
-              })}
+
+          {config?.mostrarPromocoes && produto.precoPromocional && produto.precoPromocional < produto.preco && (
+            <div
+              className="absolute top-2 left-2 px-2 py-1 rounded-md text-sm font-bold"
+              style={{ backgroundColor: config?.corDestaque || "#f59e0b", color: "#ffffff" }}
+            >
+              {Math.round(((produto.preco - produto.precoPromocional) / produto.preco) * 100)}% OFF
             </div>
+          )}
+
+          {onFavorite && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onFavorite(produto)
+              }}
+              className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow-md transition-all"
+            >
+              <Heart className={cn("h-4 w-4", isFavorite ? "fill-red-500 text-red-500" : "text-gray-600")} />
+            </button>
+          )}
+
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center"
+              >
+                <Button className="bg-white text-gray-800 hover:bg-gray-100 shadow-lg" size="sm">
+                  Ver detalhes
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <CardContent className={cn("flex-1 flex flex-col p-4", layout === "magazine" ? "w-2/3" : "w-full")}>
+          <h3 className="font-bold text-lg line-clamp-2">{produto.nome}</h3>
+
+          {produto.descricaoCurta && (
+            <p
+              className={cn("text-sm mt-1 line-clamp-2", config.tema === "escuro" ? "text-gray-300" : "text-gray-500")}
+            >
+              {produto.descricaoCurta}
+            </p>
+          )}
+
+          {config?.mostrarPrecos && (
+            <div className="mt-2">
+              {produto.precoPromocional && produto.precoPromocional < produto.preco ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 line-through text-sm">
+                    {produto.preco.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                  <span
+                    className="font-bold text-lg"
+                    style={{ color: config?.corDestaque || config?.corPrimaria || "#f59e0b" }}
+                  >
+                    {produto.precoPromocional.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                </div>
+              ) : (
+                <span className="font-bold text-lg">
+                  {produto.preco.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </span>
+              )}
+            </div>
+          )}
+
+          {config?.mostrarEstoque && produto.estoque !== undefined && (
+            <div className="mt-2 text-sm">
+              {produto.estoque > 0 ? (
+                <span className="text-green-600">Em estoque: {produto.estoque} unidades</span>
+              ) : (
+                <span className="text-red-600">Fora de estoque</span>
+              )}
+            </div>
+          )}
+
+          {config?.mostrarAvaliacao && (
+            <div className="flex items-center mt-2">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className="h-4 w-4"
+                    fill={star <= 4 ? "#FFD700" : "none"}
+                    stroke={star <= 4 ? "#FFD700" : "#CBD5E1"}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-gray-500 ml-1">(4.0)</span>
+            </div>
+          )}
+
+          <div className="mt-auto pt-4 flex gap-2">
+            <Button
+              className="flex-1"
+              style={{
+                backgroundColor: config?.corPrimaria || "#3b82f6",
+                color: config?.corTexto || "#ffffff",
+              }}
+              onClick={handleClick}
+            >
+              Ver detalhes
+            </Button>
+
+            {config?.mostrarCompartilhar && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onShare(produto)
+                }}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
-        <CardFooter className="flex gap-2 pt-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => router.push(`/produtos/editar/${produto._id}`)}
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Editar
-          </Button>
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="h-4 w-4 mr-1" />
-            Excluir
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleShare}>
-            <Share2 className="h-4 w-4" />
-          </Button>
-        </CardFooter>
       </Card>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir produto</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    </motion.div>
   )
 }
-
