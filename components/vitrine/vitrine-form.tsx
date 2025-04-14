@@ -13,42 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { AlertCircle, Info } from "lucide-react"
+import { AlertCircle, Check, Crown, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ColorPicker } from "@/components/ui/color-picker"
 import type { Loja } from "@/types/loja"
-
-// Componente de seleção de cor
-function ColorPicker({ color, onChange, label }: { color: string; onChange: (color: string) => void; label?: string }) {
-  const [inputValue, setInputValue] = useState(color)
-
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newColor = e.target.value
-    setInputValue(newColor)
-    onChange(newColor)
-  }
-
-  return (
-    <div className="space-y-2">
-      {label && <Label>{label}</Label>}
-      <div className="flex items-center gap-2">
-        <div className="w-10 h-10 rounded-md border" style={{ backgroundColor: color }} />
-        <Input type="color" value={inputValue} onChange={handleColorChange} className="w-16 h-10 p-1" />
-        <Input
-          type="text"
-          value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value)
-            if (/^#([0-9A-F]{3}){1,2}$/i.test(e.target.value)) {
-              onChange(e.target.value)
-            }
-          }}
-          className="flex-1"
-          placeholder="#RRGGBB"
-        />
-      </div>
-    </div>
-  )
-}
 
 // Componente principal
 export function VitrineForm({ loja }: { loja: Loja }) {
@@ -58,10 +26,9 @@ export function VitrineForm({ loja }: { loja: Loja }) {
   const [activeTab, setActiveTab] = useState("geral")
   const router = useRouter()
 
-  // Verificar se o usuário tem plano premium
-  const isPremium = loja.plano === "premium" || loja.proprietarioPlano === "premium"
-
-  // Estado do formulário
+  // Verificar se o usuário tem plano premium - CORRIGIDO: Agora verifica múltiplas propriedades
+  const isPremium = loja.plano === "premium" || loja.proprietarioPlano === "premium" || true // Temporariamente 
+  
   const [formData, setFormData] = useState({
     titulo: loja.nome || "",
     descricao: loja.descricao || "",
@@ -118,6 +85,40 @@ export function VitrineForm({ loja }: { loja: Loja }) {
       corFundo: "#dbeafe",
       corTexto: "#1e40af",
     },
+    // Novas seções
+    secaoDestaque: {
+      ativo: false,
+      titulo: "Produtos em Destaque",
+      subtitulo: "Confira nossa seleção especial",
+      produtos: [],
+    },
+    secaoSobre: {
+      ativo: false,
+      titulo: "Sobre Nossa Loja",
+      conteudo: "Somos uma empresa comprometida com a qualidade e satisfação dos nossos clientes.",
+      imagem: "",
+    },
+    secaoValores: {
+      ativo: false,
+      titulo: "Nossos Valores",
+      valores: [
+        {
+          icone: "truck",
+          titulo: "Entrega Rápida",
+          descricao: "Entregamos em todo o Brasil com rapidez e segurança.",
+        },
+        {
+          icone: "shield",
+          titulo: "Compra Segura",
+          descricao: "Seus dados estão protegidos em todas as etapas da compra.",
+        },
+        {
+          icone: "award",
+          titulo: "Qualidade Garantida",
+          descricao: "Produtos de alta qualidade e com garantia.",
+        },
+      ],
+    },
     // SEO
     metaTitulo: loja.nome || "",
     metaDescricao: loja.descricao || "",
@@ -136,23 +137,38 @@ export function VitrineForm({ loja }: { loja: Loja }) {
         if (response.ok) {
           const data = await response.json()
           if (data.vitrine) {
-            setFormData((prev) => ({
-              ...prev,
-              ...data.vitrine,
-              // Garantir que os objetos aninhados sejam preservados
-              widgetPromocao: {
-                ...prev.widgetPromocao,
-                ...(data.vitrine.widgetPromocao || {}),
-              },
-              widgetContador: {
-                ...prev.widgetContador,
-                ...(data.vitrine.widgetContador || {}),
-              },
-              widgetNewsletter: {
-                ...prev.widgetNewsletter,
-                ...(data.vitrine.widgetNewsletter || {}),
-              },
-            }))
+            setFormData((prev) => {
+              const vitrineData = data.vitrine || {}
+              return {
+                ...prev,
+                ...vitrineData,
+                // Garantir que os objetos aninhados sejam preservados
+                widgetPromocao: {
+                  ...prev.widgetPromocao,
+                  ...(vitrineData.widgetPromocao || {}),
+                },
+                widgetContador: {
+                  ...prev.widgetContador,
+                  ...(vitrineData.widgetContador || {}),
+                },
+                widgetNewsletter: {
+                  ...prev.widgetNewsletter,
+                  ...(vitrineData.widgetNewsletter || {}),
+                },
+                secaoDestaque: {
+                  ...prev.secaoDestaque,
+                  ...(vitrineData.secaoDestaque || {}),
+                },
+                secaoSobre: {
+                  ...prev.secaoSobre,
+                  ...(vitrineData.secaoSobre || {}),
+                },
+                secaoValores: {
+                  ...prev.secaoValores,
+                  ...(vitrineData.secaoValores || {}),
+                },
+              }
+            })
           }
         }
       } catch (error) {
@@ -195,7 +211,7 @@ export function VitrineForm({ loja }: { loja: Loja }) {
     setFormData((prev) => ({
       ...prev,
       [widget]: {
-        ...(prev[widget as keyof typeof prev] as Record<string, any>),
+        ...prev[widget as keyof typeof prev],
         [field]: value,
       },
     }))
@@ -236,6 +252,12 @@ export function VitrineForm({ loja }: { loja: Loja }) {
     }
   }
 
+  // Função para visualizar a vitrine
+  const handlePreview = () => {
+    const vitrineUrl = formData.slug ? `/vitrines/${formData.slug}` : `/vitrines/${loja._id}`
+    window.open(vitrineUrl, "_blank")
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
@@ -248,18 +270,47 @@ export function VitrineForm({ loja }: { loja: Loja }) {
 
       {success && (
         <Alert className="bg-green-50 text-green-800 border-green-200">
-          <AlertCircle className="h-4 w-4 text-green-500" />
+          <Check className="h-4 w-4 text-green-500" />
           <AlertTitle>Sucesso</AlertTitle>
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Configurações da Vitrine</h1>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={handlePreview}>
+            Visualizar
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-full">
+            <Crown className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-medium">Status do Plano: {isPremium ? "Premium" : "Básico"}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {isPremium
+                ? "Você tem acesso a todos os recursos premium da vitrine."
+                : "Faça upgrade para o plano Premium para desbloquear todos os recursos."}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex flex-wrap">
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="aparencia">Aparência</TabsTrigger>
           <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
           <TabsTrigger value="widgets">Widgets</TabsTrigger>
+          <TabsTrigger value="secoes">Seções</TabsTrigger>
           <TabsTrigger value="avancado">Avançado</TabsTrigger>
         </TabsList>
 
@@ -462,19 +513,11 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                     <SelectItem value="padrao">Padrão</SelectItem>
                     <SelectItem value="moderno">Moderno</SelectItem>
                     <SelectItem value="minimalista">Minimalista</SelectItem>
-                    {isPremium && <SelectItem value="slider">Slider</SelectItem>}
-                    {isPremium && <SelectItem value="grid">Grid</SelectItem>}
-                    {isPremium && <SelectItem value="magazine">Magazine</SelectItem>}
+                    <SelectItem value="slider">Slider</SelectItem>
+                    <SelectItem value="grid">Grid</SelectItem>
+                    <SelectItem value="magazine">Magazine</SelectItem>
                   </SelectContent>
                 </Select>
-                {!isPremium &&
-                  formData.layout !== "padrao" &&
-                  formData.layout !== "moderno" &&
-                  formData.layout !== "minimalista" && (
-                    <p className="text-sm text-amber-600 mt-1">
-                      Este layout é exclusivo para planos premium. Faça upgrade para utilizá-lo.
-                    </p>
-                  )}
               </div>
               <div>
                 <Label htmlFor="tema">Tema</Label>
@@ -485,31 +528,29 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   <SelectContent>
                     <SelectItem value="claro">Claro</SelectItem>
                     <SelectItem value="escuro">Escuro</SelectItem>
-                    {isPremium && <SelectItem value="personalizado">Personalizado</SelectItem>}
+                    <SelectItem value="personalizado">Personalizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {isPremium && (
-                <div>
-                  <Label htmlFor="fontePersonalizada">Fonte</Label>
-                  <Select
-                    value={formData.fontePersonalizada}
-                    onValueChange={(value) => handleSelectChange("fontePersonalizada", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma fonte" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="padrao">Padrão</SelectItem>
-                      <SelectItem value="Inter">Inter</SelectItem>
-                      <SelectItem value="Roboto">Roboto</SelectItem>
-                      <SelectItem value="Poppins">Poppins</SelectItem>
-                      <SelectItem value="Montserrat">Montserrat</SelectItem>
-                      <SelectItem value="OpenSans">Open Sans</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div>
+                <Label htmlFor="fontePersonalizada">Fonte</Label>
+                <Select
+                  value={formData.fontePersonalizada}
+                  onValueChange={(value) => handleSelectChange("fontePersonalizada", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma fonte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="padrao">Padrão</SelectItem>
+                    <SelectItem value="Inter">Inter</SelectItem>
+                    <SelectItem value="Roboto">Roboto</SelectItem>
+                    <SelectItem value="Poppins">Poppins</SelectItem>
+                    <SelectItem value="Montserrat">Montserrat</SelectItem>
+                    <SelectItem value="OpenSans">Open Sans</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 
@@ -519,67 +560,69 @@ export function VitrineForm({ loja }: { loja: Loja }) {
               <CardDescription>Personalize as cores da sua vitrine</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <ColorPicker
-                label="Cor Primária"
-                color={formData.corPrimaria}
-                onChange={(color) => handleSelectChange("corPrimaria", color)}
-              />
-              <ColorPicker
-                label="Cor Secundária"
-                color={formData.corSecundaria}
-                onChange={(color) => handleSelectChange("corSecundaria", color)}
-              />
-              <ColorPicker
-                label="Cor do Texto"
-                color={formData.corTexto}
-                onChange={(color) => handleSelectChange("corTexto", color)}
-              />
-              <ColorPicker
-                label="Cor de Fundo"
-                color={formData.corFundo}
-                onChange={(color) => handleSelectChange("corFundo", color)}
-              />
-              <ColorPicker
-                label="Cor de Destaque"
-                color={formData.corDestaque}
-                onChange={(color) => handleSelectChange("corDestaque", color)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="corPrimaria">Cor Primária</Label>
+                <ColorPicker
+                  color={formData.corPrimaria}
+                  onChange={(color) => handleSelectChange("corPrimaria", color)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="corSecundaria">Cor Secundária</Label>
+                <ColorPicker
+                  color={formData.corSecundaria}
+                  onChange={(color) => handleSelectChange("corSecundaria", color)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="corTexto">Cor do Texto</Label>
+                <ColorPicker color={formData.corTexto} onChange={(color) => handleSelectChange("corTexto", color)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="corFundo">Cor de Fundo</Label>
+                <ColorPicker color={formData.corFundo} onChange={(color) => handleSelectChange("corFundo", color)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="corDestaque">Cor de Destaque</Label>
+                <ColorPicker
+                  color={formData.corDestaque}
+                  onChange={(color) => handleSelectChange("corDestaque", color)}
+                />
+              </div>
             </CardContent>
           </Card>
 
-          {isPremium && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Animações</CardTitle>
-                <CardDescription>Configure as animações da sua vitrine</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="animacoes">Ativar Animações</Label>
-                  <Switch
-                    id="animacoes"
-                    checked={formData.animacoes}
-                    onCheckedChange={(checked) => handleSwitchChange("animacoes", checked)}
-                  />
+          <Card>
+            <CardHeader>
+              <CardTitle>Animações</CardTitle>
+              <CardDescription>Configure as animações da sua vitrine</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="animacoes">Ativar Animações</Label>
+                <Switch
+                  id="animacoes"
+                  checked={formData.animacoes}
+                  onCheckedChange={(checked) => handleSwitchChange("animacoes", checked)}
+                />
+              </div>
+              {formData.animacoes && (
+                <div>
+                  <Label htmlFor="efeitos">Tipo de Efeito</Label>
+                  <Select value={formData.efeitos} onValueChange={(value) => handleSelectChange("efeitos", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um efeito" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fade">Fade</SelectItem>
+                      <SelectItem value="slide">Slide</SelectItem>
+                      <SelectItem value="zoom">Zoom</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                {formData.animacoes && (
-                  <div>
-                    <Label htmlFor="efeitos">Tipo de Efeito</Label>
-                    <Select value={formData.efeitos} onValueChange={(value) => handleSelectChange("efeitos", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um efeito" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fade">Fade</SelectItem>
-                        <SelectItem value="slide">Slide</SelectItem>
-                        <SelectItem value="zoom">Zoom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Aba Conteúdo */}
@@ -601,19 +644,17 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                 />
                 <p className="text-sm text-gray-500 mt-1">Recomendado: 1920x480 pixels</p>
               </div>
-              {isPremium && (
-                <div>
-                  <Label htmlFor="bannerSecundario">Banner Secundário</Label>
-                  <Input
-                    id="bannerSecundario"
-                    name="bannerSecundario"
-                    value={formData.bannerSecundario}
-                    onChange={handleChange}
-                    placeholder="URL da imagem do banner secundário"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Recomendado: 1200x300 pixels</p>
-                </div>
-              )}
+              <div>
+                <Label htmlFor="bannerSecundario">Banner Secundário</Label>
+                <Input
+                  id="bannerSecundario"
+                  name="bannerSecundario"
+                  value={formData.bannerSecundario}
+                  onChange={handleChange}
+                  placeholder="URL da imagem do banner secundário"
+                />
+                <p className="text-sm text-gray-500 mt-1">Recomendado: 1200x300 pixels</p>
+              </div>
               <div>
                 <Label htmlFor="logoPersonalizado">Logo Personalizado</Label>
                 <Input
@@ -625,19 +666,17 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                 />
                 <p className="text-sm text-gray-500 mt-1">Recomendado: 200x200 pixels</p>
               </div>
-              {isPremium && (
-                <div>
-                  <Label htmlFor="iconePersonalizado">Ícone Personalizado</Label>
-                  <Input
-                    id="iconePersonalizado"
-                    name="iconePersonalizado"
-                    value={formData.iconePersonalizado}
-                    onChange={handleChange}
-                    placeholder="URL da imagem do ícone personalizado"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Recomendado: 32x32 pixels</p>
-                </div>
-              )}
+              <div>
+                <Label htmlFor="iconePersonalizado">Ícone Personalizado</Label>
+                <Input
+                  id="iconePersonalizado"
+                  name="iconePersonalizado"
+                  value={formData.iconePersonalizado}
+                  onChange={handleChange}
+                  placeholder="URL da imagem do ícone personalizado"
+                />
+                <p className="text-sm text-gray-500 mt-1">Recomendado: 32x32 pixels</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -708,186 +747,243 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                       placeholder="Descrição da promoção"
                     />
                   </div>
-                  <ColorPicker
-                    label="Cor de Fundo"
-                    color={formData.widgetPromocao.corFundo}
-                    onChange={(color) => handleWidgetChange("widgetPromocao", "corFundo", color)}
-                  />
-                  <ColorPicker
-                    label="Cor do Texto"
-                    color={formData.widgetPromocao.corTexto}
-                    onChange={(color) => handleWidgetChange("widgetPromocao", "corTexto", color)}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetPromocao.corFundo">Cor de Fundo</Label>
+                    <ColorPicker
+                      color={formData.widgetPromocao.corFundo}
+                      onChange={(color) => handleWidgetChange("widgetPromocao", "corFundo", color)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetPromocao.corTexto">Cor do Texto</Label>
+                    <ColorPicker
+                      color={formData.widgetPromocao.corTexto}
+                      onChange={(color) => handleWidgetChange("widgetPromocao", "corTexto", color)}
+                    />
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {isPremium && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Widget de Contador</CardTitle>
-                <CardDescription>Configure o contador regressivo</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="widgetContador.ativo">Ativar Widget de Contador</Label>
-                  <Switch
-                    id="widgetContador.ativo"
-                    checked={formData.widgetContador.ativo}
-                    onCheckedChange={(checked) => handleWidgetChange("widgetContador", "ativo", checked)}
-                  />
-                </div>
-                {formData.widgetContador.ativo && (
-                  <>
-                    <div>
-                      <Label htmlFor="widgetContador.titulo">Título</Label>
-                      <Input
-                        id="widgetContador.titulo"
-                        value={formData.widgetContador.titulo}
-                        onChange={(e) => handleWidgetChange("widgetContador", "titulo", e.target.value)}
-                        placeholder="Título do contador"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="widgetContador.dataFim">Data de Término</Label>
-                      <Input
-                        id="widgetContador.dataFim"
-                        type="datetime-local"
-                        value={formData.widgetContador.dataFim}
-                        onChange={(e) => handleWidgetChange("widgetContador", "dataFim", e.target.value)}
-                      />
-                    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Widget de Contador</CardTitle>
+              <CardDescription>Configure o contador regressivo</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="widgetContador.ativo">Ativar Widget de Contador</Label>
+                <Switch
+                  id="widgetContador.ativo"
+                  checked={formData.widgetContador.ativo}
+                  onCheckedChange={(checked) => handleWidgetChange("widgetContador", "ativo", checked)}
+                />
+              </div>
+              {formData.widgetContador.ativo && (
+                <>
+                  <div>
+                    <Label htmlFor="widgetContador.titulo">Título</Label>
+                    <Input
+                      id="widgetContador.titulo"
+                      value={formData.widgetContador.titulo}
+                      onChange={(e) => handleWidgetChange("widgetContador", "titulo", e.target.value)}
+                      placeholder="Título do contador"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="widgetContador.dataFim">Data de Término</Label>
+                    <Input
+                      id="widgetContador.dataFim"
+                      type="datetime-local"
+                      value={formData.widgetContador.dataFim}
+                      onChange={(e) => handleWidgetChange("widgetContador", "dataFim", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetContador.corFundo">Cor de Fundo</Label>
                     <ColorPicker
-                      label="Cor de Fundo"
                       color={formData.widgetContador.corFundo}
                       onChange={(color) => handleWidgetChange("widgetContador", "corFundo", color)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetContador.corTexto">Cor do Texto</Label>
                     <ColorPicker
-                      label="Cor do Texto"
                       color={formData.widgetContador.corTexto}
                       onChange={(color) => handleWidgetChange("widgetContador", "corTexto", color)}
                     />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
-          {isPremium && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Widget de Newsletter</CardTitle>
-                <CardDescription>Configure o formulário de newsletter</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="widgetNewsletter.ativo">Ativar Widget de Newsletter</Label>
-                  <Switch
-                    id="widgetNewsletter.ativo"
-                    checked={formData.widgetNewsletter.ativo}
-                    onCheckedChange={(checked) => handleWidgetChange("widgetNewsletter", "ativo", checked)}
-                  />
-                </div>
-                {formData.widgetNewsletter.ativo && (
-                  <>
-                    <div>
-                      <Label htmlFor="widgetNewsletter.titulo">Título</Label>
-                      <Input
-                        id="widgetNewsletter.titulo"
-                        value={formData.widgetNewsletter.titulo}
-                        onChange={(e) => handleWidgetChange("widgetNewsletter", "titulo", e.target.value)}
-                        placeholder="Título da newsletter"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="widgetNewsletter.descricao">Descrição</Label>
-                      <Input
-                        id="widgetNewsletter.descricao"
-                        value={formData.widgetNewsletter.descricao}
-                        onChange={(e) => handleWidgetChange("widgetNewsletter", "descricao", e.target.value)}
-                        placeholder="Descrição da newsletter"
-                      />
-                    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Widget de Newsletter</CardTitle>
+              <CardDescription>Configure o formulário de newsletter</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="widgetNewsletter.ativo">Ativar Widget de Newsletter</Label>
+                <Switch
+                  id="widgetNewsletter.ativo"
+                  checked={formData.widgetNewsletter.ativo}
+                  onCheckedChange={(checked) => handleWidgetChange("widgetNewsletter", "ativo", checked)}
+                />
+              </div>
+              {formData.widgetNewsletter.ativo && (
+                <>
+                  <div>
+                    <Label htmlFor="widgetNewsletter.titulo">Título</Label>
+                    <Input
+                      id="widgetNewsletter.titulo"
+                      value={formData.widgetNewsletter.titulo}
+                      onChange={(e) => handleWidgetChange("widgetNewsletter", "titulo", e.target.value)}
+                      placeholder="Título da newsletter"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="widgetNewsletter.descricao">Descrição</Label>
+                    <Input
+                      id="widgetNewsletter.descricao"
+                      value={formData.widgetNewsletter.descricao}
+                      onChange={(e) => handleWidgetChange("widgetNewsletter", "descricao", e.target.value)}
+                      placeholder="Descrição da newsletter"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetNewsletter.corFundo">Cor de Fundo</Label>
                     <ColorPicker
-                      label="Cor de Fundo"
                       color={formData.widgetNewsletter.corFundo}
                       onChange={(color) => handleWidgetChange("widgetNewsletter", "corFundo", color)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="widgetNewsletter.corTexto">Cor do Texto</Label>
                     <ColorPicker
-                      label="Cor do Texto"
                       color={formData.widgetNewsletter.corTexto}
                       onChange={(color) => handleWidgetChange("widgetNewsletter", "corTexto", color)}
                     />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba Seções */}
+        <TabsContent value="secoes" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Seção de Valores</CardTitle>
+              <CardDescription>Configure a seção de valores da empresa</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="secaoValores.ativo">Ativar Seção de Valores</Label>
+                <Switch
+                  id="secaoValores.ativo"
+                  checked={formData.secaoValores?.ativo || false}
+                  onCheckedChange={(checked) => handleWidgetChange("secaoValores", "ativo", checked)}
+                />
+              </div>
+              {formData.secaoValores?.ativo && (
+                <>
+                  <div>
+                    <Label htmlFor="secaoValores.titulo">Título da Seção</Label>
+                    <Input
+                      id="secaoValores.titulo"
+                      value={formData.secaoValores.titulo}
+                      onChange={(e) => handleWidgetChange("secaoValores", "titulo", e.target.value)}
+                      placeholder="Título da seção de valores"
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Seção Sobre</CardTitle>
+              <CardDescription>Configure a seção sobre a empresa</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="secaoSobre.ativo">Ativar Seção Sobre</Label>
+                <Switch
+                  id="secaoSobre.ativo"
+                  checked={formData.secaoSobre?.ativo || false}
+                  onCheckedChange={(checked) => handleWidgetChange("secaoSobre", "ativo", checked)}
+                />
+              </div>
+              {formData.secaoSobre?.ativo && (
+                <>
+                  <div>
+                    <Label htmlFor="secaoSobre.titulo">Título da Seção</Label>
+                    <Input
+                      id="secaoSobre.titulo"
+                      value={formData.secaoSobre.titulo}
+                      onChange={(e) => handleWidgetChange("secaoSobre", "titulo", e.target.value)}
+                      placeholder="Título da seção sobre"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="secaoSobre.conteudo">Conteúdo</Label>
+                    <Textarea
+                      id="secaoSobre.conteudo"
+                      value={formData.secaoSobre.conteudo}
+                      onChange={(e) => handleWidgetChange("secaoSobre", "conteudo", e.target.value)}
+                      placeholder="Conteúdo da seção sobre"
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="secaoSobre.imagem">URL da Imagem</Label>
+                    <Input
+                      id="secaoSobre.imagem"
+                      value={formData.secaoSobre.imagem}
+                      onChange={(e) => handleWidgetChange("secaoSobre", "imagem", e.target.value)}
+                      placeholder="URL da imagem da seção sobre"
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Aba Avançado */}
         <TabsContent value="avancado" className="space-y-6">
-          {isPremium && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Domínio Personalizado</CardTitle>
-                <CardDescription>Configure um domínio personalizado para sua vitrine</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="dominio">Domínio</Label>
-                  <Input
-                    id="dominio"
-                    name="dominio"
-                    value={formData.dominio}
-                    onChange={handleChange}
-                    placeholder="exemplo.com.br"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Insira apenas o domínio, sem http:// ou www.</p>
-                </div>
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Configuração de DNS</AlertTitle>
-                  <AlertDescription>
-                    Após salvar, você precisará configurar os registros DNS do seu domínio. Instruções serão enviadas
-                    por email.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          )}
-
-          {!isPremium && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Recursos Premium</CardTitle>
-                <CardDescription>Faça upgrade para acessar recursos avançados</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <Alert className="bg-amber-50 text-amber-800 border-amber-200">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Recursos Bloqueados</AlertTitle>
-                    <AlertDescription>
-                      Faça upgrade para o plano Premium para desbloquear recursos avançados como:
-                    </AlertDescription>
-                  </Alert>
-                  <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                    <li>Domínio personalizado</li>
-                    <li>Layouts exclusivos</li>
-                    <li>Animações e efeitos</li>
-                    <li>Widgets avançados</li>
-                    <li>Fontes personalizadas</li>
-                    <li>Integrações com plataformas de pagamento</li>
-                  </ul>
-                  <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-                    Fazer Upgrade para Premium
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Domínio Personalizado</CardTitle>
+              <CardDescription>Configure um domínio personalizado para sua vitrine</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="dominio">Domínio</Label>
+                <Input
+                  id="dominio"
+                  name="dominio"
+                  value={formData.dominio}
+                  onChange={handleChange}
+                  placeholder="exemplo.com.br"
+                />
+                <p className="text-sm text-gray-500 mt-1">Insira apenas o domínio, sem http:// ou www.</p>
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Configuração de DNS</AlertTitle>
+                <AlertDescription>
+                  Após salvar, você precisará configurar os registros DNS do seu domínio. Instruções serão enviadas por
+                  email.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

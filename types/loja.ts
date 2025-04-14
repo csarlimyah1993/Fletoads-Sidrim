@@ -51,6 +51,7 @@ export interface Produto {
   _id: string
   nome: string
   descricaoCurta?: string
+  descricao?: string // Adicionando a propriedade descricao
   preco: number
   precoPromocional?: number
   imagens?: string[]
