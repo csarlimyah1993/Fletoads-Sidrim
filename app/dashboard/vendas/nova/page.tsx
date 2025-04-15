@@ -1,424 +1,382 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react"
-import { toast } from "sonner"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-// Esquema de validação para o formulário
-const vendaSchema = z.object({
-  cliente: z.string({
-    required_error: "Cliente é obrigatório",
-  }),
-  produtos: z
-    .array(
-      z.object({
-        nome: z.string().min(1, "Nome do produto é obrigatório"),
-        quantidade: z.coerce.number().min(1, "Quantidade deve ser pelo menos 1"),
-        precoUnitario: z.coerce.number().min(0.01, "Preço deve ser maior que zero"),
-      }),
-    )
-    .min(1, "Adicione pelo menos um produto"),
-  metodoPagamento: z.enum(["dinheiro", "cartao_credito", "cartao_debito", "pix", "boleto", "transferencia"], {
-    required_error: "Método de pagamento é obrigatório",
-  }),
-  status: z.enum(["pendente", "pago", "enviado", "entregue", "cancelado"], {
-    required_error: "Status é obrigatório",
-  }),
-  observacoes: z.string().optional(),
-})
+interface Cliente {
+  _id: string
+  nome: string
+  email: string
+  telefone: string
+}
 
-type VendaFormValues = z.infer<typeof vendaSchema>
+interface Produto {
+  _id: string
+  nome: string
+  preco: number
+  estoque: number
+  imagem?: string
+}
+
+interface ItemVenda {
+  produtoId: string
+  produto: Produto
+  quantidade: number
+  precoUnitario: number
+  subtotal: number
+}
 
 export default function NovaVendaPage() {
-  const router = useRouter()
-  const [clientes, setClientes] = useState<any[]>([])
-  const [isLoadingClientes, setIsLoadingClientes] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Inicializar o formulário
-  const form = useForm<VendaFormValues>({
-    resolver: zodResolver(vendaSchema),
-    defaultValues: {
-      produtos: [{ nome: "", quantidade: 1, precoUnitario: 0 }],
-      status: "pendente",
-      metodoPagamento: "dinheiro",
-      observacoes: "",
-    },
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [clienteSelecionado, setClienteSelecionado] = useState<string>("")
+  const [itens, setItens] = useState<ItemVenda[]>([])
+  const [produtoSelecionado, setProdutoSelecionado] = useState<string>("")
+  const [quantidade, setQuantidade] = useState<number>(1)
+  const [desconto, setDesconto] = useState<number>(0)
+  const [formaPagamento, setFormaPagamento] = useState<string>("dinheiro")
+  const [observacao, setObservacao] = useState<string>("")
+  const [isLoading, setIsLoading] = useState({
+    clientes: true,
+    produtos: true,
+    submit: false,
   })
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const router = useRouter()
 
-  // Buscar clientes
   useEffect(() => {
-    const fetchClientes = async () => {
-      try {
-        setIsLoadingClientes(true)
-        const response = await fetch("/api/clientes")
-
-        if (!response.ok) {
-          throw new Error("Erro ao buscar clientes")
-        }
-
-        const data = await response.json()
-        setClientes(data.clientes || [])
-      } catch (error) {
-        console.error("Erro ao buscar clientes:", error)
-        toast.error("Erro ao carregar clientes")
-      } finally {
-        setIsLoadingClientes(false)
-      }
-    }
-
     fetchClientes()
+    fetchProdutos()
   }, [])
 
-  // Função para adicionar um novo produto
-  const adicionarProduto = () => {
-    const produtos = form.getValues("produtos")
-    form.setValue("produtos", [...produtos, { nome: "", quantidade: 1, precoUnitario: 0 }])
-  }
-
-  // Função para remover um produto
-  const removerProduto = (index: number) => {
-    const produtos = form.getValues("produtos")
-    if (produtos.length > 1) {
-      form.setValue(
-        "produtos",
-        produtos.filter((_, i) => i !== index),
-      )
+  const fetchClientes = async () => {
+    try {
+      const response = await fetch("/api/dashboard/clientes")
+      if (response.ok) {
+        const data = await response.json()
+        setClientes(data.clientes || [])
+      } else {
+        console.error("Erro ao buscar clientes:", response.status)
+      }
+    } catch (error) {
+      console.error("Erro ao buscar clientes:", error)
+    } finally {
+      setIsLoading((prev) => ({ ...prev, clientes: false }))
     }
   }
 
-  // Função para calcular o subtotal de um produto
-  const calcularSubtotal = (quantidade: number, precoUnitario: number) => {
-    return quantidade * precoUnitario
-  }
-
-  // Função para calcular o total da venda
-  const calcularTotal = () => {
-    const produtos = form.getValues("produtos")
-    return produtos.reduce((total, produto) => {
-      return total + calcularSubtotal(produto.quantidade || 0, produto.precoUnitario || 0)
-    }, 0)
-  }
-
-  // Função para formatar o valor em reais
-  const formatarValor = (valor: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor)
-  }
-
-  // Função para enviar o formulário
-  const onSubmit = async (values: VendaFormValues) => {
+  const fetchProdutos = async () => {
     try {
-      setIsSubmitting(true)
+      const response = await fetch("/api/dashboard/produtos")
+      if (response.ok) {
+        const data = await response.json()
+        setProdutos(data.produtos || [])
+      } else {
+        console.error("Erro ao buscar produtos:", response.status)
+      }
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error)
+    } finally {
+      setIsLoading((prev) => ({ ...prev, produtos: false }))
+    }
+  }
 
-      const response = await fetch("/api/vendas", {
+  const handleAddItem = () => {
+    if (!produtoSelecionado || quantidade <= 0) return
+
+    const produto = produtos.find((p) => p._id === produtoSelecionado)
+    if (!produto) return
+
+    // Verificar se o produto já está na lista
+    const itemExistente = itens.find((item) => item.produtoId === produtoSelecionado)
+
+    if (itemExistente) {
+      // Atualizar quantidade do item existente
+      const novaQuantidade = itemExistente.quantidade + quantidade
+
+      if (novaQuantidade > produto.estoque) {
+        alert(`Estoque insuficiente. Disponível: ${produto.estoque}`)
+        return
+      }
+
+      const novosItens = itens.map((item) => {
+        if (item.produtoId === produtoSelecionado) {
+          return {
+            ...item,
+            quantidade: novaQuantidade,
+            subtotal: produto.preco * novaQuantidade,
+          }
+        }
+        return item
+      })
+
+      setItens(novosItens)
+    } else {
+      // Adicionar novo item
+      if (quantidade > produto.estoque) {
+        alert(`Estoque insuficiente. Disponível: ${produto.estoque}`)
+        return
+      }
+
+      const novoItem: ItemVenda = {
+        produtoId: produto._id,
+        produto,
+        quantidade,
+        precoUnitario: produto.preco,
+        subtotal: produto.preco * quantidade,
+      }
+
+      setItens([...itens, novoItem])
+    }
+
+    // Limpar seleção
+    setProdutoSelecionado("")
+    setQuantidade(1)
+  }
+
+  const handleRemoveItem = (produtoId: string) => {
+    setItens(itens.filter((item) => item.produtoId !== produtoId))
+  }
+
+  const calcularTotal = () => {
+    return itens.reduce((total, item) => total + item.subtotal, 0)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!clienteSelecionado) {
+      setError("Selecione um cliente")
+      return
+    }
+
+    if (itens.length === 0) {
+      setError("Adicione pelo menos um produto")
+      return
+    }
+
+    try {
+      setIsLoading((prev) => ({ ...prev, submit: true }))
+      setError(null)
+
+      const total = calcularTotal()
+
+      if (desconto > total) {
+        setError("O desconto não pode ser maior que o total")
+        return
+      }
+
+      const vendaData = {
+        clienteId: clienteSelecionado,
+        itens: itens.map((item) => ({
+          produtoId: item.produtoId,
+          quantidade: item.quantidade,
+          precoUnitario: item.precoUnitario,
+          subtotal: item.subtotal,
+        })),
+        desconto,
+        total: total - desconto,
+        formaPagamento,
+        observacao,
+      }
+
+      const response = await fetch("/api/dashboard/vendas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(vendaData),
       })
 
-      if (!response.ok) {
+      if (response.ok) {
+        router.push("/dashboard/vendas")
+      } else {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao criar venda")
+        setError(errorData.message || "Erro ao criar venda")
       }
-
-      const data = await response.json()
-      toast.success("Venda criada com sucesso!")
-      router.push(`/dashboard/vendas/${data._id}`)
     } catch (error) {
       console.error("Erro ao criar venda:", error)
-      toast.error(error instanceof Error ? error.message : "Erro ao criar venda")
+      setError("Erro ao criar venda")
     } finally {
-      setIsSubmitting(false)
+      setIsLoading((prev) => ({ ...prev, submit: false }))
     }
   }
 
   return (
-    <div className="flex-1 p-4 md:p-8 pt-6">
-      <div className="flex items-center mb-6">
-        <Button variant="ghost" onClick={() => router.back()} className="mr-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <h2 className="text-2xl font-bold">Nova Venda</h2>
-      </div>
+    <div className="container py-10">
+      <Button variant="ghost" onClick={() => router.back()}>
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Voltar
+      </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle>Nova Venda</CardTitle>
+          <CardDescription>Registar uma nova venda no sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <div>
+              <Label htmlFor="cliente">Cliente</Label>
+              <Select value={clienteSelecionado} onValueChange={setClienteSelecionado}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoading.clientes ? (
+                    <SelectItem value="loading" disabled>
+                      <Skeleton className="h-9 w-full" />
+                    </SelectItem>
+                  ) : (
+                    clientes.map((cliente) => (
+                      <SelectItem key={cliente._id} value={cliente._id}>
+                        {cliente.nome}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Produtos</CardTitle>
-                  <CardDescription>Adicione os produtos da venda</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {form.getValues("produtos").map((_, index) => (
-                    <div key={index} className="space-y-4 p-4 border rounded-md">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-medium">Produto {index + 1}</h3>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removerProduto(index)}
-                          disabled={form.getValues("produtos").length <= 1}
-                        >
+            <div>
+              <Label htmlFor="produto">Produto</Label>
+              <div className="flex gap-2">
+                <Select value={produtoSelecionado} onValueChange={setProdutoSelecionado}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um produto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoading.produtos ? (
+                      <SelectItem value="loading" disabled>
+                        <Skeleton className="h-9 w-full" />
+                      </SelectItem>
+                    ) : (
+                      produtos.map((produto) => (
+                        <SelectItem key={produto._id} value={produto._id}>
+                          {produto.nome} - {produto.preco.toFixed(2)} - Estoque: {produto.estoque}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(Number(e.target.value))}
+                  className="w-24"
+                />
+                <Button type="button" onClick={handleAddItem}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Itens da Venda</Label>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Preço Unitário</TableHead>
+                    <TableHead>Subtotal</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itens.map((item) => (
+                    <TableRow key={item.produtoId}>
+                      <TableCell>{item.produto.nome}</TableCell>
+                      <TableCell>{item.quantidade}</TableCell>
+                      <TableCell>{item.precoUnitario.toFixed(2)}</TableCell>
+                      <TableCell>{item.subtotal.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveItem(item.produtoId)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`produtos.${index}.nome`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Nome do Produto</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Nome do produto" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name={`produtos.${index}.quantidade`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quantidade</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    {...field}
-                                    onChange={(e) => {
-                                      field.onChange(e)
-                                      form.trigger("produtos")
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`produtos.${index}.precoUnitario`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Preço Unitário</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    {...field}
-                                    onChange={(e) => {
-                                      field.onChange(e)
-                                      form.trigger("produtos")
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <p className="font-medium">
-                          Subtotal:{" "}
-                          {formatarValor(
-                            calcularSubtotal(
-                              form.getValues(`produtos.${index}.quantidade`) || 0,
-                              form.getValues(`produtos.${index}.precoUnitario`) || 0,
-                            ),
-                          )}
-                        </p>
-                      </div>
-                    </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-
-                  <Button type="button" variant="outline" onClick={adicionarProduto} className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Produto
-                  </Button>
-
-                  <div className="flex justify-end">
-                    <p className="text-lg font-bold">Total: {formatarValor(calcularTotal())}</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  {itens.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        Nenhum item adicionado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Cliente</CardTitle>
-                  <CardDescription>Selecione o cliente da venda</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FormField
-                    control={form.control}
-                    name="cliente"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cliente</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um cliente" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {isLoadingClientes ? (
-                              <div className="flex justify-center items-center p-2">
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                <span>Carregando clientes...</span>
-                              </div>
-                            ) : clientes.length === 0 ? (
-                              <div className="p-2 text-center">
-                                <p className="text-sm text-gray-500">Nenhum cliente encontrado</p>
-                                <Button
-                                  variant="link"
-                                  className="mt-1 p-0 h-auto"
-                                  onClick={() => router.push("/dashboard/clientes/novo")}
-                                >
-                                  Adicionar Cliente
-                                </Button>
-                              </div>
-                            ) : (
-                              clientes.map((cliente) => (
-                                <SelectItem key={cliente._id} value={cliente._id}>
-                                  {cliente.nome} {cliente.empresa ? `(${cliente.empresa})` : ""}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="desconto">Desconto</Label>
+                <Input
+                  type="number"
+                  id="desconto"
+                  value={desconto}
+                  onChange={(e) => setDesconto(Number(e.target.value))}
+                />
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pagamento e Status</CardTitle>
-                  <CardDescription>Defina o método de pagamento e status da venda</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="metodoPagamento"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Método de Pagamento</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o método de pagamento" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                            <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                            <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                            <SelectItem value="pix">PIX</SelectItem>
-                            <SelectItem value="boleto">Boleto</SelectItem>
-                            <SelectItem value="transferencia">Transferência</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pendente">Pendente</SelectItem>
-                            <SelectItem value="pago">Pago</SelectItem>
-                            <SelectItem value="enviado">Enviado</SelectItem>
-                            <SelectItem value="entregue">Entregue</SelectItem>
-                            <SelectItem value="cancelado">Cancelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="observacoes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Observações</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Observações sobre a venda"
-                            className="resize-none"
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>Informações adicionais sobre a venda (opcional)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
+              <div>
+                <Label htmlFor="formaPagamento">Forma de Pagamento</Label>
+                <Select value={formaPagamento} onValueChange={setFormaPagamento}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="credito">Crédito</SelectItem>
+                    <SelectItem value="debito">Débito</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>Criar Venda</>
-              )}
-            </Button>
-          </div>
-        </form>
-      </Form>
+            <div>
+              <Label htmlFor="observacao">Observação</Label>
+              <Textarea id="observacao" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
+            </div>
+
+            <div className="flex justify-between">
+              <div>
+                Total: R$ {calcularTotal().toFixed(2)}
+                {desconto > 0 && (
+                  <>
+                    <br />
+                    Desconto: R$ {desconto.toFixed(2)}
+                    <br />
+                    Total com Desconto: R$ {(calcularTotal() - desconto).toFixed(2)}
+                  </>
+                )}
+              </div>
+              <Button type="submit" disabled={isLoading.submit}>
+                {isLoading.submit ? "Criando..." : "Criar Venda"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }
-

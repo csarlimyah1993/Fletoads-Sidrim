@@ -3,33 +3,49 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import type { Loja, Usuario } from "@/types/entities"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const searchParams = request.nextUrl.searchParams
+    const fallbackMode = searchParams.get("fallback") === "true"
 
     // Verificar autenticação
     if (!session) {
+      console.log("API /api/dashboard/loja - Não autorizado, sem sessão")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const userId = session.user.id
-
-    console.log(`API /api/dashboard/loja - Buscando loja para o usuário: ${userId}`)
+    console.log(`API /api/dashboard/loja - Buscando loja para o usuário: ${userId || "ID não disponível"}`)
+    console.log(`API /api/dashboard/loja - Dados da sessão:`, JSON.stringify(session.user))
 
     const { db } = await connectToDatabase()
 
     // Buscar o usuário para verificar o lojaId
-    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
-    console.log("API /api/dashboard/loja - Usuário encontrado:", usuario ? "Sim" : "Não")
-    console.log("API /api/dashboard/loja - LojaId do usuário:", usuario?.lojaId)
+    let usuario: Usuario | null = null
 
-    let loja = null
+    if (userId) {
+      try {
+        usuario = await db.collection<Usuario>("usuarios").findOne({
+          $or: [{ _id: new ObjectId(userId) }, { _id: userId }],
+        })
+        console.log("API /api/dashboard/loja - Usuário encontrado:", usuario ? "Sim" : "Não")
+        console.log("API /api/dashboard/loja - LojaId do usuário:", usuario?.lojaId)
+      } catch (error) {
+        console.error("API /api/dashboard/loja - Erro ao buscar usuário:", error)
+      }
+    } else {
+      console.log("API /api/dashboard/loja - ID do usuário não disponível na sessão")
+    }
+
+    let loja: Loja | null = null
 
     // Se o usuário tiver lojaId, buscar a loja diretamente
     if (usuario && usuario.lojaId) {
       try {
-        loja = await db.collection("lojas").findOne({
+        loja = await db.collection<Loja>("lojas").findOne({
           _id: typeof usuario.lojaId === "string" ? new ObjectId(usuario.lojaId) : usuario.lojaId,
         })
         console.log("API /api/dashboard/loja - Loja encontrada pelo lojaId:", loja ? "Sim" : "Não")
@@ -39,23 +55,40 @@ export async function GET(request: NextRequest) {
     }
 
     // Se não encontrou a loja pelo lojaId, buscar pela proprietarioId ou usuarioId
-    if (!loja) {
-      loja = await db.collection("lojas").findOne({
-        $or: [
-          { proprietarioId: userId },
-          { proprietarioId: new ObjectId(userId) },
-          { usuarioId: userId },
-          { usuarioId: new ObjectId(userId) },
-        ],
-      })
-      console.log("API /api/dashboard/loja - Loja encontrada por proprietarioId/usuarioId:", loja ? "Sim" : "Não")
+    if (!loja && userId) {
+      try {
+        loja = await db.collection<Loja>("lojas").findOne({
+          $or: [
+            { proprietarioId: userId },
+            { proprietarioId: new ObjectId(userId) },
+            { usuarioId: userId },
+            { usuarioId: new ObjectId(userId) },
+          ],
+        })
+        console.log("API /api/dashboard/loja - Loja encontrada por proprietarioId/usuarioId:", loja ? "Sim" : "Não")
+      } catch (error) {
+        console.error("API /api/dashboard/loja - Erro ao buscar loja por proprietarioId/usuarioId:", error)
+      }
+    }
+
+    // Se ainda não encontrou a loja e estamos em modo fallback, buscar a primeira loja disponível
+    if (!loja && fallbackMode) {
+      try {
+      //  console.log("API /api/dashboard/loja - Tentando buscar qualquer loja (modo fallback)")
+        loja = await db.collection<Loja>("lojas").findOne({})
+      //  console.log("API /api/dashboard/loja - Loja encontrada em modo fallback:", loja ? "Sim" : "Não")
+      } catch (error) {
+      //  console.error("API /api/dashboard/loja - Erro ao buscar loja em modo fallback:", error)
+      }
     }
 
     if (!loja) {
+      console.log("API /api/dashboard/loja - Nenhuma loja encontrada")
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    console.log("API /api/dashboard/loja - Loja encontrada:", loja._id.toString(), loja.nome)
+   // console.log("API /api/dashboard/loja - Loja encontrada:", loja._id.toString(), loja.nome)
+   // console.log("API /api/dashboard/loja - Status da loja:", loja.status, loja.ativo)
 
     // Formatar endereço se for um objeto
     if (loja.endereco && typeof loja.endereco === "object") {
@@ -75,10 +108,10 @@ export async function GET(request: NextRequest) {
     // Formatar horário de funcionamento para strings
     if (loja.horarioFuncionamento) {
       const diasSemana = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"]
-      const horarioFormatado = {}
+      const horarioFormatado: Record<string, string> = {}
 
       diasSemana.forEach((dia) => {
-        if (loja.horarioFuncionamento[dia]) {
+        if (loja.horarioFuncionamento && loja.horarioFuncionamento[dia]) {
           const horario = loja.horarioFuncionamento[dia]
           if (typeof horario === "object" && horario.open) {
             horarioFormatado[dia] = `${horario.abertura} - ${horario.fechamento}`
@@ -91,6 +124,13 @@ export async function GET(request: NextRequest) {
       })
 
       loja.horarioFormatado = horarioFormatado
+    }
+
+    // Corrigir o status da loja - verificar todos os campos possíveis
+    if (loja.ativo === true || loja.status === "ativo" || loja.status === "active") {
+      loja.status = "active"
+    } else {
+      loja.status = "inactive"
     }
 
     // Serializar os dados para evitar erros de serialização
