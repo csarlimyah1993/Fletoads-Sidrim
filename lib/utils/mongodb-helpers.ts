@@ -1,23 +1,16 @@
-import { ObjectId, type Filter, type Document } from "mongodb"
+import { ObjectId, type Filter } from "mongodb"
 
 /**
- * Cria um filtro seguro para buscar por ID no MongoDB
- * Resolve o problema de tipagem quando se usa string ou ObjectId
+ * Cria um filtro de ID para MongoDB que aceita tanto string quanto ObjectId
+ * @param id ID como string ou ObjectId
+ * @returns Filtro para usar em consultas MongoDB
  */
 export function createIdFilter(id: string | ObjectId): Filter<Document> {
-  // Se já for um ObjectId, usar diretamente
-  if (id instanceof ObjectId) {
+  if (typeof id === "string" && ObjectId.isValid(id)) {
+    return { _id: new ObjectId(id) }
+  } else if (id instanceof ObjectId) {
     return { _id: id }
   }
-
-  // Tentar converter para ObjectId
-  try {
-    return { _id: new ObjectId(id) }
-  } catch (error) {
-    // Se falhar, usar uma condição alternativa
-    return {
-      $or: [{ _id: id }, { slug: id }, { nomeNormalizado: id.toLowerCase().replace(/\s+/g, "-") }],
-    } as Filter<Document>
-  }
+  // Fallback para string, embora isso possa não funcionar com MongoDB
+  return { _id: id as any }
 }
-

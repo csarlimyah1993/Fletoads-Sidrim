@@ -1,4 +1,4 @@
-import { MongoClient, type Db } from "mongodb"
+import { MongoClient, type Db, ObjectId } from "mongodb"
 import mongoose from "mongoose"
 
 // Obter a URI e o nome do banco de dados das variáveis de ambiente
@@ -79,6 +79,13 @@ export async function connectToDatabase() {
       console.log("Coleção 'usuarios' criada com sucesso")
     }
 
+    // Verificar se a coleção "affiliates" existe, se não, criar
+    if (!collectionNames.some((c) => c === "affiliates")) {
+      console.log("Coleção 'affiliates' não encontrada. Criando...")
+      await db.createCollection("affiliates")
+      console.log("Coleção 'affiliates' criada com sucesso")
+    }
+
     // Conectar também o Mongoose se ainda não estiver conectado
     if (!mongooseConnected) {
       await connectMongoose()
@@ -152,6 +159,7 @@ export async function ensureCollectionsExist() {
       "clientes",
       "vendas",
       "notificacoes",
+      "affiliates", // Adicionando a coleção de afiliados
     ]
 
     // Obter lista de coleções existentes
@@ -214,3 +222,12 @@ export async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3):
 
   throw lastError
 }
+
+// Exportar o ObjectId para uso em outras partes da aplicação
+export { ObjectId }
+
+// Função auxiliar para criar um clientPromise compatível com as rotas de API
+export const clientPromise = (async () => {
+  const { client } = await connectToDatabase()
+  return client
+})()

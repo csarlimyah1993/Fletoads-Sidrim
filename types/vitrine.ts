@@ -1,3 +1,5 @@
+import type { Loja, Produto } from "./loja"
+
 export interface VitrineConfig {
   titulo?: string
   descricao?: string
@@ -110,14 +112,15 @@ export interface VitrineBannerProps {
 }
 
 export interface VitrineProdutosProps {
-  loja: any
+  loja: Loja
   config: VitrineConfig
-  produtos: any[]
+  produtos: Produto[]
   categorias: string[]
-  categoriaAtiva: string | null
-  setCategoriaAtiva: (categoria: string | null) => void
+  categoriaAtiva: string | null // Permitindo null aqui
+  setCategoriaAtiva: React.Dispatch<React.SetStateAction<string | null>>
   favoritos: string[]
-  toggleFavorito: (produto: any) => void
+  toggleFavorito: (produto: Produto) => void
+  setProdutoSelecionado?: (produto: Produto | null) => void
 }
 
 export interface VitrineSobreProps {

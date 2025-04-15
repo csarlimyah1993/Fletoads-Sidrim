@@ -1,83 +1,82 @@
-// Tipos relacionados à loja
-export interface CriarLojaFormProps {
-  userId: string
+import type { ObjectId } from "mongodb"
+
+export interface Endereco {
+  rua?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  cidade?: string
+  estado?: string
+  cep?: string
+  latitude?: number
+  longitude?: number
 }
 
-export interface Loja {
-  _id: string
-  nome: string
-  descricao?: string
-  logo?: string
-  banner?: string
-  capa?: string
-  endereco?: {
-    rua?: string
-    numero?: string
-    complemento?: string
-    bairro?: string
-    cidade?: string
-    estado?: string
-    cep?: string
-    latitude?: number
-    longitude?: number
-    logradouro?: string
-  }
-  contato?: {
-    telefone?: string
-    whatsapp?: string
-    email?: string
-    site?: string
-  }
-  horarioFuncionamento?: {
-    segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    quarta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    quinta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    sexta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    sabado?: string | { open?: boolean; abertura?: string; fechamento?: string }
-    domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  }
-  vitrineId?: string
-  proprietarioId?: string
-  categorias?: string[]
-  status?: string
-  ativo?: boolean
-  plano?: string
-  proprietarioPlano?: string
-  vitrine?: any
+export interface HorarioFuncionamento {
+  segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  quarta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  quinta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  sexta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  sabado?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
+}
+
+export interface Cores {
+  primaria?: string
+  secundaria?: string
+  texto?: string
+  fundo?: string
 }
 
 export interface Produto {
   _id: string
   nome: string
-  descricaoCurta?: string
-  descricao?: string // Adicionando a propriedade descricao
+  descricao?: string
+  descricaoCurta?: string // Adicionando a propriedade descricaoCurta
   preco: number
   precoPromocional?: number
   imagens?: string[]
-  destaque?: boolean
-  ativo?: boolean
   categorias?: string[]
   estoque?: number
-  dataCriacao?: string | Date
-  dataAtualizacao?: string | Date
-  lojaId?: string
+  lojaId: string
+  ativo?: boolean
+  destaque?: boolean
+  createdAt?: Date
+  updatedAt?: Date
 }
 
-export interface LojaPerfilContentProps {
-  loja: Loja
+export interface Loja {
+  _id: string
+  nome: string
+  slug?: string
+  nomeNormalizado?: string
+  descricao?: string
+  banner?: string
+  logo?: string
+  telefone?: string
+  whatsapp?: string
+  email?: string
+  site?: string
+  redesSociais?: {
+    facebook?: string
+    instagram?: string
+    twitter?: string
+    youtube?: string
+    linkedin?: string
+    tiktok?: string
+  }
+  endereco?: string | Endereco
+  horarioFuncionamento?: string | HorarioFuncionamento
+  plano: string
+  planoId: string
+  ativo: boolean
+  userId?: string | ObjectId
+  usuarioId?: string | ObjectId
   produtos?: Produto[]
-  isLoading?: boolean
-  planoInfo?: any
-  plano?: any
-  uso?: any
-  limites?: any
-  vitrine?: any
-}
-
-export interface PerfilDaLojaClientProps {
-  userId?: string
-  loja?: Loja | null
-  produtos?: Produto[]
-  planoInfo?: any
+  cores?: Cores
+  vitrine?: any // Configuração da vitrine
+  createdAt?: Date
+  updatedAt?: Date
 }

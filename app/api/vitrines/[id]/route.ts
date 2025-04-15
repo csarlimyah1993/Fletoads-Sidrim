@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb"
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Destructure id from params to avoid the Next.js warning
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })

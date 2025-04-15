@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth"
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })

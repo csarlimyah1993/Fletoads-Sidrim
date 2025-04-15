@@ -4,15 +4,15 @@ import { connectToDatabase } from "@/lib/mongodb"
 import VitrinePublica from "@/components/vitrine/vitrine-publica"
 import { ObjectId } from "mongodb"
 
+// Definição correta do tipo para Next.js 15
 interface VitrinePageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }> | { id: string }
 }
 
 export default async function VitrinePage(props: VitrinePageProps) {
-  // Properly await the params
-  const vitrineId = props.params.id
+  // Aguardar os parâmetros corretamente
+  const params = props.params instanceof Promise ? await props.params : props.params
+  const vitrineId = params.id
 
   if (!vitrineId) {
     notFound()
@@ -58,8 +58,9 @@ export default async function VitrinePage(props: VitrinePageProps) {
 
 // Gerar metadados dinâmicos para SEO
 export async function generateMetadata(props: VitrinePageProps) {
-  // Properly await the params
-  const vitrineId = props.params.id
+  // Aguardar os parâmetros corretamente
+  const params = props.params instanceof Promise ? await props.params : props.params
+  const vitrineId = params.id
 
   if (!vitrineId) {
     return {

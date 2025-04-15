@@ -225,7 +225,7 @@ export default function VitrinePublica({ id, slug, layout = "padrao" }: VitrineP
       filtered = filtered.filter(
         (produto) =>
           produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          produto.descricaoCurta?.toLowerCase().includes(searchTerm.toLowerCase()),
+          (produto.descricaoCurta?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false),
       )
     }
 
@@ -453,6 +453,7 @@ function ProdutoCard({
               src={produto.imagens[0] || "/placeholder.svg"}
               alt={produto.nome}
               fill
+              sizes="100vw"
               className={cn("object-cover transition-transform duration-500", isHovered ? "scale-110" : "scale-100")}
             />
           ) : (

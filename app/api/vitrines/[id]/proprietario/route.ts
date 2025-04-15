@@ -1,51 +1,66 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { NextResponse } from "next/server"
+import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
-    const id = await params.id
+    // Aguardar os parâmetros antes de usá-los
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
     }
 
-    // Se não houver sessão, o usuário não é o proprietário
-    if (!session) {
-      return NextResponse.json({ isProprietario: false })
-    }
-
     const { db } = await connectToDatabase()
 
-    // Construir a query corretamente para MongoDB
-    const query: any = { $or: [] }
+    // Buscar a vitrine pelo ID
+    const vitrine = await db.collection("lojas").findOne({
+      _id: new ObjectId(id),
+    })
 
-    // Adicionar condição para _id se for um ObjectId válido
-    if (ObjectId.isValid(id)) {
-      query.$or.push({ _id: new ObjectId(id) })
-    }
-
-    // Adicionar outras condições
-    query.$or.push({ "vitrine.slug": id })
-    query.$or.push({ vitrineId: id })
-
-    // Buscar a loja
-    const loja = await db.collection("lojas").findOne(query)
-
-    if (!loja) {
+    if (!vitrine) {
       return NextResponse.json({ error: "Vitrine não encontrada" }, { status: 404 })
     }
 
-    // Verificar se o usuário é o proprietário
-    const isProprietario =
-      loja.proprietarioId === session.user.id || loja.usuarioId === session.user.id || session.user.role === "admin"
+    // Verificar se o usuário atual é o proprietário
+    let isOwner = false
+    if (session?.user?.id) {
+      const userId = session.user.id
+      isOwner =
+        (vitrine.usuarioId && (vitrine.usuarioId.toString() === userId || vitrine.usuarioId === userId)) ||
+        (vitrine.userId && (vitrine.userId.toString() === userId || vitrine.userId === userId))
+    }
 
-    return NextResponse.json({ isProprietario })
+    // Buscar informações do proprietário
+    let proprietario = null
+    if (vitrine.usuarioId || vitrine.userId) {
+      const proprietarioId = vitrine.usuarioId || vitrine.userId
+      proprietario = await db.collection("usuarios").findOne({
+        _id: proprietarioId instanceof ObjectId ? proprietarioId : new ObjectId(proprietarioId),
+      })
+
+      if (proprietario) {
+        // Remover informações sensíveis
+        delete proprietario.password
+        delete proprietario.tokens
+        delete proprietario.email
+        delete proprietario.telefone
+      }
+    }
+
+    return NextResponse.json({
+      isOwner,
+      proprietario: proprietario
+        ? {
+            ...proprietario,
+            _id: proprietario._id.toString(),
+          }
+        : null,
+    })
   } catch (error) {
     console.error("Erro ao verificar proprietário:", error)
-    return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao verificar proprietário" }, { status: 500 })
   }
 }

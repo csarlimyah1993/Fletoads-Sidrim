@@ -1,191 +1,80 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef } from "react"
 
-interface GoogleMapProps {
-  latitude: number
-  longitude: number
-  zoom?: number
-  height?: string
-  width?: string
-  className?: string
+// Declaração global para o tipo do Google Maps
+declare global {
+  interface Window {
+    google: any
+    initGoogleMap?: () => void
+  }
 }
 
-// Verificar se a API do Google Maps já foi carregada
-let googleMapsLoaded = false
-let loadingPromise: Promise<void> | null = null
+export interface GoogleMapProps {
+  apiKey?: string
+  defaultCenter: { lat: number; lng: number }
+  defaultZoom: number
+  markers?: Array<{
+    position: { lat: number; lng: number }
+    title: string
+  }>
+}
 
-// Função para carregar o script do Google Maps
-function loadGoogleMapsScript(): Promise<void> {
-  if (googleMapsLoaded) {
-    return Promise.resolve()
-  }
+export function GoogleMap({ apiKey, defaultCenter, defaultZoom, markers = [] }: GoogleMapProps) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
 
-  if (loadingPromise) {
-    return loadingPromise
-  }
-
-  loadingPromise = new Promise((resolve, reject) => {
-    try {
-      // Verificar se já existe um script do Google Maps
-      if (document.querySelector('script[src*="maps.googleapis.com/maps/api"]')) {
-        console.log("Script do Google Maps já existe no documento")
-        googleMapsLoaded = true
-        resolve()
+  useEffect(() => {
+    // Função para carregar o script do Google Maps
+    const loadGoogleMapsScript = () => {
+      if (window.google?.maps) {
+        initMap()
         return
       }
 
-      console.log("Carregando script do Google Maps")
-
-      // Criar um ID único para a função de callback
-      const callbackName = `initGoogleMaps${Date.now()}`
-
-      // Adicionar a função de callback ao objeto window
-      ;(window as any)[callbackName] = () => {
-        console.log("Google Maps API carregada com sucesso")
-        googleMapsLoaded = true
-        delete (window as any)[callbackName]
-        resolve()
-      }
-
-      // Criar o script
       const script = document.createElement("script")
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=${callbackName}`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap`
       script.async = true
       script.defer = true
-      script.onerror = (error) => {
-        console.error("Erro ao carregar o script do Google Maps:", error)
-        reject(new Error("Falha ao carregar a API do Google Maps"))
-      }
-
-      // Adicionar o script ao documento
       document.head.appendChild(script)
-    } catch (error) {
-      console.error("Erro ao configurar o script do Google Maps:", error)
-      reject(error)
+
+      window.initGoogleMap = initMap
     }
-  })
 
-  return loadingPromise
-}
-
-export function GoogleMap({
-  latitude,
-  longitude,
-  zoom = 15,
-  height = "400px",
-  width = "100%",
-  className,
-}: GoogleMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markerRef = useRef<google.maps.Marker | null>(null)
-
-  // ID único para este mapa
-  const mapId = useRef(`map-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function initMap() {
+    // Função para inicializar o mapa
+    const initMap = () => {
       if (!mapRef.current) return
 
-      try {
-        setLoading(true)
+      const mapOptions = {
+        center: defaultCenter,
+        zoom: defaultZoom,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      }
 
-        // Carregar o script do Google Maps
-        await loadGoogleMapsScript()
+      const map = new window.google.maps.Map(mapRef.current, mapOptions)
+      mapInstanceRef.current = map
 
-        if (!isMounted) return
+      // Adicionar marcadores
+      markers.forEach((marker) => {
+        new window.google.maps.Marker({
+          position: marker.position,
+          map,
+          title: marker.title,
+        })
+      })
+    }
 
-        // Verificar se as coordenadas são válidas
-        if (isNaN(latitude) || isNaN(longitude)) {
-          throw new Error("Coordenadas inválidas")
-        }
+    loadGoogleMapsScript()
 
-        const position = { lat: latitude, lng: longitude }
-
-        // Criar o mapa se ainda não existir
-        if (!mapInstanceRef.current) {
-          console.log(`Inicializando mapa ${mapId.current} em`, position)
-
-          const map = new google.maps.Map(mapRef.current, {
-            center: position,
-            zoom,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-            zoomControl: true,
-            styles: [
-              {
-                featureType: "poi",
-                elementType: "labels",
-                stylers: [{ visibility: "off" }],
-              },
-            ],
-          })
-          mapInstanceRef.current = map
-        } else {
-          // Atualizar o centro do mapa existente
-          mapInstanceRef.current.setCenter(position)
-          mapInstanceRef.current.setZoom(zoom)
-        }
-
-        // Criar ou atualizar o marcador
-        if (!markerRef.current) {
-          markerRef.current = new google.maps.Marker({
-            position,
-            map: mapInstanceRef.current,
-            animation: google.maps.Animation.DROP,
-          })
-        } else {
-          markerRef.current.setPosition(position)
-        }
-
-        setError(null)
-      } catch (err) {
-        console.error("Erro ao inicializar o mapa:", err)
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : "Erro ao carregar o mapa")
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+    // Cleanup
+    return () => {
+      if (window.initGoogleMap) {
+        window.initGoogleMap = undefined
       }
     }
+  }, [apiKey, defaultCenter, defaultZoom, markers])
 
-    initMap()
-
-    return () => {
-      isMounted = false
-    }
-  }, [latitude, longitude, zoom])
-
-  return (
-    <div className={cn("relative overflow-hidden rounded-md", className)} style={{ height, width }}>
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/30 z-10">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      )}
-
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/30 z-10">
-          <p className="text-sm text-muted-foreground px-4 text-center">{error}</p>
-        </div>
-      )}
-
-      <div
-        id={mapId.current}
-        ref={mapRef}
-        className="h-full w-full"
-        aria-label={`Mapa mostrando localização em latitude ${latitude} e longitude ${longitude}`}
-      />
-    </div>
-  )
+  return <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
 }
