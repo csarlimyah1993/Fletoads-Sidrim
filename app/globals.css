@@ -66,12 +66,25 @@
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer components {
+  .prose {
+    @apply text-gray-700 dark:text-gray-300;
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .prose-sm {
+    @apply max-w-none;
+  }
+
+  .prose-lg {
+    @apply max-w-none;
+  }
+
+  .prose-xl {
+    @apply max-w-none;
+  }
+
+  .prose-2xl {
+    @apply max-w-none;
   }
 }
 

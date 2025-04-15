@@ -21,19 +21,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
-    // Buscar cliente
-    const cliente = await db.collection("clientes").findOne({
+    // Buscar cupom
+    const cupom = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
       lojaId: session.user.lojaId,
     })
 
-    if (!cliente) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+    if (!cupom) {
+      return NextResponse.json({ error: "Cupom não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json({ cliente })
+    return NextResponse.json({ cupom })
   } catch (error) {
-    console.error("Erro ao buscar cliente:", error)
+    console.error("Erro ao buscar cupom:", error)
     return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
   }
 }
@@ -56,47 +56,45 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
 
     // Validar campos obrigatórios
-    if (!body.nome) {
-      return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 })
+    if (!body.codigo || !body.tipo || (body.tipo !== "frete_gratis" && body.valor === undefined)) {
+      return NextResponse.json({ error: "Campos obrigatórios não preenchidos" }, { status: 400 })
     }
 
     const { db } = await connectToDatabase()
 
-    // Verificar se o cliente existe e pertence à loja do usuário
-    const clienteExistente = await db.collection("clientes").findOne({
+    // Verificar se o cupom existe e pertence à loja do usuário
+    const cupomExistente = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
       lojaId: session.user.lojaId,
     })
 
-    if (!clienteExistente) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+    if (!cupomExistente) {
+      return NextResponse.json({ error: "Cupom não encontrado" }, { status: 404 })
+    }
+
+    // Verificar se já existe outro cupom com o mesmo código
+    const outroCupomMesmoCodigo = await db.collection("cupons").findOne({
+      codigo: body.codigo,
+      lojaId: session.user.lojaId,
+      _id: { $ne: new ObjectId(id) },
+    })
+
+    if (outroCupomMesmoCodigo) {
+      return NextResponse.json({ error: "Já existe outro cupom com este código" }, { status: 400 })
     }
 
     // Preparar dados para atualizar
-    const clienteData = {
+    const cupomData = {
       ...body,
       dataAtualizacao: new Date(),
-
-      // Converter strings vazias para null
-      email: body.email || null,
-      telefone: body.telefone || null,
-      documento: body.documento || null,
-
-      // Converter categorias preferidas para array
-      categoriasPreferidasArray: body.categoriasPreferidasString
-        ? body.categoriasPreferidasString.split(",").map((item: string) => item.trim())
-        : [],
     }
 
-    // Remover campo temporário
-    delete clienteData.categoriasPreferidasString
-
     // Atualizar no banco de dados
-    await db.collection("clientes").updateOne({ _id: new ObjectId(id) }, { $set: clienteData })
+    await db.collection("cupons").updateOne({ _id: new ObjectId(id) }, { $set: cupomData })
 
-    return NextResponse.json({ message: "Cliente atualizado com sucesso" })
+    return NextResponse.json({ message: "Cupom atualizado com sucesso" })
   } catch (error) {
-    console.error("Erro ao atualizar cliente:", error)
+    console.error("Erro ao atualizar cupom:", error)
     return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
   }
 }
@@ -118,22 +116,22 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { db } = await connectToDatabase()
 
-    // Verificar se o cliente existe e pertence à loja do usuário
-    const clienteExistente = await db.collection("clientes").findOne({
+    // Verificar se o cupom existe e pertence à loja do usuário
+    const cupomExistente = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
       lojaId: session.user.lojaId,
     })
 
-    if (!clienteExistente) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+    if (!cupomExistente) {
+      return NextResponse.json({ error: "Cupom não encontrado" }, { status: 404 })
     }
 
-    // Excluir cliente
-    await db.collection("clientes").deleteOne({ _id: new ObjectId(id) })
+    // Excluir cupom
+    await db.collection("cupons").deleteOne({ _id: new ObjectId(id) })
 
-    return NextResponse.json({ message: "Cliente excluído com sucesso" })
+    return NextResponse.json({ message: "Cupom excluído com sucesso" })
   } catch (error) {
-    console.error("Erro ao excluir cliente:", error)
+    console.error("Erro ao excluir cupom:", error)
     return NextResponse.json({ error: "Erro ao processar a solicitação" }, { status: 500 })
   }
 }

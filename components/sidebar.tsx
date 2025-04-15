@@ -15,14 +15,26 @@ import {
   MessageSquare,
   Link2,
   Phone,
-  User,
   ChevronLeft,
   ChevronRight,
+  CupSodaIcon as CupomIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string
+}
+
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ForwardRefExoticComponent<
+    React.SVGProps<SVGSVGElement> & {
+      title?: string | undefined
+      titleId?: string | undefined
+    } & React.RefAttributes<SVGSVGElement>
+  >
+  exact?: boolean
 }
 
 export function Sidebar({ className }: SidebarProps) {
@@ -71,7 +83,7 @@ export function Sidebar({ className }: SidebarProps) {
     return null
   }
 
-  const menuItems = [
+  const menuItems: NavItem[] = [
     {
       name: "Dashboard",
       href: "/dashboard",
@@ -122,6 +134,11 @@ export function Sidebar({ className }: SidebarProps) {
       name: "WhatsApp",
       href: "/dashboard/integracoes/whatsapp",
       icon: Phone,
+    },
+    {
+      name: "Cupons",
+      href: "/dashboard/cupons",
+      icon: CupomIcon,
     },
   ]
 

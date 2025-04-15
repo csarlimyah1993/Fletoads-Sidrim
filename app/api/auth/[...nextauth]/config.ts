@@ -281,7 +281,7 @@ export const authOptions: NextAuthOptions = {
         session.user.plano = token.plano || "gratuito"
       }
 
-      console.log("Session callback - session data:", session)
+      // console.log("Session callback - session data:", session)
       return session
     },
   },
