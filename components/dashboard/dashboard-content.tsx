@@ -15,10 +15,53 @@ import { UserLocationCard } from "@/components/dashboard/user-location-card"
 import { useEstatisticas } from "@/hooks/use-estatisticas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BarChart3, ShoppingBag, Users, TrendingUp, Calendar, Lightbulb, Activity, Store } from "lucide-react"
-import { ClientesProximosCard } from "@/components/dashboard/clientes-proximos"
-import { ProdutosRecentes } from "@/components/dashboard/produtos-recentes"
 import { VendasRecentes } from "@/components/dashboard/vendas-recentes"
-import { LojaStatusCard } from "./loja-status-card"
+import { useRouter } from "next/navigation"
+
+interface Cliente {
+  _id: string
+  nome: string
+  email: string
+  status: string
+  cidade?: string
+  estado?: string
+}
+
+interface Produto {
+  _id: string
+  nome: string
+  preco: number
+  estoque: number
+  categoria?: string
+  destaque?: boolean
+}
+
+interface Loja {
+  _id: string
+  nome: string
+  endereco: any
+  enderecoFormatado?: string
+  telefone: string
+  status: string
+  horarioFuncionamento?: {
+    segunda?: { open: boolean; abertura: string; fechamento: string }
+    terca?: { open: boolean; abertura: string; fechamento: string }
+    quarta?: { open: boolean; abertura: string; fechamento: string }
+    quinta?: { open: boolean; abertura: string; fechamento: string }
+    sexta?: { open: boolean; abertura: string; fechamento: string }
+    sabado?: { open: boolean; abertura: string; fechamento: string }
+    domingo?: { open: boolean; abertura: string; fechamento: string }
+  }
+  horarioFormatado?: {
+    segunda?: string
+    terca?: string
+    quarta?: string
+    quinta?: string
+    sexta?: string
+    sabado?: string
+    domingo?: string
+  }
+}
 
 interface DashboardContentProps {
   userName?: string
@@ -26,10 +69,21 @@ interface DashboardContentProps {
   planExpiresAt?: string
 }
 
-export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }: DashboardContentProps) {
+export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }: DashboardContentProps) {
   const { estatisticas, isLoading } = useEstatisticas()
   const [greeting, setGreeting] = useState("Bom dia")
   const [activeTab, setActiveTab] = useState("overview")
+  const router = useRouter()
+
+  // Estados para armazenar dados reais
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [loja, setLoja] = useState<Loja | null>(null)
+  const [isLoadingData, setIsLoadingData] = useState({
+    clientes: true,
+    produtos: true,
+    loja: true,
+  })
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -40,6 +94,55 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
     } else {
       setGreeting("Boa noite")
     }
+  }, [])
+
+  // Buscar dados reais
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Buscar clientes
+        const clientesResponse = await fetch("/api/dashboard/clientes")
+        if (clientesResponse.ok) {
+          const data = await clientesResponse.json()
+          setClientes(data.clientes || [])
+          console.log("Clientes carregados:", data.clientes?.length || 0)
+        } else {
+          console.error("Erro ao buscar clientes:", clientesResponse.status)
+        }
+        setIsLoadingData((prev) => ({ ...prev, clientes: false }))
+
+        // Buscar produtos
+        const produtosResponse = await fetch("/api/dashboard/produtos")
+        if (produtosResponse.ok) {
+          const data = await produtosResponse.json()
+          setProdutos(data.produtos || [])
+          console.log("Produtos carregados:", data.produtos?.length || 0)
+        } else {
+          console.error("Erro ao buscar produtos:", produtosResponse.status)
+        }
+        setIsLoadingData((prev) => ({ ...prev, produtos: false }))
+
+        // Buscar loja
+        const lojaResponse = await fetch("/api/dashboard/loja")
+        if (lojaResponse.ok) {
+          const data = await lojaResponse.json()
+          setLoja(data.loja || null)
+          console.log("Loja carregada:", data.loja ? "Sim" : "Não", data.loja?._id || "")
+        } else {
+          console.error("Erro ao buscar loja:", lojaResponse.status)
+        }
+        setIsLoadingData((prev) => ({ ...prev, loja: false }))
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error)
+        setIsLoadingData({
+          clientes: false,
+          produtos: false,
+          loja: false,
+        })
+      }
+    }
+
+    fetchData()
   }, [])
 
   // Função para transformar os dados de campanhas para o formato esperado
@@ -61,6 +164,24 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
       quantidade: item.quantidade || 0,
     }))
   }
+
+  // Formatar valor em reais
+  const formatarValor = (valor: number) => {
+    return valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
+  }
+
+  // Agrupar produtos por categoria
+  const produtosPorCategoria = produtos.reduce((acc: Record<string, number>, produto) => {
+    const categoria = produto.categoria || "Sem categoria"
+    acc[categoria] = (acc[categoria] || 0) + 1
+    return acc
+  }, {})
+
+  // Contar produtos em destaque
+  const produtosDestaque = produtos.filter((p) => p.destaque).length
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -132,19 +253,19 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
                   />
                   <StatsCard
                     title="Clientes Ativos"
-                    value={estatisticas?.clientes?.ativos || 0}
-                    description="Clientes com campanhas ativas"
-                    trend={estatisticas?.clientes?.crescimento || 0}
+                    value={clientes.filter((c) => c.status === "ativo").length || 0}
+                    description="Clientes ativos cadastrados"
+                    trend={0}
                     trendLabel="em relação ao mês anterior"
                     icon={<Users className="h-5 w-5" />}
                   />
                   <StatsCard
-                    title="Campanhas Ativas"
-                    value={estatisticas?.campanhas?.ativas || 0}
-                    description="Campanhas em andamento"
-                    trend={estatisticas?.campanhas?.crescimento || 0}
+                    title="Total de Produtos"
+                    value={produtos.length || 0}
+                    description="Produtos cadastrados"
+                    trend={0}
                     trendLabel="em relação ao mês anterior"
-                    icon={<TrendingUp className="h-5 w-5" />}
+                    icon={<ShoppingBag className="h-5 w-5" />}
                   />
                   <StatsCard
                     title="Taxa de Conversão"
@@ -214,29 +335,83 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
               Status da Loja
             </h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <LojaStatusCard />
-              <UserLocationCard />
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Horário de Funcionamento</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Segunda-Sexta:</span>
-                      <span className="font-medium">09:00 - 18:00</span>
+              {isLoadingData.loja ? (
+                <>
+                  <Skeleton className="h-[200px] w-full" />
+                  <Skeleton className="h-[200px] w-full" />
+                  <Skeleton className="h-[200px] w-full" />
+                </>
+              ) : loja ? (
+                <>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Informações da Loja</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Nome</p>
+                          <p className="font-medium">{loja.nome}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Endereço</p>
+                          <p>{loja.enderecoFormatado || "Não informado"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Telefone</p>
+                          <p>{loja.telefone || "Não informado"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              loja.status === "active"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                            }`}
+                          >
+                            {loja.status === "active" ? "Ativa" : "Inativa"}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <UserLocationCard />
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Horário de Funcionamento</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Segunda-Sexta:</span>
+                          <span className="font-medium">{loja.horarioFormatado?.segunda || "09:00 - 18:00"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Sábado:</span>
+                          <span className="font-medium">{loja.horarioFormatado?.sabado || "10:00 - 15:00"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Domingo:</span>
+                          <span className="font-medium">{loja.horarioFormatado?.domingo || "Fechado"}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <Card className="col-span-3">
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8">
+                      <h3 className="text-lg font-medium mb-2">Nenhuma loja cadastrada</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Você ainda não possui uma loja cadastrada. Cadastre sua loja para começar a vender.
+                      </p>
+                      <button className="bg-primary text-white px-4 py-2 rounded-md">Cadastrar Loja</button>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Sábado:</span>
-                      <span className="font-medium">10:00 - 15:00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Domingo:</span>
-                      <span className="font-medium">Fechado</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </section>
 
@@ -275,7 +450,51 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
               <ShoppingBag className="h-5 w-5 text-primary" />
               Produtos Recentes
             </h3>
-            <ProdutosRecentes />
+            {isLoadingData.produtos ? (
+              <div className="space-y-4">
+                <Skeleton className="h-[200px] w-full" />
+              </div>
+            ) : produtos.length > 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {produtos.slice(0, 5).map((produto) => (
+                      <div key={produto._id} className="flex items-center justify-between border-b pb-2">
+                        <div>
+                          <p className="font-medium">{produto.nome}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatarValor(produto.preco)} • Estoque: {produto.estoque}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button className="text-sm text-blue-600 hover:underline">Editar</button>
+                          <button className="text-sm text-red-600 hover:underline">Excluir</button>
+                        </div>
+                      </div>
+                    ))}
+                    {produtos.length > 5 && (
+                      <div className="text-center pt-2">
+                        <button className="text-sm text-blue-600 hover:underline">
+                          Ver todos os {produtos.length} produtos
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <h3 className="text-lg font-medium mb-2">Nenhum produto cadastrado</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Você ainda não possui produtos cadastrados. Cadastre produtos para começar a vender.
+                    </p>
+                    <button className="bg-primary text-white px-4 py-2 rounded-md">Cadastrar Produto</button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </section>
 
           <section>
@@ -289,8 +508,10 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
                   <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">24</div>
-                  <p className="text-xs text-muted-foreground">+3 novos este mês</p>
+                  <div className="text-2xl font-bold">{produtos.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {produtos.filter((p) => p.estoque > 0).length} em estoque
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -298,7 +519,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
                   <CardTitle className="text-sm font-medium">Produtos em Destaque</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">5</div>
+                  <div className="text-2xl font-bold">{produtosDestaque}</div>
                   <p className="text-xs text-muted-foreground">Exibidos na vitrine</p>
                 </CardContent>
               </Card>
@@ -307,7 +528,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
                   <CardTitle className="text-sm font-medium">Categorias</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">8</div>
+                  <div className="text-2xl font-bold">{Object.keys(produtosPorCategoria).length}</div>
                   <p className="text-xs text-muted-foreground">Categorias ativas</p>
                 </CardContent>
               </Card>
@@ -334,11 +555,96 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt  }
               </Card>
               <Card className="md:col-span-1">
                 <CardHeader>
-                  <CardTitle>Clientes Próximos</CardTitle>
-                  <CardDescription>Clientes na sua região</CardDescription>
+                  <CardTitle>Clientes Recentes</CardTitle>
+                  <CardDescription>Últimos clientes cadastrados</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ClientesProximosCard />
+                  {isLoadingData.clientes ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : clientes.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p>Nenhum cliente cadastrado</p>
+                      <button
+                        className="text-sm text-blue-600 hover:underline mt-2"
+                        onClick={() => router.push("/dashboard/clientes")}
+                      >
+                        Cadastrar cliente
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {clientes.slice(0, 5).map((cliente) => (
+                        <div key={cliente._id} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{cliente.nome}</p>
+                            <p className="text-sm text-muted-foreground">{cliente.email}</p>
+                          </div>
+                          <button
+                            className="text-sm text-blue-600 hover:underline"
+                            onClick={() => router.push(`/dashboard/clientes/${cliente._id}`)}
+                          >
+                            Ver detalhes
+                          </button>
+                        </div>
+                      ))}
+                      {clientes.length > 5 && (
+                        <button
+                          className="text-sm text-blue-600 hover:underline w-full text-center"
+                          onClick={() => router.push("/dashboard/clientes")}
+                        >
+                          Ver todos os {clientes.length} clientes
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Estatísticas de Clientes
+            </h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{clientes.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {clientes.filter((c) => c.status === "ativo").length} ativos
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Prospectos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{clientes.filter((c) => c.status === "prospecto").length}</div>
+                  <p className="text-xs text-muted-foreground">Potenciais clientes</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Regiões</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {
+                      new Set(
+                        clientes.map((c) => (c.cidade && c.estado ? `${c.cidade}-${c.estado}` : null)).filter(Boolean),
+                      ).size
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground">Cidades diferentes</p>
                 </CardContent>
               </Card>
             </div>

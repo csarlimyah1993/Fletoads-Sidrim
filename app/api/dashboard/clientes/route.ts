@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { MongoClient } from "mongodb"
-
 import { authOptions } from "@/lib/auth"
 
 const MONGODB_URI = process.env.MONGODB_URI || ""
@@ -19,28 +18,32 @@ async function connectToDatabase() {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Verificar autenticação e autorização
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
+
+    const userId = session.user.id
 
     // Conectar ao banco de dados
     const { client, db } = await connectToDatabase()
 
     try {
-      // Buscar planos
-      const planos = await db.collection("planos").find({}).sort({ ordem: 1 }).toArray()
+      // Buscar clientes do usuário logado
+      const clientes = await db.collection("clientes").find({ usuarioId: userId }).sort({ dataCriacao: -1 }).toArray()
 
-      return NextResponse.json({ planos })
+      console.log(`Encontrados ${clientes.length} clientes para o usuário ${userId}`)
+
+      return NextResponse.json({ clientes })
     } finally {
       await client.close()
     }
   } catch (error) {
-    console.error("Erro ao buscar planos:", error)
-    return NextResponse.json({ error: "Erro ao buscar planos" }, { status: 500 })
+    console.error("Erro ao buscar clientes:", error)
+    return NextResponse.json({ error: "Erro ao buscar clientes" }, { status: 500 })
   }
 }

@@ -96,6 +96,11 @@ export function Sidebar({ className }: SidebarProps) {
       icon: Users,
     },
     {
+      name: "Vendas",
+      href: "/dashboard/vendas",
+      icon: Users,
+    },
+    {
       name: "Campanhas",
       href: "/dashboard/campanhas",
       icon: FileText,

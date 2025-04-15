@@ -1,286 +1,322 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Shield, AlertTriangle, Lock, Eye } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
+import { Search, Save, Shield, Key, Lock, UserX } from "lucide-react"
 
-interface LoginAttempt {
-  id: string
-  email: string
-  success: boolean
-  ip: string
-  userAgent: string
-  timestamp: string
-  reason?: string
+interface SecurityConfig {
+  senhaMinLength: number
+  requireUppercase: boolean
+  requireLowercase: boolean
+  requireNumbers: boolean
+  requireSpecialChars: boolean
+  sessionTimeout: number
+  maxLoginAttempts: number
+  lockoutDuration: number
 }
 
 interface SecurityLog {
-  id: string
-  type: string
-  severity: string
-  message: string
-  details: string
+  _id: string
+  tipo: string
+  usuario: string
+  ip: string
+  detalhes: string
   timestamp: string
 }
 
-interface SecurityStats {
-  totalUsers: number
-  activeUsers: number
-  failedLogins: number
-  successfulLogins: number
-  suspiciousActivities: number
-  securityLogs: number
-  recentLoginAttempts: LoginAttempt[]
-  recentSecurityLogs: SecurityLog[]
-}
-
-export default function SecurityPage() {
+export default function SegurancaPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [config, setConfig] = useState<SecurityConfig>({
+    senhaMinLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+    sessionTimeout: 30,
+    maxLoginAttempts: 5,
+    lockoutDuration: 15,
+  })
+  const [logs, setLogs] = useState<SecurityLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [securityStats, setSecurityStats] = useState<SecurityStats | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    const fetchSecurityStats = async () => {
+    async function fetchSecurityData() {
       try {
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch("/api/admin/seguranca/stats")
+        const response = await fetch("/api/admin/seguranca")
 
         if (!response.ok) {
-          throw new Error(`Erro ao buscar estatísticas de segurança: ${response.status}`)
+          throw new Error(`Erro ao buscar dados de segurança: ${response.status}`)
         }
 
         const data = await response.json()
-        setSecurityStats(data)
-      } catch (error) {
-        console.error("Erro ao buscar estatísticas de segurança:", error)
-        setError((error as Error).message || "Não foi possível carregar as estatísticas de segurança")
+        setConfig(data.config || config)
+        setLogs(data.logs || [])
+      } catch (err) {
+        console.error("Erro ao buscar dados de segurança:", err)
+        setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar dados de segurança")
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchSecurityStats()
-  }, [refreshKey])
+    fetchSecurityData()
+  }, [])
 
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1)
+  const filteredLogs = logs.filter(
+    (log) =>
+      log.tipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.detalhes.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  // Formatar data e hora
+  const formatarDataHora = (dataString: string) => {
+    const data = new Date(dataString)
+    return data.toLocaleString("pt-BR")
   }
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(date)
-    } catch (error) {
-      return "Data inválida"
-    }
-  }
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity.toLowerCase()) {
-      case "critical":
-        return "text-red-500 bg-red-100"
-      case "high":
-        return "text-orange-500 bg-orange-100"
-      case "medium":
-        return "text-amber-500 bg-amber-100"
-      case "low":
-        return "text-blue-500 bg-blue-100"
-      case "info":
-        return "text-green-500 bg-green-100"
+  // Ícone para o tipo de log
+  const getLogIcon = (tipo: string) => {
+    switch (tipo) {
+      case "login":
+        return <Shield className="h-5 w-5 text-green-600" />
+      case "login_failed":
+        return <UserX className="h-5 w-5 text-red-600" />
+      case "password_reset":
+        return <Key className="h-5 w-5 text-blue-600" />
+      case "account_locked":
+        return <Lock className="h-5 w-5 text-orange-600" />
       default:
-        return "text-gray-500 bg-gray-100"
+        return <Shield className="h-5 w-5 text-muted-foreground" />
     }
   }
 
-  if (isLoading && !securityStats) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center h-64 gap-4">
-        <AlertTriangle className="h-12 w-12 text-red-500" />
-        <p className="text-red-500 text-lg font-medium">{error}</p>
-        <Button onClick={handleRefresh}>Tentar Novamente</Button>
-      </div>
-    )
+  // Salvar configurações
+  const handleSaveConfig = async () => {
+    setIsSaving(true)
+    try {
+      // Aqui você implementaria a chamada de API para salvar as configurações
+      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulação de chamada de API
+      // Exibir mensagem de sucesso
+      alert("Configurações salvas com sucesso!")
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err)
+      alert("Erro ao salvar configurações")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Segurança</h2>
-        <Button onClick={handleRefresh}>Atualizar</Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Segurança</h1>
       </div>
 
-      {isLoading && (
-        <div className="flex justify-center items-center h-12 mb-4">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tentativas de Login</CardTitle>
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(securityStats?.successfulLogins || 0) + (securityStats?.failedLogins || 0)}
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-green-500">{securityStats?.successfulLogins || 0} com sucesso</p>
-              <p className="text-xs text-red-500">{securityStats?.failedLogins || 0} falhas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Atividades Suspeitas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{securityStats?.suspiciousActivities || 0}</div>
-            <p className="text-xs text-muted-foreground mt-2">Nas últimas 24 horas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{securityStats?.activeUsers || 0}</div>
-            <p className="text-xs text-muted-foreground mt-2">De {securityStats?.totalUsers || 0} usuários totais</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Logs de Segurança</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{securityStats?.securityLogs || 0}</div>
-            <p className="text-xs text-muted-foreground mt-2">Eventos registrados no sistema</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="login-attempts" className="space-y-4">
+      <Tabs defaultValue="configuracoes">
         <TabsList>
-          <TabsTrigger value="login-attempts">Tentativas de Login</TabsTrigger>
-          <TabsTrigger value="security-logs">Logs de Segurança</TabsTrigger>
+          <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
+          <TabsTrigger value="logs">Logs de Segurança</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="login-attempts" className="space-y-4">
+        <TabsContent value="configuracoes" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tentativas de Login Recentes</CardTitle>
-              <CardDescription>Histórico das últimas tentativas de login no sistema</CardDescription>
+              <CardTitle>Política de Senhas</CardTitle>
+              <CardDescription>Configure os requisitos para senhas de usuários</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead>Navegador</TableHead>
-                    <TableHead>Data/Hora</TableHead>
-                    <TableHead>Motivo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {securityStats?.recentLoginAttempts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        Nenhuma tentativa de login registrada
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    securityStats?.recentLoginAttempts.map((attempt) => (
-                      <TableRow key={attempt.id}>
-                        <TableCell className="font-medium">{attempt.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={attempt.success ? "success" : "destructive"}>
-                            {attempt.success ? "Sucesso" : "Falha"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{attempt.ip}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={attempt.userAgent}>
-                          {attempt.userAgent}
-                        </TableCell>
-                        <TableCell>{formatDate(attempt.timestamp)}</TableCell>
-                        <TableCell>{attempt.reason || "-"}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="senhaMinLength">Comprimento mínimo da senha: {config.senhaMinLength} caracteres</Label>
+                <Slider
+                  id="senhaMinLength"
+                  min={6}
+                  max={16}
+                  step={1}
+                  value={[config.senhaMinLength]}
+                  onValueChange={(value) => setConfig({ ...config, senhaMinLength: value[0] })}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireUppercase">Exigir letras maiúsculas</Label>
+                  <Switch
+                    id="requireUppercase"
+                    checked={config.requireUppercase}
+                    onCheckedChange={(checked) => setConfig({ ...config, requireUppercase: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireLowercase">Exigir letras minúsculas</Label>
+                  <Switch
+                    id="requireLowercase"
+                    checked={config.requireLowercase}
+                    onCheckedChange={(checked) => setConfig({ ...config, requireLowercase: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireNumbers">Exigir números</Label>
+                  <Switch
+                    id="requireNumbers"
+                    checked={config.requireNumbers}
+                    onCheckedChange={(checked) => setConfig({ ...config, requireNumbers: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireSpecialChars">Exigir caracteres especiais</Label>
+                  <Switch
+                    id="requireSpecialChars"
+                    checked={config.requireSpecialChars}
+                    onCheckedChange={(checked) => setConfig({ ...config, requireSpecialChars: checked })}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="security-logs" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Logs de Segurança Recentes</CardTitle>
-              <CardDescription>Eventos de segurança registrados no sistema</CardDescription>
+              <CardTitle>Configurações de Sessão</CardTitle>
+              <CardDescription>Configure as políticas de sessão e bloqueio de conta</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sessionTimeout">Tempo limite de sessão: {config.sessionTimeout} minutos</Label>
+                <Slider
+                  id="sessionTimeout"
+                  min={5}
+                  max={120}
+                  step={5}
+                  value={[config.sessionTimeout]}
+                  onValueChange={(value) => setConfig({ ...config, sessionTimeout: value[0] })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxLoginAttempts">Máximo de tentativas de login: {config.maxLoginAttempts}</Label>
+                <Slider
+                  id="maxLoginAttempts"
+                  min={3}
+                  max={10}
+                  step={1}
+                  value={[config.maxLoginAttempts]}
+                  onValueChange={(value) => setConfig({ ...config, maxLoginAttempts: value[0] })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lockoutDuration">
+                  Duração do bloqueio após tentativas falhas: {config.lockoutDuration} minutos
+                </Label>
+                <Slider
+                  id="lockoutDuration"
+                  min={5}
+                  max={60}
+                  step={5}
+                  value={[config.lockoutDuration]}
+                  onValueChange={(value) => setConfig({ ...config, lockoutDuration: value[0] })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveConfig} disabled={isSaving} className="flex items-center gap-2">
+              <Save className="h-4 w-4" />
+              {isSaving ? "Salvando..." : "Salvar configurações"}
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Logs de Segurança</CardTitle>
+              <CardDescription>Visualize os eventos de segurança do sistema</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Severidade</TableHead>
-                    <TableHead>Mensagem</TableHead>
-                    <TableHead>Data/Hora</TableHead>
-                    <TableHead>Detalhes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {securityStats?.recentSecurityLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        Nenhum log de segurança registrado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    securityStats?.recentSecurityLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-medium">{log.type}</TableCell>
-                        <TableCell>
-                          <Badge className={getSeverityColor(log.severity)}>{log.severity}</Badge>
-                        </TableCell>
-                        <TableCell>{log.message}</TableCell>
-                        <TableCell>{formatDate(log.timestamp)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={log.details}>
-                          {log.details}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar logs..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 font-medium">Tipo</th>
+                        <th className="text-left py-3 px-4 font-medium">Usuário</th>
+                        <th className="text-left py-3 px-4 font-medium">IP</th>
+                        <th className="text-left py-3 px-4 font-medium">Detalhes</th>
+                        <th className="text-left py-3 px-4 font-medium">Data/Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                            Nenhum log encontrado
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLogs.map((log) => (
+                          <tr key={log._id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                {getLogIcon(log.tipo)}
+                                <span
+                                  className={`capitalize ${
+                                    log.tipo === "login"
+                                      ? "text-green-600"
+                                      : log.tipo === "login_failed" || log.tipo === "account_locked"
+                                        ? "text-red-600"
+                                        : "text-blue-600"
+                                  }`}
+                                >
+                                  {log.tipo.replace("_", " ")}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">{log.usuario}</td>
+                            <td className="py-3 px-4">{log.ip}</td>
+                            <td className="py-3 px-4">{log.detalhes}</td>
+                            <td className="py-3 px-4">{formatarDataHora(log.timestamp)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -288,4 +324,3 @@ export default function SecurityPage() {
     </div>
   )
 }
-

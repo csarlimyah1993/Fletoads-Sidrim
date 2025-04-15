@@ -32,15 +32,15 @@ export async function GET() {
     const { client, db } = await connectToDatabase()
 
     try {
-      // Buscar planos
-      const planos = await db.collection("planos").find({}).sort({ ordem: 1 }).toArray()
+      // Buscar panfletos
+      const panfletos = await db.collection("panfletos").find({}).sort({ createdAt: -1 }).limit(100).toArray()
 
-      return NextResponse.json({ planos })
+      return NextResponse.json({ panfletos })
     } finally {
       await client.close()
     }
   } catch (error) {
-    console.error("Erro ao buscar planos:", error)
-    return NextResponse.json({ error: "Erro ao buscar planos" }, { status: 500 })
+    console.error("Erro ao buscar panfletos:", error)
+    return NextResponse.json({ error: "Erro ao buscar panfletos" }, { status: 500 })
   }
 }

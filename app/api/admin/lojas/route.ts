@@ -1,50 +1,68 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
+import { MongoClient } from "mongodb"
+
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+
+const MONGODB_URI = process.env.MONGODB_URI || ""
+
+// Connect to MongoDB
+async function connectToDatabase() {
+  try {
+    const client = await MongoClient.connect(MONGODB_URI)
+    const dbName = MONGODB_URI.split("/").pop()?.split("?")[0] || "prod-db"
+    const db = client.db(dbName)
+    return { client, db }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error)
+    throw error
+  }
+}
 
 export async function GET() {
   try {
+    // Verificar autenticação e autorização
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
-    await connectToDatabase()
+    // Conectar ao banco de dados
+    const { client, db } = await connectToDatabase()
 
-    // Buscar todas as lojas
-    const Loja = mongoose.models.Loja || mongoose.model("Loja", new mongoose.Schema({}, { strict: false }))
-    const Usuario = mongoose.models.Usuario || mongoose.model("Usuario", new mongoose.Schema({}, { strict: false }))
-    const Produto = mongoose.models.Produto || mongoose.model("Produto", new mongoose.Schema({}, { strict: false }))
+    try {
+      // Buscar lojas
+      const lojas = await db.collection("lojas").find({}).sort({ createdAt: -1 }).limit(100).toArray()
 
-    const lojas = await Loja.find({}).lean()
+      // Log para depuração
+      console.log("Dados de lojas recuperados:", JSON.stringify(lojas.slice(0, 2)))
 
-    // Para cada loja, buscar o proprietário e contar produtos
-    const lojasComInfo = await Promise.all(
-      lojas.map(async (loja: any) => {
-        // Buscar proprietário
-        const proprietario = loja.usuarioId ? await Usuario.findById(loja.usuarioId).select("nome email").lean() : null
+      // Transformar os dados se necessário para garantir compatibilidade
+      const lojasFormatadas = lojas.map((loja) => {
+        // Garantir que o endereço seja uma string se for um objeto
+        if (loja.endereco && typeof loja.endereco === "object") {
+          const { rua, numero, complemento, bairro, cidade, estado } = loja.endereco
+          let enderecoFormatado = ""
 
-        // Contar produtos
-        const produtosCount = await Produto.countDocuments({ lojaId: loja._id.toString() })
+          if (rua) enderecoFormatado += rua
+          if (numero) enderecoFormatado += `, ${numero}`
+          if (complemento) enderecoFormatado += ` - ${complemento}`
+          if (bairro) enderecoFormatado += `, ${bairro}`
 
-        return {
-          ...loja,
-          _id: loja._id.toString(),
-          proprietario,
-          produtosCount,
-          createdAt: loja.createdAt ? loja.createdAt.toISOString() : null,
-          updatedAt: loja.updatedAt ? loja.updatedAt.toISOString() : null,
+          // Manter o objeto original, mas adicionar uma versão formatada
+          loja.enderecoFormatado = enderecoFormatado || "—"
         }
-      }),
-    )
 
-    return NextResponse.json({ lojas: lojasComInfo })
+        return loja
+      })
+
+      return NextResponse.json({ lojas: lojasFormatadas })
+    } finally {
+      await client.close()
+    }
   } catch (error) {
     console.error("Erro ao buscar lojas:", error)
     return NextResponse.json({ error: "Erro ao buscar lojas" }, { status: 500 })
   }
 }
-
