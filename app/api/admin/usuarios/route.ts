@@ -1,40 +1,54 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
+import { MongoClient } from "mongodb"
+
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+
+const MONGODB_URI = process.env.MONGODB_URI || ""
+
+// Connect to MongoDB
+async function connectToDatabase() {
+  try {
+    const client = await MongoClient.connect(MONGODB_URI)
+    const dbName = MONGODB_URI.split("/").pop()?.split("?")[0] || "prod-db"
+    const db = client.db(dbName)
+    return { client, db }
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error)
+    throw error
+  }
+}
 
 export async function GET() {
   try {
-    // Verificar autenticação
+    // Verificar autenticação e autorização
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
     // Conectar ao banco de dados
-    await connectToDatabase()
+    const { client, db } = await connectToDatabase()
 
-    // Buscar todos os usuários
-    const Usuario = mongoose.models.Usuario || mongoose.model("Usuario", new mongoose.Schema({}, { strict: false }))
-    const usuarios = await Usuario.find({}).lean()
+    try {
+      // Buscar usuários
+      const usuarios = await db
+        .collection("usuarios")
+        .find({})
+        .project({
+          senha: 0, // Não retornar senhas
+        })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .toArray()
 
-    // Formatar dados para retorno
-    const usuariosFormatados = usuarios.map((usuario: any) => ({
-      _id: usuario._id.toString(),
-      nome: usuario.name || usuario.nome || "Sem nome",
-      email: usuario.email,
-      role: usuario.role || "user",
-      ativo: usuario.ativo !== false, // Se não for explicitamente false, considera como true
-      createdAt: usuario.createdAt || new Date(),
-      ultimoAcesso: usuario.lastLogin || usuario.ultimoAcesso || null,
-    }))
-
-    return NextResponse.json({ usuarios: usuariosFormatados })
+      return NextResponse.json({ usuarios })
+    } finally {
+      await client.close()
+    }
   } catch (error) {
     console.error("Erro ao buscar usuários:", error)
     return NextResponse.json({ error: "Erro ao buscar usuários" }, { status: 500 })
   }
 }
-
