@@ -1,53 +1,77 @@
-import { type NextRequest, NextResponse } from "next/server"
-import Usuario from "@/lib/models/usuario"
-import Notificacao from "@/lib/models/notificacao"
+import { NextResponse } from "next/server"
+import { hash } from "bcryptjs"
 import { connectToDatabase } from "@/lib/mongodb"
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
+    const body = await request.json()
+    const { nome, email, password, telefone, tipoUsuario } = body
 
-    const { nome, email, senha, cargo = "editor" } = await req.json()
-
-    // Verificar se o email já está em uso
-    const usuarioExistente = await Usuario.findOne({ email }).maxTimeMS(20000)
-
-    if (usuarioExistente) {
-      return NextResponse.json({ error: "Email já está em uso" }, { status: 400 })
+    // Validações básicas
+    if (!nome || !email || !password) {
+      return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 })
     }
 
-    // Criar novo usuário
-    const novoUsuario = new Usuario({
+    // Normalizar o email para minúsculas
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Verificar se o email já está em uso
+    const { db } = await connectToDatabase()
+
+    // Verificar na coleção usuarios
+    const usuarioExistente = await db.collection("usuarios").findOne({
+      email: normalizedEmail,
+    })
+
+    // Verificar também na coleção users (caso esteja usando ambas)
+    const userExistente = await db.collection("users").findOne({
+      email: normalizedEmail,
+    })
+
+    if (usuarioExistente || userExistente) {
+      console.log(`Tentativa de registro com email já existente: ${normalizedEmail}`)
+      return NextResponse.json({ error: "Este email já está em uso" }, { status: 409 })
+    }
+
+    // Hash da senha
+    const senhaHash = await hash(password, 12) // Usando fator 12 para maior segurança
+
+    // Criar o usuário
+    const novoUsuario = {
       nome,
-      email,
-      senha,
-      cargo,
-      permissoes: cargo === "admin" ? ["admin"] : ["editor"],
+      email: normalizedEmail, // Armazenar email em minúsculas para evitar duplicatas
+      senha: senhaHash,
+      telefone: telefone || "",
+      role: tipoUsuario === "admin" ? "ADMIN" : "USER", // Prevenção contra elevação de privilégios
+      tipoUsuario: tipoUsuario || "cliente",
+      ativo: true,
       dataCriacao: new Date(),
-    })
+      dataAtualizacao: new Date(),
+      ultimoLogin: null,
+      perfil: {
+        preferencias: {
+          notificacoes: true,
+          newsletter: true,
+          tema: "light",
+        },
+      },
+    }
 
-    await novoUsuario.save()
+    // Inserir diretamente na coleção para garantir que está indo para o lugar certo
+    const resultado = await db.collection("usuarios").insertOne(novoUsuario)
 
-    // Criar notificação de boas-vindas
-    const notificacaoBemVindo = new Notificacao({
-      usuario: novoUsuario._id,
-      titulo: "Bem-vindo ao FletoAds!",
-      mensagem: `Olá ${nome}, seja bem-vindo à plataforma FletoAds! Estamos felizes em tê-lo conosco. Explore todas as funcionalidades disponíveis e comece a gerenciar seus panfletos e campanhas.`,
-      tipo: "success",
-      link: "/dashboard",
-    })
+    console.log(`Usuário registrado com sucesso: ${normalizedEmail}, ID: ${resultado.insertedId}`)
 
-    await notificacaoBemVindo.save()
-
-    // Remover a senha da resposta
+    // Remover a senha do objeto de resposta
     const usuarioSemSenha = {
-      id: novoUsuario._id,
+      id: resultado.insertedId,
       nome: novoUsuario.nome,
       email: novoUsuario.email,
-      cargo: novoUsuario.cargo,
-      permissoes: novoUsuario.permissoes,
+      telefone: novoUsuario.telefone,
+      role: novoUsuario.role,
+      tipoUsuario: novoUsuario.tipoUsuario,
       dataCriacao: novoUsuario.dataCriacao,
+      dataAtualizacao: novoUsuario.dataAtualizacao,
     }
 
     return NextResponse.json(usuarioSemSenha, { status: 201 })
@@ -56,15 +80,9 @@ export async function POST(req: NextRequest) {
 
     // Fornecer mensagens de erro mais específicas
     if (error instanceof Error) {
-      if (error.name === "ValidationError") {
-        return NextResponse.json({ error: "Dados de usuário inválidos" }, { status: 400 })
-      }
+      return NextResponse.json({ error: `Erro ao registrar usuário: ${error.message}` }, { status: 400 })
     }
 
-    return NextResponse.json(
-      { error: "Erro ao registrar usuário. Por favor, tente novamente mais tarde." },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro ao registrar usuário" }, { status: 500 })
   }
 }
-

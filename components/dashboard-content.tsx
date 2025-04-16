@@ -10,6 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 
+interface SaleRowProps {
+  date: string
+  name: string
+  type: string
+  code: string
+  value: string
+}
+
 export function DashboardContent() {
   const [activeTab, setActiveTab] = useState("ano")
   const router = useRouter()
@@ -372,7 +380,7 @@ function BarChart() {
   )
 }
 
-function SaleRow({ date, name, type, code, value }) {
+function SaleRow({ date, name, type, code, value }: SaleRowProps) {
   return (
     <tr className="border-b hover:bg-gray-50">
       <td className="px-4 py-3 text-sm">{date}</td>

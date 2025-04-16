@@ -5,39 +5,49 @@ import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
+    console.log(`PATCH request received for loja ID: ${params.id}`)
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
+      console.log("Unauthorized: No session or user")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const { id } = params
     if (!id) {
+      console.log("Bad request: No ID provided")
       return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
     }
 
     const body = await request.json()
-    const { nome, cnpj, descricao, endereco, contato, categorias, horarioFuncionamento, redesSociais } = body
+    console.log(`Request body received for loja ${id}:`, JSON.stringify(body, null, 2))
+
+    const { nome, cnpj, descricao, endereco, contato, categorias, horarioFuncionamento, redesSociais, logo, banner } =
+      body
 
     const { db } = await connectToDatabase()
 
     // Verificar se a loja existe e pertence ao usuário
+    console.log(`Checking if loja ${id} belongs to user ${session.user.id}`)
     const loja = await db.collection("lojas").findOne({
       _id: new ObjectId(id),
       $or: [
+        { userId: session.user.id },
+        { userId: new ObjectId(session.user.id) },
         { usuarioId: session.user.id },
         { usuarioId: new ObjectId(session.user.id) },
-        { proprietarioId: session.user.id },
-        { proprietarioId: new ObjectId(session.user.id) },
       ],
     })
 
     if (!loja) {
+      console.log(`Loja ${id} not found or doesn't belong to user ${session.user.id}`)
       return NextResponse.json(
         { error: "Loja não encontrada ou você não tem permissão para editá-la" },
         { status: 404 },
       )
     }
+
+    console.log(`Loja ${id} found and belongs to user ${session.user.id}`)
 
     // Preparar dados para atualização
     const dadosAtualizados = {
@@ -49,6 +59,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       categorias,
       horarioFuncionamento,
       redesSociais,
+      logo,
+      banner,
       dataAtualizacao: new Date(),
     }
 
@@ -59,9 +71,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
     })
 
+    console.log(`Updating loja ${id} with data:`, JSON.stringify(dadosAtualizados, null, 2))
+
     // Atualizar a loja
     await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: dadosAtualizados })
 
+    console.log(`Loja ${id} updated successfully`)
     return NextResponse.json({
       success: true,
       message: "Loja atualizada com sucesso",
@@ -79,7 +94,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
+    const { id } = params
     if (!id) {
       return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
     }

@@ -13,10 +13,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { AlertCircle, Check, Crown, Info } from "lucide-react"
+import { AlertCircle, Check, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ColorPicker } from "@/components/ui/color-picker"
 import type { Loja } from "@/types/loja"
+import { PlanCardCompact } from "@/components/planos/plano-compact-card"
 
 // Componente principal
 export function VitrineForm({ loja }: { loja: Loja }) {
@@ -26,8 +27,7 @@ export function VitrineForm({ loja }: { loja: Loja }) {
   const [activeTab, setActiveTab] = useState("geral")
   const router = useRouter()
 
-  // Verificar se o usuário tem plano premium - CORRIGIDO: Agora verifica múltiplas propriedades
-  const isPremium = loja.plano === "premium" || loja.proprietarioPlano === "premium" || true // Temporariamente habilitado para todos os usuários
+  const isPremium = loja.plano === "premium" || (loja as any).proprietarioPlano === "premium"
 
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -320,21 +320,7 @@ export function VitrineForm({ loja }: { loja: Loja }) {
         </div>
       </div>
 
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-full">
-            <Crown className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h3 className="font-medium">Status do Plano: {isPremium ? "Premium" : "Básico"}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {isPremium
-                ? "Você tem acesso a todos os recursos premium da vitrine."
-                : "Faça upgrade para o plano Premium para desbloquear todos os recursos."}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PlanCardCompact className="mb-6" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6 flex flex-wrap">
@@ -569,6 +555,7 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                 <Select
                   value={formData.fontePersonalizada}
                   onValueChange={(value) => handleSelectChange("fontePersonalizada", value)}
+                  disabled={!isPremium}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma fonte" />
@@ -582,6 +569,11 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                     <SelectItem value="OpenSans">Open Sans</SelectItem>
                   </SelectContent>
                 </Select>
+                {!isPremium && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Personalização de fonte disponível apenas para planos Premium.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -636,9 +628,13 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   id="animacoes"
                   checked={formData.animacoes}
                   onCheckedChange={(checked) => handleSwitchChange("animacoes", checked)}
+                  disabled={!isPremium}
                 />
               </div>
-              {formData.animacoes && (
+              {!isPremium && (
+                <p className="text-xs text-amber-600">Animações disponíveis apenas para planos Premium.</p>
+              )}
+              {formData.animacoes && isPremium && (
                 <div>
                   <Label htmlFor="efeitos">Tipo de Efeito</Label>
                   <Select value={formData.efeitos} onValueChange={(value) => handleSelectChange("efeitos", value)}>
@@ -684,8 +680,14 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   value={formData.bannerSecundario}
                   onChange={handleChange}
                   placeholder="URL da imagem do banner secundário"
+                  disabled={!isPremium}
                 />
                 <p className="text-sm text-gray-500 mt-1">Recomendado: 1200x300 pixels</p>
+                {!isPremium && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Banner secundário disponível apenas para planos Premium.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="logoPersonalizado">Logo Personalizado</Label>
@@ -706,8 +708,14 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   value={formData.iconePersonalizado}
                   onChange={handleChange}
                   placeholder="URL da imagem do ícone personalizado"
+                  disabled={!isPremium}
                 />
                 <p className="text-sm text-gray-500 mt-1">Recomendado: 32x32 pixels</p>
+                {!isPremium && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Ícone personalizado disponível apenas para planos Premium.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -757,9 +765,13 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   id="widgetPromocao.ativo"
                   checked={formData.widgetPromocao.ativo}
                   onCheckedChange={(checked) => handleWidgetChange("widgetPromocao", "ativo", checked)}
+                  disabled={!isPremium}
                 />
               </div>
-              {formData.widgetPromocao.ativo && (
+              {!isPremium && (
+                <p className="text-xs text-amber-600">Widget de promoção disponível apenas para planos Premium.</p>
+              )}
+              {formData.widgetPromocao.ativo && isPremium && (
                 <>
                   <div>
                     <Label htmlFor="widgetPromocao.titulo">Título</Label>
@@ -810,9 +822,13 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   id="widgetContador.ativo"
                   checked={formData.widgetContador.ativo}
                   onCheckedChange={(checked) => handleWidgetChange("widgetContador", "ativo", checked)}
+                  disabled={!isPremium}
                 />
               </div>
-              {formData.widgetContador.ativo && (
+              {!isPremium && (
+                <p className="text-xs text-amber-600">Widget de contador disponível apenas para planos Premium.</p>
+              )}
+              {formData.widgetContador.ativo && isPremium && (
                 <>
                   <div>
                     <Label htmlFor="widgetContador.titulo">Título</Label>
@@ -863,9 +879,13 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   id="widgetNewsletter.ativo"
                   checked={formData.widgetNewsletter.ativo}
                   onCheckedChange={(checked) => handleWidgetChange("widgetNewsletter", "ativo", checked)}
+                  disabled={!isPremium}
                 />
               </div>
-              {formData.widgetNewsletter.ativo && (
+              {!isPremium && (
+                <p className="text-xs text-amber-600">Widget de newsletter disponível apenas para planos Premium.</p>
+              )}
+              {formData.widgetNewsletter.ativo && isPremium && (
                 <>
                   <div>
                     <Label htmlFor="widgetNewsletter.titulo">Título</Label>
@@ -919,9 +939,13 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   id="secaoValores.ativo"
                   checked={formData.secaoValores?.ativo || false}
                   onCheckedChange={(checked) => handleWidgetChange("secaoValores", "ativo", checked)}
+                  disabled={!isPremium}
                 />
               </div>
-              {formData.secaoValores?.ativo && (
+              {!isPremium && (
+                <p className="text-xs text-amber-600">Seção de valores disponível apenas para planos Premium.</p>
+              )}
+              {formData.secaoValores?.ativo && isPremium && (
                 <>
                   <div>
                     <Label htmlFor="secaoValores.titulo">Título da Seção</Label>
@@ -1003,17 +1027,25 @@ export function VitrineForm({ loja }: { loja: Loja }) {
                   value={formData.dominio}
                   onChange={handleChange}
                   placeholder="exemplo.com.br"
+                  disabled={!isPremium}
                 />
                 <p className="text-sm text-gray-500 mt-1">Insira apenas o domínio, sem http:// ou www.</p>
+                {!isPremium && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Domínio personalizado disponível apenas para planos Premium.
+                  </p>
+                )}
               </div>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>Configuração de DNS</AlertTitle>
-                <AlertDescription>
-                  Após salvar, você precisará configurar os registros DNS do seu domínio. Instruções serão enviadas por
-                  email.
-                </AlertDescription>
-              </Alert>
+              {isPremium && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Configuração de DNS</AlertTitle>
+                  <AlertDescription>
+                    Após salvar, você precisará configurar os registros DNS do seu domínio. Instruções serão enviadas
+                    por email.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

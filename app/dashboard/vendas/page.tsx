@@ -1,446 +1,402 @@
 "use client"
 
-import React from "react"
-
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Eye, FileText, Filter, Calendar, Download } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Badge } from "@/components/ui/badge"
+import { CalendarIcon, Download, Plus, Search } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface Venda {
   _id: string
-  clienteId: string
   cliente: {
-    _id: string
     nome: string
-    email: string
-    telefone: string
+    email?: string
+    telefone?: string
   }
-  itens: Array<{
-    produtoId: string
+  produtos: Array<{
+    nome: string
     quantidade: number
-    precoUnitario: number
-    subtotal: number
-    produto: {
-      _id: string
-      nome: string
-      preco: number
-      imagem?: string
-    }
+    preco: number
   }>
   total: number
-  desconto: number
-  formaPagamento: string
   status: string
-  observacao: string
   dataCriacao: string
-  dataAtualizacao: string
-}
-
-interface PaginationData {
-  total: number
-  page: number
-  limit: number
-  totalPages: number
+  formaPagamento: string
 }
 
 export default function VendasPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [vendas, setVendas] = useState<Venda[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [pagination, setPagination] = useState<PaginationData>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  })
-  const [statusFilter, setStatusFilter] = useState<string>("")
+  const { data: session } = useSession()
   const router = useRouter()
-
-  // Filtros de data
-  const [dataInicio, setDataInicio] = useState<string>("")
-  const [dataFim, setDataFim] = useState<string>("")
+  const [vendas, setVendas] = useState<Venda[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState("")
+  const [statusFiltro, setStatusFiltro] = useState<string>("todos")
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined)
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined)
+  const [totalVendas, setTotalVendas] = useState(0)
+  const [totalItens, setTotalItens] = useState(0)
+  const [ticketMedio, setTicketMedio] = useState(0)
 
   useEffect(() => {
-    fetchVendas()
-  }, [pagination.page, statusFilter, dataInicio, dataFim])
+    if (session?.user) {
+      fetchVendas()
+    }
+  }, [session, statusFiltro, dataInicio, dataFim])
 
   const fetchVendas = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      setIsLoading(true)
-      setError(null)
+      let url = "/api/vendas"
+      const params = new URLSearchParams()
 
-      // Construir URL com parâmetros de consulta
-      let url = `/api/dashboard/vendas?page=${pagination.page}&limit=${pagination.limit}`
-
-      if (statusFilter) {
-        url += `&status=${statusFilter}`
+      if (statusFiltro && statusFiltro !== "todos") {
+        params.append("status", statusFiltro)
       }
 
       if (dataInicio) {
-        url += `&dataInicio=${dataInicio}`
+        params.append("dataInicio", dataInicio.toISOString())
       }
 
       if (dataFim) {
-        url += `&dataFim=${dataFim}`
+        params.append("dataFim", dataFim.toISOString())
+      }
+
+      if (params.toString()) {
+        url += `?${params.toString()}`
       }
 
       const response = await fetch(url)
 
       if (!response.ok) {
+        if (response.status === 404) {
+          // Não há vendas registradas
+          setVendas([])
+          setTotalVendas(0)
+          setTotalItens(0)
+          setTicketMedio(0)
+          setLoading(false)
+          return
+        }
         throw new Error(`Erro ao buscar vendas: ${response.status}`)
       }
 
       const data = await response.json()
       setVendas(data.vendas || [])
-      setPagination(data.pagination)
+
+      // Calcular métricas
+      if (data.vendas && data.vendas.length > 0) {
+        const total = data.vendas.reduce((acc: number, venda: Venda) => acc + venda.total, 0)
+        const itens = data.vendas.reduce(
+          (acc: number, venda: Venda) =>
+            acc + venda.produtos.reduce((prodAcc: number, prod) => prodAcc + prod.quantidade, 0),
+          0,
+        )
+        setTotalVendas(total)
+        setTotalItens(itens)
+        setTicketMedio(total / data.vendas.length)
+      } else {
+        setTotalVendas(0)
+        setTotalItens(0)
+        setTicketMedio(0)
+      }
     } catch (err) {
-      console.error("Erro ao buscar vendas:", err)
-      setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar vendas")
+      console.error(err)
+      setError((err as Error).message || "Erro ao buscar vendas")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handlePageChange = (page: number) => {
-    setPagination((prev) => ({ ...prev, page }))
+  const handleNovaVenda = () => {
+    router.push("/dashboard/vendas/nova")
   }
 
-  const handleStatusFilterChange = (status: string) => {
-    setStatusFilter(status)
-    setPagination((prev) => ({ ...prev, page: 1 })) // Reset para a primeira página
+  const handleExportarVendas = () => {
+    // Implementar exportação de vendas
+    alert("Funcionalidade de exportação em desenvolvimento")
   }
 
-  const handleDateFilterChange = (startDate: string, endDate: string) => {
-    setDataInicio(startDate)
-    setDataFim(endDate)
-    setPagination((prev) => ({ ...prev, page: 1 })) // Reset para a primeira página
+  const filtrarVendas = () => {
+    if (!filtro) return vendas
+
+    const termoBusca = filtro.toLowerCase()
+    return vendas.filter(
+      (venda) =>
+        venda.cliente.nome.toLowerCase().includes(termoBusca) ||
+        venda.produtos.some((produto) => produto.nome.toLowerCase().includes(termoBusca)) ||
+        venda._id.toLowerCase().includes(termoBusca),
+    )
   }
 
-  const filteredVendas = vendas.filter(
-    (venda) =>
-      venda.cliente?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venda._id.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const vendasFiltradas = filtrarVendas()
 
-  // Formatar valor em reais
-  const formatarValor = (valor: number) => {
+  const formatarData = (dataString: string) => {
+    try {
+      const data = new Date(dataString)
+      return format(data, "dd/MM/yyyy HH:mm", { locale: ptBR })
+    } catch (error) {
+      return dataString
+    }
+  }
+
+  const formatarMoeda = (valor: number) => {
     return valor.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
     })
   }
 
-  // Formatar data
-  const formatarData = (dataString: string) => {
-    try {
-      const data = new Date(dataString)
-      return format(data, "dd/MM/yyyy", { locale: ptBR })
-    } catch (error) {
-      return "Data inválida"
-    }
-  }
-
-  // Obter cor do status
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "concluida":
       case "concluída":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "concluida":
+      case "pago":
+        return "bg-green-100 text-green-800"
       case "pendente":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+        return "bg-yellow-100 text-yellow-800"
       case "cancelada":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+      case "cancelado":
+        return "bg-red-100 text-red-800"
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
+        return "bg-gray-100 text-gray-800"
     }
   }
 
-  // Exportar vendas para CSV
-  const exportToCSV = () => {
-    // Implementação básica de exportação para CSV
-    const headers = ["ID", "Cliente", "Data", "Total", "Status"]
-
-    const csvContent = [
-      headers.join(","),
-      ...filteredVendas.map((venda) =>
-        [
-          venda._id,
-          venda.cliente?.nome || "Cliente não encontrado",
-          formatarData(venda.dataCriacao),
-          venda.total,
-          venda.status,
-        ].join(","),
-      ),
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", `vendas_${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
+  // Componente para exibir quando não há vendas
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="rounded-full bg-gray-100 p-6 mb-4">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-10 w-10 text-gray-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      </div>
+      <h3 className="text-lg font-medium mb-2">Nenhuma venda registrada</h3>
+      <p className="text-gray-500 mb-6 max-w-md">
+        Você ainda não possui vendas registradas. Comece a registrar suas vendas para acompanhar seu desempenho.
+      </p>
+      <Button onClick={handleNovaVenda}>
+        <Plus className="h-4 w-4 mr-2" />
+        Registrar Nova Venda
+      </Button>
+    </div>
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Vendas</h1>
-        <Button className="flex items-center gap-2" onClick={() => router.push("/dashboard/vendas/nova")}>
-          <Plus className="h-4 w-4" />
-          Nova Venda
-        </Button>
+    <div className="container py-10">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Vendas</h1>
+          <p className="text-gray-500">Gerencie e acompanhe suas vendas</p>
+        </div>
+        <div className="flex gap-2 mt-4 md:mt-0">
+          <Button variant="outline" onClick={handleExportarVendas}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
+          <Button onClick={handleNovaVenda}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Venda
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <div className="text-2xl font-bold">{formatarMoeda(totalVendas)}</div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Itens Vendidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? <Skeleton className="h-6 w-24" /> : <div className="text-2xl font-bold">{totalItens}</div>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <div className="text-2xl font-bold">{formatarMoeda(ticketMedio)}</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Vendas</CardTitle>
+          <CardDescription>Visualize e gerencie todas as suas vendas</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar vendas..."
-                className="pl-10 w-full"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1">
+              <Label htmlFor="search" className="sr-only">
+                Buscar
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  id="search"
+                  placeholder="Buscar por cliente, produto ou ID..."
+                  className="pl-8"
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                />
+              </div>
             </div>
-
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Filtrar por status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="concluida">Concluída</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button variant="outline" size="icon" onClick={exportToCSV} title="Exportar para CSV">
-                <Download className="h-4 w-4" />
-              </Button>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  const today = new Date()
-                  const thirtyDaysAgo = new Date()
-                  thirtyDaysAgo.setDate(today.getDate() - 30)
-
-                  handleDateFilterChange(thirtyDaysAgo.toISOString().split("T")[0], today.toISOString().split("T")[0])
-                }}
-                title="Filtrar últimos 30 dias"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleDateFilterChange("", "")}
-                title="Limpar filtros de data"
-                disabled={!dataInicio && !dataFim}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="status" className="sr-only">
+                  Status
+                </Label>
+                <Select value={statusFiltro} onValueChange={setStatusFiltro}>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="data-inicio" className="sr-only">
+                  Data Início
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="data-inicio"
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dataInicio && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataInicio ? format(dataInicio, "dd/MM/yyyy") : "Data início"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label htmlFor="data-fim" className="sr-only">
+                  Data Fim
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="data-fim"
+                      variant={"outline"}
+                      className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataFim ? format(dataFim, "dd/MM/yyyy") : "Data fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
 
-          {isLoading ? (
+          {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border rounded-md">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-[200px]" />
-                      <Skeleton className="h-4 w-[150px]" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-8 w-20" />
+                <div key={i} className="flex flex-col space-y-2">
+                  <Skeleton className="h-10 w-full" />
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>
-          ) : filteredVendas.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="mx-auto h-12 w-12 opacity-20 mb-2" />
-              <p>Nenhuma venda encontrada</p>
-              <Button variant="link" className="mt-2" onClick={() => router.push("/dashboard/vendas/nova")}>
-                Registrar uma venda
+            <div className="text-center py-10">
+              <p className="text-red-500">{error}</p>
+              <Button variant="outline" className="mt-4" onClick={fetchVendas}>
+                Tentar novamente
               </Button>
             </div>
+          ) : vendasFiltradas.length === 0 ? (
+            <EmptyState />
           ) : (
-            <div className="space-y-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Cliente</th>
-                      <th className="text-left py-3 px-4 font-medium">Data</th>
-                      <th className="text-left py-3 px-4 font-medium">Total</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                      <th className="text-right py-3 px-4 font-medium">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredVendas.map((venda) => (
-                      <tr key={venda._id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium">{venda.cliente?.nome || "Cliente não encontrado"}</p>
-                            <p className="text-xs text-muted-foreground">{venda._id}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">{formatarData(venda.dataCriacao)}</td>
-                        <td className="py-3 px-4 font-medium">{formatarValor(venda.total)}</td>
-                        <td className="py-3 px-4">
-                          <Badge className={getStatusColor(venda.status)}>
-                            {venda.status.charAt(0).toUpperCase() + venda.status.slice(1)}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Abrir menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="flex items-center gap-2 cursor-pointer"
-                                onClick={() => router.push(`/dashboard/vendas/${venda._id}`)}
-                              >
-                                <Eye className="h-4 w-4" />
-                                <span>Ver detalhes</span>
-                              </DropdownMenuItem>
-                              {venda.status !== "cancelada" && (
-                                <>
-                                  <DropdownMenuItem
-                                    className="flex items-center gap-2 cursor-pointer"
-                                    onClick={() => router.push(`/dashboard/vendas/${venda._id}/editar`)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                    <span>Editar</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="flex items-center gap-2 cursor-pointer text-destructive"
-                                    onClick={async () => {
-                                      if (confirm("Tem certeza que deseja cancelar esta venda?")) {
-                                        try {
-                                          const response = await fetch(`/api/dashboard/vendas/${venda._id}`, {
-                                            method: "DELETE",
-                                          })
-
-                                          if (response.ok) {
-                                            fetchVendas()
-                                          } else {
-                                            alert("Erro ao cancelar venda")
-                                          }
-                                        } catch (error) {
-                                          console.error("Erro ao cancelar venda:", error)
-                                          alert("Erro ao cancelar venda")
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    <span>Cancelar</span>
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {pagination.totalPages > 1 && (
-                <Pagination className="mt-4">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => handlePageChange(Math.max(1, pagination.page - 1))}
-                        className={pagination.page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                      .filter((page) => {
-                        // Mostrar primeira página, última página e páginas próximas à atual
-                        return page === 1 || page === pagination.totalPages || Math.abs(page - pagination.page) <= 1
-                      })
-                      .map((page, index, array) => {
-                        // Adicionar elipses quando há saltos
-                        if (index > 0 && page - array[index - 1] > 1) {
-                          return (
-                            <React.Fragment key={`ellipsis-${page}`}>
-                              <PaginationItem>
-                                <span className="px-2">...</span>
-                              </PaginationItem>
-                              <PaginationItem>
-                                <PaginationLink
-                                  isActive={page === pagination.page}
-                                  onClick={() => handlePageChange(page)}
-                                >
-                                  {page}
-                                </PaginationLink>
-                              </PaginationItem>
-                            </React.Fragment>
-                          )
-                        }
-
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink isActive={page === pagination.page} onClick={() => handlePageChange(page)}>
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )
-                      })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => handlePageChange(Math.min(pagination.totalPages, pagination.page + 1))}
-                        className={
-                          pagination.page >= pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Pagamento</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vendasFiltradas.map((venda) => (
+                    <TableRow key={venda._id}>
+                      <TableCell className="font-medium">{venda._id.substring(0, 8)}...</TableCell>
+                      <TableCell>{venda.cliente.nome}</TableCell>
+                      <TableCell>{formatarData(venda.dataCriacao)}</TableCell>
+                      <TableCell>{formatarMoeda(venda.total)}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(venda.status)}`}>
+                          {venda.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>{venda.formaPagamento}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/vendas/${venda._id}`)}>
+                          Detalhes
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

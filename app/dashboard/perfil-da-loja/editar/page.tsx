@@ -1,103 +1,84 @@
 import { Suspense } from "react"
+import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
-import { LojaPerfilForm } from "@/components/perfil/loja-form"
+import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DatabaseErrorFallback } from "@/components/database-error-fallback"
-import { redirect } from "next/navigation"
+import LojaPerfilForm from "@/components/perfil/loja-perfil-form"
 
-// Função para serializar objetos MongoDB
-function serializeMongoObject(obj: any) {
-  if (!obj) return null
+// Helper function to ensure all ObjectIds are converted to strings
+function serializeData(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
 
-  return JSON.parse(
-    JSON.stringify(obj, (key, value) => {
-      // Converter ObjectId para string
-      if (key === "_id" && value && typeof value === "object" && value.toString) {
-        return value.toString()
+  if (obj instanceof ObjectId) {
+    return obj.toString()
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(serializeData)
+  }
+
+  if (typeof obj === "object" && obj !== null) {
+    const result: Record<string, any> = {}
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = serializeData(obj[key])
       }
-      // Converter datas para strings ISO
-      if (value instanceof Date) {
-        return value.toISOString()
-      }
-      return value
-    }),
-  )
+    }
+    return result
+  }
+
+  return obj
 }
 
 export default async function EditarPerfilLojaPage() {
-  let lojaData = null
-  let error = null
-
   try {
+    console.log("Iniciando página de edição de perfil da loja")
     const session = await getServerSession(authOptions)
 
-    if (!session) {
-      redirect("/login?callbackUrl=/dashboard/perfil-da-loja/editar")
+    if (!session?.user) {
+      console.log("Usuário não autenticado")
+      notFound()
     }
 
-    // Conectar ao banco de dados
-    await connectToDatabase()
-
-    // Verificar se a conexão está estabelecida
-    const connection = mongoose.connection
-    if (!connection || connection.readyState !== mongoose.ConnectionStates.connected) {
-      throw new Error("Conexão com o banco de dados não estabelecida")
-    }
-
-    // Buscar o usuário pelo email
-    const db = connection.db
-    if (!db) {
-      throw new Error("Banco de dados não disponível")
-    }
-
-    const usuariosCollection = db.collection("usuarios")
-    const usuario = await usuariosCollection.findOne({ email: session.user.email })
-
-    if (!usuario) {
-      throw new Error("Usuário não encontrado")
-    }
+    console.log(`Usuário autenticado: ${session.user.id}`)
+    const { db } = await connectToDatabase()
 
     // Buscar a loja do usuário
-    const lojasCollection = db.collection("lojas")
-    const userId = usuario._id.toString()
-
-    const loja = await lojasCollection.findOne({
+    console.log(`Buscando loja para o usuário: ${session.user.id}`)
+    const loja = await db.collection("lojas").findOne({
       $or: [
-        { usuarioId: userId },
-        { usuarioId: new mongoose.Types.ObjectId(userId) },
-        { proprietarioId: userId },
-        { proprietarioId: new mongoose.Types.ObjectId(userId) },
+        { userId: session.user.id },
+        { userId: new ObjectId(session.user.id) },
+        { usuarioId: session.user.id },
+        { usuarioId: new ObjectId(session.user.id) },
       ],
     })
 
-    if (loja) {
-      // Serializar o objeto MongoDB para um objeto JavaScript simples
-      lojaData = serializeMongoObject(loja)
-      console.log("Loja encontrada e serializada:", lojaData)
-    } else {
-      console.log("Nenhuma loja encontrada para o usuário:", userId)
-      // Redirecionar para a página de criação de loja se não houver loja
-      redirect("/dashboard/perfil-da-loja/criar")
+    if (!loja) {
+      console.log("Loja não encontrada para o usuário")
+      notFound()
     }
-  } catch (err) {
-    console.error("Erro ao buscar dados da loja:", err)
-    error = err instanceof Error ? err.message : "Erro desconhecido"
-  }
 
-  if (error) {
-    return <DatabaseErrorFallback errorMessage={error} />
-  }
+    console.log(`Loja encontrada: ${loja._id}`)
 
-  return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <h1 className="text-2xl font-bold mb-6">Editar Perfil da Loja</h1>
-      <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-        <LojaPerfilForm loja={lojaData} />
-      </Suspense>
-    </div>
-  )
+    // Serializar todos os dados para garantir que não haja problemas de serialização
+    const lojaData = serializeData(loja)
+
+    console.log("Dados da loja serializados com sucesso")
+
+    return (
+      <div className="container py-10">
+        <h1 className="text-2xl font-bold mb-6">Editar Perfil da Loja</h1>
+        <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+          <LojaPerfilForm loja={lojaData} />
+        </Suspense>
+      </div>
+    )
+  } catch (error) {
+    console.error("Erro ao renderizar página de edição de perfil:", error)
+    throw error // Re-throw to let Next.js handle it with its error boundary
+  }
 }
-
