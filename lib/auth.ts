@@ -3,6 +3,32 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import { MongoClient, ObjectId } from "mongodb"
 import bcrypt from "bcryptjs"
+import * as speakeasy from "speakeasy"
+
+// Extend the Session and JWT types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+      role: string
+      nome?: string
+      emailVerificado?: boolean
+      plano?: string
+      twoFactorEnabled?: boolean
+      permissoes?: string[]
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string
+    role: string
+  }
+}
 
 const MONGODB_URI = process.env.MONGODB_URI || ""
 
@@ -26,9 +52,11 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
+        twoFactorToken: { label: "Código de verificação", type: "text" },
+        emailVerified: { label: "Email verificado", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.email) {
           return null
         }
 
@@ -44,12 +72,60 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check password
+          // If emailVerified flag is set, skip password check (coming from email verification flow)
+          if (credentials.emailVerified === "true") {
+            // Update last login
+            await db.collection("usuarios").updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } })
+
+            return {
+              id: user._id.toString(),
+              name: user.nome || user.name,
+              email: user.email,
+              role: user.role || "user",
+              image: user.image || null,
+            }
+          }
+
+          // Regular login flow - check password
+          if (!credentials.password) {
+            return null
+          }
+
           const isPasswordValid = await bcrypt.compare(credentials.password, user.senha)
 
           if (!isPasswordValid) {
             return null
           }
+
+          // Check if email verification is required
+          const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === "true"
+
+          if (requireEmailVerification && !user.emailVerificado) {
+            throw new Error("EMAIL_VERIFICATION_REQUIRED")
+          }
+
+          // Check if 2FA is enabled
+          if (user.twoFactorEnabled && user.twoFactorSecret) {
+            // If no token provided, require 2FA
+            if (!credentials.twoFactorToken) {
+              throw new Error("2FA_REQUIRED")
+            }
+
+            // Verify the token
+            const verified = speakeasy.totp.verify({
+              secret: user.twoFactorSecret,
+              encoding: "base32",
+              token: credentials.twoFactorToken,
+              window: 1, // Allow 1 step before/after for time drift
+            })
+
+            if (!verified) {
+              throw new Error("2FA_INVALID")
+            }
+          }
+
+          // Update last login
+          await db.collection("usuarios").updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } })
 
           return {
             id: user._id.toString(),
@@ -60,7 +136,7 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error("Error in authorize:", error)
-          return null
+          throw error
         } finally {
           if (client) {
             await client.close()
@@ -69,8 +145,8 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
   ],
   callbacks: {
@@ -136,8 +212,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.id = token.id
+        session.user.role = token.role
 
         // Buscar informações adicionais do usuário
         let client
@@ -146,7 +222,7 @@ export const authOptions: NextAuthOptions = {
           client = mongoClient
 
           const user = await db.collection("usuarios").findOne({
-            _id: new ObjectId(token.id as string),
+            _id: new ObjectId(token.id),
           })
 
           if (user) {
@@ -157,6 +233,7 @@ export const authOptions: NextAuthOptions = {
             session.user.nome = user.nome || user.name || ""
             session.user.emailVerificado = user.emailVerificado || false
             session.user.plano = user.plano || "gratuito"
+            session.user.twoFactorEnabled = user.twoFactorEnabled || false
 
             if (user.permissoes) {
               session.user.permissoes = user.permissoes
@@ -186,3 +263,4 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
+  

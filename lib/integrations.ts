@@ -1,10 +1,9 @@
-import connectToDatabase from "./mongodb"
+import { connectToDatabase } from "./mongodb"
 import { ObjectId } from "mongodb"
 
 export async function getIntegrationById(id: string, userId?: string) {
   try {
-    const mongoose = await connectToDatabase()
-    const db = mongoose.connection.db
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Database connection failed")
@@ -35,8 +34,7 @@ export async function getIntegrationById(id: string, userId?: string) {
 
 export async function updateIntegration(id: string, userId: string, data: any) {
   try {
-    const mongoose = await connectToDatabase()
-    const db = mongoose.connection.db
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Database connection failed")
@@ -63,8 +61,7 @@ export async function updateIntegration(id: string, userId: string, data: any) {
 
 export async function getAllIntegrations(userId: string) {
   try {
-    const mongoose = await connectToDatabase()
-    const db = mongoose.connection.db
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Database connection failed")
@@ -91,8 +88,7 @@ export async function getAllIntegrations(userId: string) {
 
 export async function createIntegration(data: any) {
   try {
-    const mongoose = await connectToDatabase()
-    const db = mongoose.connection.db
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Database connection failed")
@@ -121,8 +117,7 @@ export async function createIntegration(data: any) {
 
 export async function deleteIntegration(id: string, userId: string) {
   try {
-    const mongoose = await connectToDatabase()
-    const db = mongoose.connection.db
+    const { db } = await connectToDatabase()
 
     if (!db) {
       throw new Error("Database connection failed")
@@ -141,4 +136,3 @@ export async function deleteIntegration(id: string, userId: string) {
     return false
   }
 }
-

@@ -69,10 +69,13 @@ export const OTPInput: React.FC<OTPInputProps> = ({
               type: "text",
               maxLength: 1,
               value: otp[index] || "",
-              onChange: (event) => handleChange(index, event),
-              onKeyDown: (event) => handleKeyDown(index, event),
+              onChange: (event) => handleChange(index, event as React.ChangeEvent<HTMLInputElement>),
+              onKeyDown: (event) => handleKeyDown(index, event as React.KeyboardEvent<HTMLInputElement>),
               className: inputStyle,
               ref: (el) => (inputRefs.current[index] = el),
+              "data-index": index,
+              inputMode: "numeric",
+              autoComplete: "one-time-code",
             })}
           </React.Fragment>
         ))}

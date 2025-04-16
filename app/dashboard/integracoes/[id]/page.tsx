@@ -34,7 +34,7 @@ const IntegrationPage = async ({ params }: Props) => {
   const session = await getServerSession(authOptions)
 
   if (!session) {
-    redirect("/auth/signin")
+    redirect("/login")
   }
 
   const integrationId = params.id
@@ -65,4 +65,3 @@ const IntegrationPage = async ({ params }: Props) => {
 }
 
 export default IntegrationPage
-
