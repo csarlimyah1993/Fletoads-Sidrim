@@ -12,11 +12,10 @@ import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { OTPInput } from "@/components/ui/otp-input"
 import { sendEmailVerificationCode, verifyEmailOTP } from "@/app/actions/auth-actions"
-import Link from "next/link"
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -35,7 +34,8 @@ export function LoginForm() {
   const [userEmail, setUserEmail] = useState("")
   const [error, setError] = useState("")
   const [otpValue, setOtpValue] = useState("")
-  const [verificationMethod, setVerificationMethod] = useState<"email" | "app">("email")
+  const [verificationMethod, setVerificationMethod] = useState<"email" | "app">("app")
+  const [twoFactorPurpose, setTwoFactorPurpose] = useState<"login" | "2fa">("login")
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -68,11 +68,42 @@ export function LoginForm() {
       if (result?.error === "2FA_REQUIRED") {
         // If 2FA is required, check if it's app-based or email-based
         setCurrentStep("two-factor")
-        setVerificationMethod("app") // Default to app-based
+
+        // Try to determine the 2FA method
+        try {
+          const methodResponse = await fetch(`/api/auth/2fa-method?email=${encodeURIComponent(data.email)}`)
+          const methodData = await methodResponse.json()
+
+          if (methodData.method === "email") {
+            setVerificationMethod("email")
+            setTwoFactorPurpose("2fa")
+
+            // Request email verification code
+            await fetch("/api/auth/email-verification", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                email: data.email,
+                purpose: "2fa",
+              }),
+            })
+
+            toast.info("Código de verificação enviado para seu email")
+          } else {
+            setVerificationMethod("app")
+          }
+        } catch (error) {
+          console.error("Error determining 2FA method:", error)
+          setVerificationMethod("app") // Default to app if we can't determine
+        }
+
         setIsLoading(false)
       } else if (result?.error === "EMAIL_VERIFICATION_REQUIRED") {
         // If email verification is required
         setCurrentStep("email-verification")
+        setTwoFactorPurpose("login")
         // Send verification code to email
         const emailResult = await sendEmailVerificationCode(data.email)
         if (!emailResult.success) {
@@ -164,11 +195,32 @@ export function LoginForm() {
     setError("")
 
     try {
-      const result = await sendEmailVerificationCode(userEmail)
-      if (result.success) {
-        toast.success("Código reenviado com sucesso")
+      if (twoFactorPurpose === "login") {
+        const result = await sendEmailVerificationCode(userEmail)
+        if (result.success) {
+          toast.success("Código reenviado com sucesso")
+        } else {
+          setError(result.message)
+        }
       } else {
-        setError(result.message)
+        // For 2FA purpose
+        const response = await fetch("/api/auth/email-verification", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: userEmail,
+            purpose: "2fa",
+          }),
+        })
+
+        if (response.ok) {
+          toast.success("Código reenviado com sucesso")
+        } else {
+          const data = await response.json()
+          setError(data.error || "Erro ao reenviar código")
+        }
       }
     } catch (error) {
       console.error("Erro ao reenviar código:", error)
@@ -306,7 +358,9 @@ export function LoginForm() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Digite o código de verificação do seu aplicativo autenticador.
+              {verificationMethod === "app"
+                ? "Digite o código de verificação do seu aplicativo autenticador."
+                : "Digite o código de verificação enviado para seu email."}
             </p>
 
             <div className="my-6">
@@ -340,22 +394,18 @@ export function LoginForm() {
                 "Verificar"
               )}
             </Button>
+
+            {verificationMethod === "email" && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-muted-foreground mb-2">Não recebeu o código?</p>
+                <Button variant="outline" size="sm" onClick={resendVerificationCode} disabled={isLoading}>
+                  Reenviar código
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
-        <div className="text-sm text-center">
-          <Link href="/esqueci-senha" className="text-primary hover:underline">
-            Esqueceu sua senha?
-          </Link>
-        </div>
-        <div className="text-sm text-center">
-          Não tem uma conta?{" "}
-          <Link href="/registro" className="text-primary hover:underline">
-            Registre-se
-          </Link>
-        </div>
-      </CardFooter>
     </Card>
   )
 }

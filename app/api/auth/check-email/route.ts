@@ -1,46 +1,47 @@
 import { NextResponse } from "next/server"
-import { sendEmailVerificationCode, verifyEmailOTP } from "@/app/actions/auth-actions"
+import { connectToDatabase } from "@/lib/mongodb"
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json()
-    const { email } = body
+    const { searchParams } = new URL(request.url)
+    const email = searchParams.get("email")
 
     if (!email) {
-      return NextResponse.json({ error: "Email é obrigatório" }, { status: 400 })
+      return NextResponse.json({ error: "Email não fornecido" }, { status: 400 })
     }
 
-    const result = await sendEmailVerificationCode(email)
+    const { db } = await connectToDatabase()
 
-    if (!result.success) {
-      return NextResponse.json({ error: result.message }, { status: 400 })
+    // Normalizar o email para minúsculas para garantir consistência
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Verificar na coleção usuarios - usando exatamente o mesmo email
+    const usuarioExistente = await db.collection("usuarios").findOne({
+      email: normalizedEmail,
+    })
+
+    // Verificar também na coleção users (caso esteja usando ambas)
+    const userExistente = await db.collection("users").findOne({
+      email: normalizedEmail,
+    })
+
+    // Log para depuração
+    console.log(`Verificação de email: ${normalizedEmail}, Existe: ${!!(usuarioExistente || userExistente)}`)
+
+    if (usuarioExistente) {
+      console.log(`Email encontrado na coleção usuarios: ${usuarioExistente._id}`)
     }
 
-    return NextResponse.json({ success: true, message: result.message })
+    if (userExistente) {
+      console.log(`Email encontrado na coleção users: ${userExistente._id}`)
+    }
+
+    return NextResponse.json({
+      exists: !!(usuarioExistente || userExistente),
+      message: usuarioExistente || userExistente ? "Este email já está em uso" : "Email disponível",
+    })
   } catch (error) {
-    console.error("Error sending verification code:", error)
-    return NextResponse.json({ error: "Erro ao enviar código de verificação" }, { status: 500 })
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const body = await request.json()
-    const { email, otp } = body
-
-    if (!email || !otp) {
-      return NextResponse.json({ error: "Email e código são obrigatórios" }, { status: 400 })
-    }
-
-    const result = await verifyEmailOTP(email, otp)
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.message }, { status: 400 })
-    }
-
-    return NextResponse.json({ success: true, message: result.message })
-  } catch (error) {
-    console.error("Error verifying code:", error)
-    return NextResponse.json({ error: "Erro ao verificar código" }, { status: 500 })
+    console.error("Erro ao verificar email:", error)
+    return NextResponse.json({ error: "Erro ao verificar email" }, { status: 500 })
   }
 }

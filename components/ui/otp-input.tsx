@@ -6,7 +6,9 @@ interface OTPInputProps {
   value: string
   onChange: (value: string) => void
   numInputs: number
-  renderInput: (props: React.InputHTMLAttributes<HTMLInputElement>) => React.ReactNode
+  renderInput: (
+    props: React.InputHTMLAttributes<HTMLInputElement> & { ref?: React.RefObject<HTMLInputElement> },
+  ) => React.ReactNode
   inputStyle?: string
   containerStyle?: string
 }
@@ -72,7 +74,7 @@ export const OTPInput: React.FC<OTPInputProps> = ({
               onChange: (event) => handleChange(index, event as React.ChangeEvent<HTMLInputElement>),
               onKeyDown: (event) => handleKeyDown(index, event as React.KeyboardEvent<HTMLInputElement>),
               className: inputStyle,
-              ref: (el) => (inputRefs.current[index] = el),
+              ref: (el: HTMLInputElement | null) => (inputRefs.current[index] = el),
               "data-index": index,
               inputMode: "numeric",
               autoComplete: "one-time-code",

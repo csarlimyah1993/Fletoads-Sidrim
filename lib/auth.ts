@@ -18,6 +18,7 @@ declare module "next-auth" {
       emailVerificado?: boolean
       plano?: string
       twoFactorEnabled?: boolean
+      twoFactorMethod?: "app" | "email"
       permissoes?: string[]
     }
   }
@@ -105,22 +106,43 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Check if 2FA is enabled
-          if (user.twoFactorEnabled && user.twoFactorSecret) {
+          if (user.twoFactorEnabled) {
             // If no token provided, require 2FA
             if (!credentials.twoFactorToken) {
               throw new Error("2FA_REQUIRED")
             }
 
-            // Verify the token
-            const verified = speakeasy.totp.verify({
-              secret: user.twoFactorSecret,
-              encoding: "base32",
-              token: credentials.twoFactorToken,
-              window: 1, // Allow 1 step before/after for time drift
-            })
+            // Check which 2FA method is being used
+            if (user.twoFactorMethod === "app" && user.twoFactorSecret) {
+              // Verify the token with authenticator app
+              const verified = speakeasy.totp.verify({
+                secret: user.twoFactorSecret,
+                encoding: "base32",
+                token: credentials.twoFactorToken,
+                window: 1, // Allow 1 step before/after for time drift
+              })
 
-            if (!verified) {
-              throw new Error("2FA_INVALID")
+              if (!verified) {
+                throw new Error("2FA_INVALID")
+              }
+            } else if (user.twoFactorMethod === "email") {
+              // Verify the token from email
+              // This will be handled by the email verification endpoint
+              // and should be already verified before this point
+              // But we'll check if the token is valid just in case
+              const emailVerification = await db.collection("emailVerifications").findOne({
+                email: user.email,
+                otp: credentials.twoFactorToken,
+                purpose: "2fa",
+                expiresAt: { $gt: new Date() },
+              })
+
+              if (!emailVerification) {
+                throw new Error("2FA_INVALID")
+              }
+
+              // Delete the used OTP
+              await db.collection("emailVerifications").deleteOne({ _id: emailVerification._id })
             }
           }
 
@@ -234,6 +256,7 @@ export const authOptions: NextAuthOptions = {
             session.user.emailVerificado = user.emailVerificado || false
             session.user.plano = user.plano || "gratuito"
             session.user.twoFactorEnabled = user.twoFactorEnabled || false
+            session.user.twoFactorMethod = user.twoFactorMethod || "app"
 
             if (user.permissoes) {
               session.user.permissoes = user.permissoes
@@ -263,4 +286,3 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
-  
