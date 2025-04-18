@@ -39,7 +39,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-export default function VendaDetalhesPage({ params }: { params: { id: string } }) {
+export default function VendaDetalhesPage({ params }: { params: Promise<{ id: string }> }) {
   // Unwrap params usando React.use()
   const unwrappedParams = React.use(params)
   const vendaId = unwrappedParams.id
@@ -480,4 +480,3 @@ export default function VendaDetalhesPage({ params }: { params: { id: string } }
     </div>
   )
 }
-

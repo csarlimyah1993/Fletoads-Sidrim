@@ -4,54 +4,56 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
 
-    // Verificar autenticação
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Verificar se o usuário tem permissão para associar loja
-    if (session.user.id !== params.id && session.user.role !== "admin") {
+    if (session.user.id !== id && session.user.role !== "admin") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
     const { lojaId } = await request.json()
-    console.log(`Associando loja ${lojaId} ao usuário ${params.id}`)
+    console.log(`Associando loja ${lojaId} ao usuário ${id}`)
 
-    if (!lojaId) {
-      return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
+    if (!lojaId || typeof lojaId !== 'string' || !ObjectId.isValid(lojaId)) {
+      return NextResponse.json({ error: "ID da loja inválido ou não fornecido" }, { status: 400 })
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID de usuário inválido" }, { status: 400 })
     }
 
     const { db } = await connectToDatabase()
 
-    // Verificar se a loja existe
     const loja = await db.collection("lojas").findOne({ _id: new ObjectId(lojaId) })
-
     if (!loja) {
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Associar a loja ao usuário
     await db.collection("usuarios").updateOne(
-      { _id: new ObjectId(params.id) },
+      { _id: new ObjectId(id) },
       {
         $set: {
-          lojaId: lojaId,
+          lojaId,
           updatedAt: new Date(),
         },
-      },
+      }
     )
 
-    // Atualizar a loja para incluir o usuarioId se não existir
     if (!loja.usuarioId) {
       await db.collection("lojas").updateOne(
         { _id: new ObjectId(lojaId) },
         {
           $set: {
-            usuarioId: params.id,
+            usuarioId: id,
             dataAtualizacao: new Date(),
           },
         }

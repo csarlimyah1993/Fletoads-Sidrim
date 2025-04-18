@@ -3,13 +3,15 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { getSessionUser } from "@/lib/session"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const user = getSessionUser(session)
 
     // Verificar autenticação
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Verificar se o cupom existe
     const cupom = await db.collection("cupons").findOne({
       _id: new ObjectId(cupomId),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
       ativo: true,
     })
 
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Registrar uso do cupom
     const usoData = {
       cupomId,
-      usuarioId: session.user.id,
+      usuarioId: user.id,
       dataUso: new Date(),
       valorPedido,
       valorDesconto,

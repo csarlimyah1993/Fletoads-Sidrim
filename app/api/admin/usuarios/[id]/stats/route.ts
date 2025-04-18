@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
+import {connectToDatabase} from "@/lib/mongodb"
 import Usuario from "@/lib/models/usuario"
 import Panfleto from "@/lib/models/panfleto"
 import Produto from "@/lib/models/produto"
@@ -8,8 +8,11 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import mongoose from "mongoose"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Await the params to get the id
+    const { id } = await params
+
     // Check if user is authenticated and is admin
     const session = await getServerSession(authOptions)
     if (!session || session.user.role !== "admin") {
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     await connectToDatabase()
 
     // Check if user exists
-    const user = await Usuario.findById(params.id).select("_id")
+    const user = await Usuario.findById(id).select("_id")
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     try {
       if (mongoose.models.Panfleto) {
-        panfletosCount = await Panfleto.countDocuments({ usuario: params.id })
+        panfletosCount = await Panfleto.countDocuments({ usuario: id })
       }
     } catch (error) {
       console.error("Error counting panfletos:", error)
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     try {
       if (mongoose.models.Produto) {
-        produtosCount = await Produto.countDocuments({ usuario: params.id })
+        produtosCount = await Produto.countDocuments({ usuario: id })
       }
     } catch (error) {
       console.error("Error counting produtos:", error)
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     try {
       if (mongoose.models.Promocao) {
-        promocoesCount = await Promocao.countDocuments({ usuario: params.id })
+        promocoesCount = await Promocao.countDocuments({ usuario: id })
       }
     } catch (error) {
       console.error("Error counting promocoes:", error)
@@ -72,4 +75,3 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Error fetching user statistics" }, { status: 500 })
   }
 }
-

@@ -3,6 +3,22 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 
+// Define a type for the session user with lojaId
+interface SessionUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role: string
+  nome?: string
+  emailVerificado?: boolean
+  plano?: string
+  lojaId?: string
+  permissoes?: string[]
+  twoFactorEnabled?: boolean
+  twoFactorMethod?: "email" | "app"
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -21,9 +37,12 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Construir query de busca
     const query: any = {
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     }
 
     // Adicionar busca por texto se fornecido
@@ -77,10 +96,13 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Verificar se já existe um cupom com o mesmo código
     const cupomExistente = await db.collection("cupons").findOne({
       codigo: body.codigo,
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (cupomExistente) {
@@ -91,7 +113,7 @@ export async function POST(request: NextRequest) {
     const cupomData = {
       ...body,
       criadoPor: session.user.id,
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
       usos: 0,
       dataCriacao: new Date(),
       dataAtualizacao: new Date(),

@@ -2,7 +2,7 @@ import Stripe from "stripe"
 
 // Inicializar o cliente Stripe
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2023-10-16", // Use a versão mais recente da API
+  apiVersion: "2025-02-24.acacia", // Updated to the required API version
 })
 
 // Função para criar um PaymentIntent
@@ -32,11 +32,11 @@ export async function createCustomer(email: string, name: string) {
 }
 
 // Função para listar métodos de pagamento de um cliente
-export async function listPaymentMethods(customerId: string, type = "card") {
+export async function listPaymentMethods(customerId: string, type: Stripe.PaymentMethodListParams.Type = "card") {
   return stripe.paymentMethods.list({
     customer: customerId,
     type,
-  })
+  } as Stripe.PaymentMethodListParams)
 }
 
 // Função para anexar um método de pagamento a um cliente
@@ -126,4 +126,3 @@ export async function criarSessaoCheckout(
     metadata: metadata,
   })
 }
-

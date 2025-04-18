@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     // Garantir que estamos conectados ao banco de dados
     await connectToDatabase()
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await context.params // Acesso assíncrono ao parâmetro
 
     // Verificar se o ID do usuário é um ObjectId válido
     const query: any = { _id: id }
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     // Garantir que estamos conectados ao banco de dados
     await connectToDatabase()
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await context.params // Acesso assíncrono ao parâmetro
 
     // Verificar se o ID do usuário é um ObjectId válido
     const query: any = { _id: id }
@@ -96,4 +96,3 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: "Erro ao excluir notificação" }, { status: 500 })
   }
 }
-

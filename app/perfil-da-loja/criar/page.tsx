@@ -91,10 +91,14 @@ export default function CriarLojaPage() {
     }))
   }
 
-  const handleImageUpload = (field: string, url: string) => {
+  // Updated to handle both string and string[] types
+  const handleImageUpload = (field: string, url: string | string[]) => {
+    // If url is an array, use the first item, otherwise use the string directly
+    const imageUrl = Array.isArray(url) ? url[0] : url
+
     setFormData((prev) => ({
       ...prev,
-      [field]: url,
+      [field]: imageUrl,
     }))
   }
 
@@ -337,4 +341,3 @@ export default function CriarLojaPage() {
     </div>
   )
 }
-

@@ -4,7 +4,9 @@ import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/config"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: userId } = await context.params
+
   try {
     const session = await getServerSession(authOptions)
 
@@ -12,9 +14,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = params.id
-
-    // Verificar se o usuário está tentando acessar seu próprio perfil ou se é admin
     if (session.user.id !== userId && session.user.role !== "admin") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
     }
@@ -27,7 +26,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
     }
 
-    // Remover campos sensíveis
     const { senha, ...usuarioSemSenha } = usuario
 
     return NextResponse.json(usuarioSemSenha)
@@ -37,7 +35,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: userId } = await context.params
+
   try {
     const session = await getServerSession(authOptions)
 
@@ -45,9 +45,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = params.id
-
-    // Verificar se o usuário está tentando atualizar seu próprio perfil ou se é admin
     if (session.user.id !== userId && session.user.role !== "admin") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
     }
@@ -55,7 +52,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { db } = await connectToDatabase()
     const data = await request.json()
 
-    // Remover campos que não devem ser atualizados diretamente
     const { _id, email, senha, role, plano, ...dadosAtualizaveis } = data
 
     const resultado = await db

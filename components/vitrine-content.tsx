@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -12,17 +14,36 @@ import { AdicionarProdutoDrawer } from "@/components/adicionar-produto-drawer"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// Define product interface for better type safety
+interface Product {
+  id: number
+  nome: string
+  descricao: string
+  categoria: string
+  precoOriginal: number
+  preco: number
+  imagem: string
+  status: string
+  tipo: string
+  stats: {
+    views: number
+    likes: number
+    shares: number
+    comments: number
+  }
+}
+
 export function VitrineContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const produtoId = searchParams.get("produtoId")
 
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [hoveredProduct, setHoveredProduct] = useState(null)
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [hoveredProduct, setHoveredProduct] = useState<number | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [activeTab, setActiveTab] = useState("detalhes")
 
-  const produtos = [
+  const produtos: Product[] = [
     {
       id: 1,
       nome: "Tênis Casual Masculino",
@@ -61,17 +82,20 @@ export function VitrineContent() {
     },
   ]
 
-  const handleAddProduto = (e) => {
+  // Fix: Add proper type annotation for the event parameter
+  const handleAddProduto = (e: React.MouseEvent<HTMLButtonElement> | null) => {
     if (e) e.preventDefault()
     setDrawerOpen(true)
   }
 
-  const handleCardClick = (produto) => {
+  // Fix: Add proper type annotation for the product parameter
+  const handleCardClick = (produto: Product) => {
     setSelectedProduct(produto)
     setActiveTab("detalhes")
   }
 
-  const handleEditProduto = (e, produto) => {
+  // Fix: Add proper type annotations for event and product parameters
+  const handleEditProduto = (e: React.MouseEvent<HTMLButtonElement>, produto: Product) => {
     e.stopPropagation()
     setSelectedProduct(produto)
     setActiveTab("detalhes")
@@ -501,4 +525,3 @@ export function VitrineContent() {
     </div>
   )
 }
-

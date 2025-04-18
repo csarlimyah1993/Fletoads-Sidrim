@@ -1,8 +1,10 @@
-import type { ObjectId } from "mongodb"
+export interface CriarLojaFormProps {
+  userId: string
+}
 
+// Add the missing Endereco type
 export interface Endereco {
   rua?: string
-  logradouro?: string
   numero?: string
   complemento?: string
   bairro?: string
@@ -11,8 +13,10 @@ export interface Endereco {
   cep?: string
   latitude?: number
   longitude?: number
+  logradouro?: string
 }
 
+// Add the missing HorarioFuncionamento type
 export interface HorarioFuncionamento {
   segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
   terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
@@ -23,60 +27,102 @@ export interface HorarioFuncionamento {
   domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
 }
 
-export interface Cores {
-  primaria?: string
-  secundaria?: string
-  texto?: string
-  fundo?: string
+export interface Loja {
+  _id: string
+  id: string
+  nome: string
+  descricao?: string
+  logo?: string
+  banner?: string
+  capa?: string
+  endereco?: Endereco
+  contato?: {
+    telefone?: string
+    whatsapp?: string
+    email?: string
+    site?: string
+  }
+  horarioFuncionamento?: HorarioFuncionamento
+  vitrineId?: string
+  proprietarioId?: string
+  categorias?: string[]
+  status?: string
+  ativo?: boolean
+  plano?: string
+  planoId?: string
+  proprietarioPlano?: string
+  vitrine?: any
+  produtos?: Produto[]
+  telefone?: string
+  email?: string
+  website?: string
+  site?: string
+  instagram?: string
+  facebook?: string
+  redesSociais?: {
+    instagram?: string
+    facebook?: string
+    twitter?: string
+    linkedin?: string
+    youtube?: string
+  }
+  usuarioId?: string
+  userId?: string
+  cores?: {
+    primaria?: string
+    secundaria?: string
+    texto?: string
+    fundo?: string
+    destaque?: string
+  }
+  // Add missing properties used in vitrine-personalizacao-form.tsx
+  widgets?: string[]
+  layout?: string
+  fonte?: string
+  animacoes?: boolean
 }
 
 export interface Produto {
   _id: string
   nome: string
+  descricaoCurta?: string
   descricao?: string
-  descricaoCurta?: string // Adicionando a propriedade descricaoCurta
   preco: number
   precoPromocional?: number
   imagens?: string[]
+  destaque?: boolean
+  ativo?: boolean
   categorias?: string[]
   estoque?: number
-  lojaId: string
-  ativo?: boolean
-  destaque?: boolean
-  createdAt?: Date
-  updatedAt?: Date
+  dataCriacao?: string | Date
+  dataAtualizacao?: string | Date
+  lojaId?: string
 }
 
-export interface Loja {
+export interface LojaPerfilContentProps {
+  loja: Loja
+  produtos?: Produto[]
+  isLoading?: boolean
+  planoInfo?: any
+  plano?: any
+  uso?: any
+  limites?: any
+  vitrine?: any
+}
+
+export interface PerfilDaLojaClientProps {
+  userId?: string
+  loja?: Loja | null
+  produtos?: Produto[]
+  planoInfo?: any
+}
+
+export interface Cliente {
   _id: string
   nome: string
-  slug?: string
-  nomeNormalizado?: string
-  descricao?: string
-  banner?: string
-  logo?: string
-  telefone?: string
-  whatsapp?: string
-  email?: string
-  site?: string
-  redesSociais?: {
-    facebook?: string
-    instagram?: string
-    twitter?: string
-    youtube?: string
-    linkedin?: string
-    tiktok?: string
-  }
-  endereco?: string | Endereco
-  horarioFuncionamento?: string | HorarioFuncionamento
-  plano: string
-  planoId: string
-  ativo: boolean
-  userId?: string | ObjectId
-  usuarioId?: string | ObjectId
-  produtos?: Produto[]
-  cores?: Cores
-  vitrine?: any // Configuração da vitrine
-  createdAt?: Date
-  updatedAt?: Date
+  empresa: string
+  email: string
+  telefone: string
+  status: string
+  ultimoContato: string
 }

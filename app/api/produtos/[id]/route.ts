@@ -1,21 +1,25 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Função para buscar um produto
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Atualizar para Promise<{ id: string }>
+) {
   try {
+    const { id } = await params; // Aguarde a resolução do Promise para acessar 'id'
+
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
 
-    // Extrair o ID do produto para evitar o erro de acesso direto a params
-    const produtoId = params.id
+    const produtoId = id; // Usar o 'id' resolvido
 
     const produto = await db.collection("produtos").findOne({
       _id: new ObjectId(produtoId),
@@ -33,22 +37,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+// Função para atualizar um produto
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Atualizar para Promise<{ id: string }>
+) {
   try {
+    const { id } = await params; // Aguarde a resolução do Promise para acessar 'id'
+
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
-
-    // Extrair o ID do produto para evitar o erro de acesso direto a params
-    const produtoId = params.id
-
+    const produtoId = id; // Usar o 'id' resolvido
     const data = await request.json()
 
-    // Verificar se o produto existe
     const produto = await db.collection("produtos").findOne({
       _id: new ObjectId(produtoId),
       userId: session.user.id,
@@ -58,7 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 })
     }
 
-    // Verificar se o SKU foi alterado e se já existe outro produto com o mesmo SKU
+    // Verificar se SKU foi alterado e existe outro produto com o mesmo SKU
     if (data.sku && data.sku !== produto.sku) {
       const produtoExistente = await db.collection("produtos").findOne({
         sku: data.sku,
@@ -71,16 +76,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    // Atualizar o produto
-    const produtoAtualizado = await db
-      .collection("produtos")
-      .findOneAndUpdate(
-        { _id: new ObjectId(produtoId) },
-        { $set: { ...data, dataAtualizacao: new Date() } },
-        { returnDocument: "after" },
-      )
+    const produtoAtualizado = await db.collection("produtos").findOneAndUpdate(
+      { _id: new ObjectId(produtoId) },
+      { $set: { ...data, dataAtualizacao: new Date() } },
+      { returnDocument: "after" }
+    )
 
-    // Verificar se o produto foi atualizado com sucesso
     if (!produtoAtualizado || !produtoAtualizado.value) {
       return NextResponse.json({ error: "Erro ao atualizar produto" }, { status: 500 })
     }
@@ -92,20 +93,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// Função para excluir um produto
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Atualizar para Promise<{ id: string }>
+) {
   try {
+    const { id } = await params; // Aguarde a resolução do Promise para acessar 'id'
+
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
     const { db } = await connectToDatabase()
+    const produtoId = id; // Usar o 'id' resolvido
 
-    // Extrair o ID do produto para evitar o erro de acesso direto a params
-    const produtoId = params.id
-
-    // Verificar se o produto existe
     const produto = await db.collection("produtos").findOne({
       _id: new ObjectId(produtoId),
       userId: session.user.id,
@@ -115,7 +118,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Produto não encontrado" }, { status: 404 })
     }
 
-    // Excluir o produto
     await db.collection("produtos").deleteOne({ _id: new ObjectId(produtoId) })
 
     return NextResponse.json({ message: "Produto excluído com sucesso" })

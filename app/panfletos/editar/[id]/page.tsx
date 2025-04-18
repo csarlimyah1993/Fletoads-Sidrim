@@ -12,9 +12,9 @@ export const metadata: Metadata = {
 }
 
 interface EditarPanfletoPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function EditarPanfletoPage({ params }: EditarPanfletoPageProps) {
@@ -24,7 +24,8 @@ export default async function EditarPanfletoPage({ params }: EditarPanfletoPageP
     redirect("/login")
   }
 
-  const panfleto = await getPanfletoById(params.id)
+  const unwrappedParams = await params
+  const panfleto = await getPanfletoById(unwrappedParams.id)
 
   if (!panfleto) {
     redirect("/panfletos")
@@ -39,4 +40,3 @@ export default async function EditarPanfletoPage({ params }: EditarPanfletoPageP
     </div>
   )
 }
-

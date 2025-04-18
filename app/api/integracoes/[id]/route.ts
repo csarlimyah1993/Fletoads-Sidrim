@@ -3,8 +3,9 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
@@ -25,12 +26,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       await db.collection("integracoes_usuario").updateOne(
         {
           userId: session.user.id,
-          integracaoId: params.id,
+          integracaoId: id,
         },
         {
           $set: {
             userId: session.user.id,
-            integracaoId: params.id,
+            integracaoId: id,
             connectedAt: new Date().toISOString(),
           },
         },
@@ -40,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       // Desconectar integração
       await db.collection("integracoes_usuario").deleteOne({
         userId: session.user.id,
-        integracaoId: params.id,
+        integracaoId: id,
       })
     }
 
@@ -50,4 +51,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Erro ao atualizar integração" }, { status: 500 })
   }
 }
-

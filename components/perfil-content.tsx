@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import Image from "next/image"
 import {
   Bath,
@@ -22,6 +24,28 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+
+// Define interfaces for component props
+interface SocialButtonProps {
+  icon: React.ReactNode
+}
+
+interface AmenityBadgeProps {
+  icon: React.ReactNode
+  label: string
+}
+
+interface InfoItemProps {
+  label: string
+  value: string
+}
+
+interface PlanItemProps {
+  icon: React.ReactNode
+  label: string
+  value: string
+  total: string
+}
 
 export function PerfilContent() {
   const router = useRouter()
@@ -216,11 +240,11 @@ export function PerfilContent() {
 }
 
 // Components
-function SocialButton({ icon }) {
+function SocialButton({ icon }: SocialButtonProps) {
   return <button className="h-8 w-8 rounded-full bg-white flex items-center justify-center shadow-sm">{icon}</button>
 }
 
-function AmenityBadge({ icon, label }) {
+function AmenityBadge({ icon, label }: AmenityBadgeProps) {
   return (
     <div className="flex items-center gap-1 text-xs bg-gray-100 rounded-md px-2 py-1">
       {icon}
@@ -229,7 +253,7 @@ function AmenityBadge({ icon, label }) {
   )
 }
 
-function InfoItem({ label, value }) {
+function InfoItem({ label, value }: InfoItemProps) {
   return (
     <div>
       <p className="text-sm text-gray-500">{label}</p>
@@ -238,7 +262,7 @@ function InfoItem({ label, value }) {
   )
 }
 
-function PlanItem({ icon, label, value, total }) {
+function PlanItem({ icon, label, value, total }: PlanItemProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -252,4 +276,3 @@ function PlanItem({ icon, label, value, total }) {
     </div>
   )
 }
-

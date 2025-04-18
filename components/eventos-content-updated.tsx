@@ -145,15 +145,16 @@ export function EventosContentUpdated() {
     setCurrentSlide((prev) => (prev === totalSlides - 1 ? 0 : prev + 1))
   }
 
-  const handleDotClick = (index) => {
+  // Fix: Add type annotation to the index parameter
+  const handleDotClick = (index: number) => {
     setCurrentSlide(index)
   }
 
-  const handleSaibaMais = (id) => {
+  const handleSaibaMais = (id: string) => {
     router.push(`/eventos/${id}`)
   }
 
-  const handleEditPanfleto = (panfletoId) => {
+  const handleEditPanfleto = (panfletoId: number) => {
     router.push(`/panfletos/${panfletoId}/editar`)
   }
 
@@ -446,7 +447,28 @@ export function EventosContentUpdated() {
 }
 
 // Componente de card de evento próximo
-function EventoProximoCard({ id, title, period, description, image, color, badge, onSaibaMais }) {
+// Fix: Add proper type annotations to the props
+interface EventoProximoCardProps {
+  id: string
+  title: string
+  period: string
+  description: string
+  image: string
+  color: string
+  badge: string
+  onSaibaMais: () => void
+}
+
+function EventoProximoCard({
+  id,
+  title,
+  period,
+  description,
+  image,
+  color,
+  badge,
+  onSaibaMais,
+}: EventoProximoCardProps) {
   return (
     <div className={`relative rounded-lg p-4 ${color} text-white`}>
       {badge && <Badge className="absolute right-2 top-2 bg-white text-blue-600">{badge}</Badge>}
@@ -458,4 +480,3 @@ function EventoProximoCard({ id, title, period, description, image, color, badge
     </div>
   )
 }
-

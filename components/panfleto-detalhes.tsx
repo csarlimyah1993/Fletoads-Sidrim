@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -19,13 +21,55 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
-export function PanfletoDetalhes({ id }) {
+// Define TypeScript interfaces for our components
+interface PanfletoDetalhesProps {
+  id: string
+}
+
+interface InfoItemProps {
+  label: string
+  value: string | number
+}
+
+interface StatCardProps {
+  value: number
+  label: string
+  icon: React.ReactNode
+}
+
+interface PanfletoInfo {
+  id: string
+  title: string
+  period: string
+  tags: string[]
+  originalPrice: string
+  price: string
+  unitsAvailable: number
+  description: string
+  images: string[]
+  info: {
+    itemsSold: number
+    inStock: number
+    creationDate: string
+    endDate: string
+    status: string
+    type: string
+  }
+  stats: {
+    visits: number
+    likes: number
+    shares: number
+    comments: number
+  }
+}
+
+export function PanfletoDetalhes({ id }: PanfletoDetalhesProps) {
   const router = useRouter()
   const [infoExpanded, setInfoExpanded] = useState(true)
   const [statsExpanded, setStatsExpanded] = useState(true)
 
   // Dados simulados do panfleto
-  const panfleto = {
+  const panfleto: PanfletoInfo = {
     id,
     title: "Tênis Terracota Com Cadarço e Solado Em Borracha branca, Interior em Couro",
     period: "18/11/21 - 25/11/21",
@@ -206,7 +250,7 @@ export function PanfletoDetalhes({ id }) {
 }
 
 // Components
-function InfoItem({ label, value }) {
+function InfoItem({ label, value }: InfoItemProps) {
   return (
     <div className="flex flex-col">
       <span className="text-gray-500 text-sm">{label}</span>
@@ -215,7 +259,7 @@ function InfoItem({ label, value }) {
   )
 }
 
-function StatCard({ value, label, icon }) {
+function StatCard({ value, label, icon }: StatCardProps) {
   return (
     <Card className="p-4 flex flex-col items-center justify-center">
       <div className="text-2xl font-bold mb-1">{value}</div>
@@ -226,4 +270,3 @@ function StatCard({ value, label, icon }) {
     </Card>
   )
 }
-

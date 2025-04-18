@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -12,6 +14,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+// Define the interface for the evento object
+interface Evento {
+  id: string
+  title: string
+  period: string
+  image: string
+  panfletosUsados: number
+  panfletosTotal: number
+}
+
+// Define props for the PanfletoTypeCard component
+interface PanfletoTypeCardProps {
+  id: string
+  title: string
+  count: number
+  total: number
+  icon: React.ReactNode
+  description: string
+  color: string
+  selected?: boolean
+  onClick: () => void
+}
+
 export function CriarPanfletoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -20,10 +45,10 @@ export function CriarPanfletoContent() {
   const [addPromotionalValue, setAddPromotionalValue] = useState(false)
   const [tags, setTags] = useState(["Tag 1", "Tag 2", "Tag 3", "Tag 4"])
   const [selectedType, setSelectedType] = useState(eventoId ? "eventos" : "ativo") // Se vier de um evento, seleciona o tipo "eventos"
-  const [eventoSelecionado, setEventoSelecionado] = useState(null)
+  const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(null)
 
   // Dados simulados de eventos
-  const eventos = [
+  const eventos: Evento[] = [
     {
       id: "1",
       title: "Black Friday",
@@ -65,7 +90,7 @@ export function CriarPanfletoContent() {
     router.back()
   }
 
-  const handleRemoveTag = (tagToRemove) => {
+  const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove))
   }
 
@@ -227,40 +252,44 @@ export function CriarPanfletoContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
-            <Input
-              type="text"
-              value={
-                selectedType === "hotpromo"
-                  ? "Hotpromos são criadas instantaneamente."
-                  : selectedType === "eventos"
-                    ? "Panfletos de eventos são ativados durante evento."
-                    : selectedType === "ativo"
-                      ? "Panfletos ativos são criados instantaneamente."
-                      : "Selecione a data de início"
-              }
-              className="w-full bg-gray-50"
-              readOnly={selectedType === "hotpromo" || selectedType === "eventos" || selectedType === "ativo"}
-              icon={<Lock className="h-4 w-4 text-gray-400" />}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                value={
+                  selectedType === "hotpromo"
+                    ? "Hotpromos são criadas instantaneamente."
+                    : selectedType === "eventos"
+                      ? "Panfletos de eventos são ativados durante evento."
+                      : selectedType === "ativo"
+                        ? "Panfletos ativos são criados instantaneamente."
+                        : "Selecione a data de início"
+                }
+                className="w-full bg-gray-50 pl-8"
+                readOnly={selectedType === "hotpromo" || selectedType === "eventos" || selectedType === "ativo"}
+              />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Data de Término</label>
-            <Input
-              type="text"
-              value={
-                selectedType === "hotpromo"
-                  ? "Hotpromos possuem duração de 24 horas."
-                  : selectedType === "eventos"
-                    ? "Panfletos de eventos se encerram junto ao evento."
-                    : selectedType === "ativo"
-                      ? "Panfletos ativos possuem duração de 24 horas."
-                      : "Selecione a data de término"
-              }
-              className="w-full bg-gray-50"
-              readOnly={selectedType === "hotpromo" || selectedType === "eventos" || selectedType === "ativo"}
-              icon={<Lock className="h-4 w-4 text-gray-400" />}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                value={
+                  selectedType === "hotpromo"
+                    ? "Hotpromos possuem duração de 24 horas."
+                    : selectedType === "eventos"
+                      ? "Panfletos de eventos se encerram junto ao evento."
+                      : selectedType === "ativo"
+                        ? "Panfletos ativos possuem duração de 24 horas."
+                        : "Selecione a data de término"
+                }
+                className="w-full bg-gray-50 pl-8"
+                readOnly={selectedType === "hotpromo" || selectedType === "eventos" || selectedType === "ativo"}
+              />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
           </div>
         </div>
       </Card>
@@ -352,7 +381,17 @@ export function CriarPanfletoContent() {
 }
 
 // Components
-function PanfletoTypeCard({ id, title, count, total, icon, description, color, selected = false, onClick }) {
+function PanfletoTypeCard({
+  id,
+  title,
+  count,
+  total,
+  icon,
+  description,
+  color,
+  selected = false,
+  onClick,
+}: PanfletoTypeCardProps) {
   return (
     <Card
       className={`p-4 ${selected ? "border-2 border-blue-600" : ""} cursor-pointer hover:shadow-md transition-shadow`}
@@ -378,4 +417,3 @@ function ImageUploadBox() {
     </div>
   )
 }
-

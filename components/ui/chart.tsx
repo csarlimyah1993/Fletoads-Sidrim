@@ -1,7 +1,5 @@
 "use client"
 
-import { Chart } from "@/components/ui/chart"
-
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import {
@@ -23,7 +21,7 @@ interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
   config?: Record<string, any>
 }
 
-export function ChartContainer({ children, config, className, ...props }: ChartProps) {
+export function ChartContainerComponent({ children, config, className, ...props }: ChartProps) {
   return (
     <div
       className={className}
@@ -41,11 +39,11 @@ export function ChartContainer({ children, config, className, ...props }: ChartP
   )
 }
 
-export function ChartTooltip({ children }: { children: React.ReactNode }) {
+export function ChartTooltipComponent({ children }: { children: React.ReactNode }) {
   return <div className="bg-white p-2 border rounded-md shadow-md text-sm">{children}</div>
 }
 
-export function ChartTooltipContent() {
+export function ChartTooltipContentComponent() {
   return (
     <div className="bg-white p-2 border rounded-md shadow-md">
       <p className="text-sm font-medium">Tooltip Content</p>
@@ -74,7 +72,41 @@ const ChartStyle = React.forwardRef<HTMLDivElement, ChartStyleProps>(({ classNam
 })
 ChartStyle.displayName = "ChartStyle"
 
-const BarChartComponent = ({ data }) => {
+// Define interfaces for chart data
+interface BarChartData {
+  name: string
+  pv: number
+  uv: number
+  [key: string]: any // For any additional properties
+}
+
+interface LineChartData {
+  name: string
+  pv: number
+  uv: number
+  [key: string]: any // For any additional properties
+}
+
+interface PieChartData {
+  name: string
+  value: number
+  [key: string]: any // For any additional properties
+}
+
+// Update component props with proper types
+interface BarChartComponentProps {
+  data: BarChartData[]
+}
+
+interface LineChartComponentProps {
+  data: LineChartData[]
+}
+
+interface PieChartComponentProps {
+  data: PieChartData[]
+}
+
+const BarChartComponent = ({ data }: BarChartComponentProps) => {
   return (
     <BarChart width={500} height={300} data={data}>
       <CartesianGrid strokeDasharray="3 3" />
@@ -88,7 +120,7 @@ const BarChartComponent = ({ data }) => {
   )
 }
 
-const LineChartComponent = ({ data }) => {
+const LineChartComponent = ({ data }: LineChartComponentProps) => {
   return (
     <LineChart width={500} height={300} data={data}>
       <CartesianGrid strokeDasharray="3 3" />
@@ -102,7 +134,7 @@ const LineChartComponent = ({ data }) => {
   )
 }
 
-const PieChartComponent = ({ data }) => {
+const PieChartComponent = ({ data }: PieChartComponentProps) => {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
@@ -113,5 +145,12 @@ const PieChartComponent = ({ data }) => {
   )
 }
 
-export { Chart, BarChartComponent as BarChart, LineChartComponent as LineChart, PieChartComponent as PieChart }
-
+export {
+  ChartStyle as Chart,
+  BarChartComponent as BarChart,
+  LineChartComponent as LineChart,
+  PieChartComponent as PieChart,
+  ChartContainerComponent as ChartContainer,
+  ChartTooltipComponent as ChartTooltip,
+  ChartTooltipContentComponent as ChartTooltipContent,
+}

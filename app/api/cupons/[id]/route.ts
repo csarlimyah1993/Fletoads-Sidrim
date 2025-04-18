@@ -4,7 +4,23 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Define a type for the session user with lojaId
+interface SessionUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role: string
+  nome?: string
+  emailVerificado?: boolean
+  plano?: string
+  lojaId?: string
+  permissoes?: string[]
+  twoFactorEnabled?: boolean
+  twoFactorMethod?: "email" | "app"
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -13,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -21,10 +37,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Buscar cupom
     const cupom = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!cupom) {
@@ -38,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -47,7 +66,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -62,10 +81,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Verificar se o cupom existe e pertence à loja do usuário
     const cupomExistente = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!cupomExistente) {
@@ -75,7 +97,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Verificar se já existe outro cupom com o mesmo código
     const outroCupomMesmoCodigo = await db.collection("cupons").findOne({
       codigo: body.codigo,
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
       _id: { $ne: new ObjectId(id) },
     })
 
@@ -99,7 +121,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -108,7 +130,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -116,10 +138,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Verificar se o cupom existe e pertence à loja do usuário
     const cupomExistente = await db.collection("cupons").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!cupomExistente) {

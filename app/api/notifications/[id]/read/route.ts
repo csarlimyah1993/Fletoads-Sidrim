@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -13,8 +13,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const { db } = await connectToDatabase()
-    const userId = session.user.id
-    const notificationId = params.id
+    const { id: userId } = session.user
+    const { id: notificationId } = await context.params // Desestruturação assíncrona do parâmetro `id`
 
     if (!notificationId) {
       return NextResponse.json({ error: "ID da notificação não fornecido" }, { status: 400 })
@@ -58,4 +58,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Erro ao marcar notificação como lida" }, { status: 500 })
   }
 }
-

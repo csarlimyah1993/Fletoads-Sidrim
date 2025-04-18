@@ -235,3 +235,38 @@ export async function getAllResourceLimits(userId: string): Promise<ResourceLimi
 
   return limits
 }
+
+// Add the missing function that combines plan limits with actual usage
+export async function getUserResourceLimits(userId: string) {
+  // Get the user's plan limits
+  const planLimits = await getUserPlanLimits(userId)
+
+  // Get the current usage of resources
+  const resourceLimits = await getAllResourceLimits(userId)
+
+  // Return combined data
+  return {
+    plan: {
+      name: planLimits.nome || "Desconhecido",
+      price: planLimits.preco || "Desconhecido",
+      features: {
+        personalizacaoVitrine: planLimits.personalizacaoVitrine || "básica",
+        bannerPersonalizado: planLimits.bannerPersonalizado || false,
+        layoutsVitrine: planLimits.layoutsVitrine || 1,
+        widgets: planLimits.widgets || 0,
+        animacoes: planLimits.animacoes || false,
+        personalizacaoFonte: planLimits.personalizacaoFonte || false,
+        imagensPorProduto: planLimits.imagensPorProduto || 1,
+        tourVirtual: planLimits.tourVirtual || false,
+      },
+    },
+    limits: {
+      panfletos: planLimits.panfletos,
+      produtos: planLimits.produtos,
+      clientes: planLimits.clientes,
+      integracoes: planLimits.integracoes,
+      campanhas: planLimits.campanhas,
+    },
+    usage: resourceLimits,
+  }
+}

@@ -4,8 +4,8 @@ import type React from "react"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { useSession } from "next-auth/react"
-import UserSidebar from "@/components/user-sidebar"
-import AdminSidebar from "@/components/admin/admin-sidebar"
+import { UserSidebar } from "@/components/user-sidebar"
+import { AdminSidebar } from "@/components/admin/admin-sidebar"
 
 export function SidebarContainer({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
@@ -26,4 +26,3 @@ export function SidebarContainer({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   )
 }
-

@@ -1,13 +1,13 @@
 "use client"
 
-import { Facebook, Instagram, Twitter, Linkedin, ChevronRight } from "lucide-react"
+import { Facebook, Instagram, Twitter, Linkedin, ChevronRight } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import type { VitrineFooterProps } from "@/types/vitrine"
 
 export function VitrineFooter({ loja, config }: VitrineFooterProps) {
   return (
     <footer
-      className={cn("py-12 px-4", config.tema === "escuro" ? "bg-gray-800 text-gray-200" : "bg-gray-100 text-gray-800")}
+      className={cn("py-12 px-4", config?.tema === "escuro" ? "bg-gray-800 text-gray-200" : "bg-gray-100 text-gray-800")}
     >
       <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -15,7 +15,7 @@ export function VitrineFooter({ loja, config }: VitrineFooterProps) {
           <div>
             <h4 className="font-bold text-lg mb-4">{loja.nome}</h4>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{loja.descricao || "Sua loja online"}</p>
-            {config.mostrarRedesSociais && (
+            {config?.mostrarRedesSociais && (
               <div className="flex items-center gap-2 mt-4">
                 <a href="#" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                   <Facebook className="h-5 w-5" />

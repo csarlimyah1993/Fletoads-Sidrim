@@ -5,541 +5,201 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { toast } from "sonner"
-import { Loader2, Clock } from "lucide-react"
-
+import { toast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
 
-// Definir tipos para os horários de funcionamento
-interface HorarioConfig {
-  open: string
-  close: string
-  type: string
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+  image?: string
+  role: string
+  nome?: string
+  emailVerificado?: boolean
+  plano?: string
+  lojaId?: string
 }
 
-interface HorariosFuncionamento {
-  segunda: HorarioConfig
-  terca: HorarioConfig
-  quarta: HorarioConfig
-  quinta: HorarioConfig
-  sexta: HorarioConfig
-  sabado: HorarioConfig
-  domingo: HorarioConfig
-  [key: string]: HorarioConfig // Índice de string para acesso dinâmico
-}
-
-// Definir o schema de validação
-const perfilSchema = z.object({
-  nome: z.string().min(2, "O nome deve ter pelo menos 2 caracteres"),
-  descricao: z.string().optional(),
-  telefone: z.string().optional(),
-  whatsapp: z.string().optional(),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
-  site: z.string().url("URL inválida").optional().or(z.literal("")),
-  endereco: z.string().optional(),
-  redesSociais: z
-    .object({
-      facebook: z.string().url("URL inválida").optional().or(z.literal("")),
-      instagram: z.string().url("URL inválida").optional().or(z.literal("")),
-      twitter: z.string().url("URL inválida").optional().or(z.literal("")),
-      youtube: z.string().url("URL inválida").optional().or(z.literal("")),
-      linkedin: z.string().url("URL inválida").optional().or(z.literal("")),
-      tiktok: z.string().url("URL inválida").optional().or(z.literal("")),
-    })
-    .optional(),
-})
-
-type PerfilFormValues = z.infer<typeof perfilSchema>
-
-interface EditarPerfilContentProps {
-  usuario: any
-  perfil: any
-}
-
-export function EditarPerfilContent({ usuario, perfil }: EditarPerfilContentProps) {
+export function EditarPerfilContent() {
+  const { data: session, status } = useSession()
   const router = useRouter()
-  const { data: session } = useSession()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState("informacoes")
-  const [horarios, setHorarios] = useState<HorariosFuncionamento>({
-    segunda: { open: "09:00", close: "18:00", type: "open" },
-    terca: { open: "09:00", close: "18:00", type: "open" },
-    quarta: { open: "09:00", close: "18:00", type: "open" },
-    quinta: { open: "09:00", close: "18:00", type: "open" },
-    sexta: { open: "09:00", close: "18:00", type: "open" },
-    sabado: { open: "10:00", close: "14:00", type: "open" },
-    domingo: { open: "00:00", close: "00:00", type: "closed" },
-  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
 
-  // Preparar valores iniciais para o formulário
-  const defaultValues: PerfilFormValues = {
-    nome: perfil?.nome || usuario?.name || "",
-    descricao: perfil?.descricao || "",
-    telefone: perfil?.telefone || "",
-    whatsapp: perfil?.whatsapp || "",
-    email: perfil?.email || usuario?.email || "",
-    site: perfil?.site || "",
-    endereco: typeof perfil?.endereco === "string" ? perfil.endereco : "",
-    redesSociais: {
-      facebook: perfil?.redesSociais?.facebook || "",
-      instagram: perfil?.redesSociais?.instagram || "",
-      twitter: perfil?.redesSociais?.twitter || "",
-      youtube: perfil?.redesSociais?.youtube || "",
-      linkedin: perfil?.redesSociais?.linkedin || "",
-      tiktok: perfil?.redesSociais?.tiktok || "",
-    },
-  }
+  // Form state
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [bio, setBio] = useState("")
+  const [phone, setPhone] = useState("")
 
-  const form = useForm<PerfilFormValues>({
-    resolver: zodResolver(perfilSchema),
-    defaultValues,
-  })
-
-  // Carregar horários existentes, se houver
   useEffect(() => {
-    if (perfil?.horarioFuncionamento) {
-      try {
-        const horariosSalvos =
-          typeof perfil.horarioFuncionamento === "string"
-            ? JSON.parse(perfil.horarioFuncionamento)
-            : perfil.horarioFuncionamento
+    if (status === "loading") return
 
-        if (horariosSalvos && typeof horariosSalvos === "object") {
-          setHorarios((prev) => ({ ...prev, ...horariosSalvos }))
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
+
+    const fetchProfile = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/user/profile")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch profile")
         }
+
+        const data = await response.json()
+        setProfile(data)
+
+        // Initialize form fields
+        setName(data.name || "")
+        setEmail(data.email || "")
+        setBio(data.bio || "")
+        setPhone(data.phone || "")
       } catch (error) {
-        console.error("Erro ao carregar horários:", error)
+        console.error("Error fetching profile:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load profile data. Please try again later.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
       }
     }
-  }, [perfil])
 
-  const handleHorarioChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    const [day, field] = name.split(".")
+    fetchProfile()
+  }, [status, router])
 
-    setHorarios((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [field]: value,
-      },
-    }))
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  const handleHorarioTypeChange = (day: string, type: string) => {
-    setHorarios((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        type,
-      },
-    }))
-  }
-
-  const diasDaSemana = [
-    { id: "segunda", label: "Segunda-feira" },
-    { id: "terca", label: "Terça-feira" },
-    { id: "quarta", label: "Quarta-feira" },
-    { id: "quinta", label: "Quinta-feira" },
-    { id: "sexta", label: "Sexta-feira" },
-    { id: "sabado", label: "Sábado" },
-    { id: "domingo", label: "Domingo" },
-  ]
-
-  const copiarHorarios = (id: string) => {
-    const horarioBase = horarios[id]
-    const novoHorarios: Record<string, HorarioConfig> = {}
-
-    diasDaSemana.forEach((dia) => {
-      if (dia.id !== id) {
-        novoHorarios[dia.id] = { ...horarioBase }
-      }
-    })
-
-    setHorarios({ ...horarios, ...novoHorarios })
-  }
-
-  const limparHorarios = () => {
-    setHorarios({
-      segunda: { open: "09:00", close: "18:00", type: "open" },
-      terca: { open: "09:00", close: "18:00", type: "open" },
-      quarta: { open: "09:00", close: "18:00", type: "open" },
-      quinta: { open: "09:00", close: "18:00", type: "open" },
-      sexta: { open: "09:00", close: "18:00", type: "open" },
-      sabado: { open: "10:00", close: "14:00", type: "open" },
-      domingo: { open: "00:00", close: "00:00", type: "closed" },
-    })
-  }
-
-  const onSubmit = async (data: PerfilFormValues) => {
-    setIsSubmitting(true)
     try {
-      // Adicionar horários ao payload
-      const payload = {
-        ...data,
-        horarioFuncionamento: JSON.stringify(horarios),
-      }
+      setIsSaving(true)
 
-      const response = await fetch(`/api/perfil/${perfil?._id || "novo"}`, {
-        method: perfil?._id ? "PATCH" : "POST",
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name,
+          email,
+          bio,
+          phone,
+        }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao atualizar perfil")
+        throw new Error("Failed to update profile")
       }
 
-      toast.success("Perfil atualizado com sucesso!")
-      router.push("/dashboard/perfil")
+      toast({
+        title: "Success",
+        description: "Your profile has been updated successfully.",
+      })
+
+      // Refresh session data
       router.refresh()
     } catch (error) {
-      toast.error((error as Error).message || "Erro ao atualizar perfil")
+      console.error("Error updating profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again later.",
+        variant: "destructive",
+      })
     } finally {
-      setIsSubmitting(false)
+      setIsSaving(false)
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
-    <div className="container py-10">
-      <h1 className="text-2xl font-bold mb-6">Editar Perfil</h1>
+    <div className="container max-w-3xl py-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                required
+              />
+            </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="informacoes">Informações Básicas</TabsTrigger>
-          <TabsTrigger value="horarios">Horários de Funcionamento</TabsTrigger>
-          <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
-        </TabsList>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Your email"
+                required
+                disabled
+              />
+              <p className="text-sm text-muted-foreground">Email cannot be changed</p>
+            </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <TabsContent value="informacoes">
-              <Card>
-                <CardContent className="p-6 space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="nome"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Seu nome completo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Your phone number"
+              />
+            </div>
 
-                  <FormField
-                    control={form.control}
-                    name="descricao"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Descrição</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Uma breve descrição sobre você" className="resize-none" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us about yourself"
+                rows={4}
+              />
+            </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="telefone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Telefone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="(00) 0000-0000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="whatsapp"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>WhatsApp</FormLabel>
-                          <FormControl>
-                            <Input placeholder="(00) 00000-0000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input placeholder="seu@email.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="site"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Site</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://www.seusite.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="endereco"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Endereço</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Seu endereço completo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="horarios">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium">Horários de Funcionamento</h3>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={limparHorarios}>
-                        Redefinir
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {diasDaSemana.map((dia) => (
-                      <div key={dia.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center border-b pb-4">
-                        <div className="flex items-center justify-between md:justify-start">
-                          <span className="font-medium">{dia.label}</span>
-                          <div className="md:hidden ml-auto">
-                            <Select
-                              value={horarios[dia.id].type}
-                              onValueChange={(value) => handleHorarioTypeChange(dia.id, value)}
-                            >
-                              <SelectTrigger className="w-[120px]">
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="open">Aberto</SelectItem>
-                                <SelectItem value="closed">Fechado</SelectItem>
-                                <SelectItem value="appointment">Agendamento</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <div className="hidden md:flex items-center space-x-2">
-                          <Select
-                            value={horarios[dia.id].type}
-                            onValueChange={(value) => handleHorarioTypeChange(dia.id, value)}
-                          >
-                            <SelectTrigger className="w-[120px]">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="open">Aberto</SelectItem>
-                              <SelectItem value="closed">Fechado</SelectItem>
-                              <SelectItem value="appointment">Agendamento</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 md:col-span-2">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                            <Input
-                              type="time"
-                              name={`${dia.id}.open`}
-                              value={horarios[dia.id].open}
-                              onChange={handleHorarioChange}
-                              disabled={horarios[dia.id].type === "closed"}
-                            />
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                            <Input
-                              type="time"
-                              name={`${dia.id}.close`}
-                              value={horarios[dia.id].close}
-                              onChange={handleHorarioChange}
-                              disabled={horarios[dia.id].type === "closed"}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copiarHorarios(dia.id)}
-                            className="text-xs"
-                          >
-                            Aplicar a todos
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="redes">
-              <Card>
-                <CardContent className="p-6 space-y-6">
-                  <h3 className="text-lg font-medium">Redes Sociais</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.facebook"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Facebook</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://facebook.com/seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.instagram"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Instagram</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://instagram.com/seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.twitter"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Twitter</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://twitter.com/seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.youtube"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>YouTube</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://youtube.com/seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.linkedin"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>LinkedIn</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://linkedin.com/in/seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="redesSociais.tiktok"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>TikTok</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://tiktok.com/@seuperfil" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <div className="mt-6 flex justify-end space-x-4">
-              <Button type="button" variant="outline" onClick={() => router.push("/dashboard/perfil")}>
-                Cancelar
+            <div className="flex justify-end space-x-4">
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
+                    Saving...
                   </>
                 ) : (
-                  "Salvar Alterações"
+                  "Save Changes"
                 )}
               </Button>
             </div>
           </form>
-        </Form>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

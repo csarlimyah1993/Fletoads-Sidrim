@@ -1,91 +1,56 @@
-import { Suspense } from "react"
 import { getServerSession } from "next-auth"
+import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
-import { LojaPerfilForm } from "@/components/perfil/loja-form"
-import { Skeleton } from "@/components/ui/skeleton"
-import { DatabaseErrorFallback } from "@/components/database-error-fallback"
-
-// Função para serializar objetos MongoDB
-function serializeMongoObject(obj: any) {
-  if (!obj) return null
-
-  return JSON.parse(
-    JSON.stringify(obj, (key, value) => {
-      // Converter ObjectId para string
-      if (key === "_id" && value && typeof value === "object" && value.toString) {
-        return value.toString()
-      }
-      // Converter datas para strings ISO
-      if (value instanceof Date) {
-        return value.toISOString()
-      }
-      return value
-    }),
-  )
-}
+import { ObjectId } from "mongodb"
+import LojaPerfilFormServerWrapper from "@/components/perfil/loja-perfil-form-server-wrapper"
 
 export default async function EditarPerfilLojaPage() {
-  let lojaData = null
-  let error = null
+  // Get the user session
+  const session = await getServerSession(authOptions)
 
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return <div>Não autorizado. Por favor, faça login para acessar esta página.</div>
-    }
-
-    // Conectar ao banco de dados
-    await connectToDatabase()
-
-    // Verificar se a conexão está estabelecida
-    const connection = mongoose.connection
-    if (!connection || !connection.db) {
-      throw new Error("Conexão com o banco de dados não estabelecida")
-    }
-
-    // Buscar o usuário pelo email
-    const db = connection.db
-    const usuariosCollection = db.collection("usuarios")
-    const usuario = await usuariosCollection.findOne({ email: session.user.email })
-
-    if (!usuario) {
-      throw new Error("Usuário não encontrado")
-    }
-
-    // Buscar a loja do usuário
-    const lojasCollection = db.collection("lojas")
-    const userId = usuario._id.toString()
-
-    const loja = await lojasCollection.findOne({
-      $or: [{ usuarioId: userId }, { usuarioId: new mongoose.Types.ObjectId(userId) }],
-    })
-
-    if (loja) {
-      // Serializar o objeto MongoDB para um objeto JavaScript simples
-      lojaData = serializeMongoObject(loja)
-      console.log("Loja encontrada e serializada:", lojaData)
-    } else {
-      console.log("Nenhuma loja encontrada para o usuário:", userId)
-    }
-  } catch (err) {
-    console.error("Erro ao buscar dados da loja:", err)
-    error = err instanceof Error ? err.message : "Erro desconhecido"
+  if (!session) {
+    redirect("/login")
   }
 
-  if (error) {
-    return <DatabaseErrorFallback errorMessage={error} />
+  // Fetch the store data
+  const { db } = await connectToDatabase()
+
+  // Try to find the store associated with the user
+  const loja = await db.collection("lojas").findOne({
+    $or: [
+      { usuarioId: session.user.id },
+      { usuarioId: new ObjectId(session.user.id) },
+      { proprietarioId: session.user.id },
+      { proprietarioId: new ObjectId(session.user.id) },
+    ],
+  })
+
+  if (!loja) {
+    redirect("/perfil-da-loja/criar")
+  }
+
+  // Convert ObjectId to string for serialization
+  const lojaData = {
+    _id: loja._id.toString(),
+    nome: loja.nome || "",
+    descricao: loja.descricao || "",
+    cnpj: loja.cnpj || "",
+    endereco: loja.endereco || "",
+    contato: loja.contato || {},
+    categorias: loja.categorias || [],
+    horarioFuncionamento: loja.horarioFuncionamento || {},
+    redesSociais: loja.redesSociais || {},
+    banner: loja.banner || "",
+    logo: loja.logo || "",
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Editar Perfil da Loja</h1>
-      <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-        <LojaPerfilForm loja={lojaData} />
-      </Suspense>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="w-full max-w-5xl">
+        <h1 className="text-4xl font-bold text-center mb-8">Editar Perfil da Loja</h1>
+        <LojaPerfilFormServerWrapper lojaData={lojaData} />
+      </div>
+    </main>
   )
 }
-

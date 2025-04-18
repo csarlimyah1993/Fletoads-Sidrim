@@ -7,32 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 
-// Importar os componentes do Recharts dinamicamente para evitar erros de SSR
-const BarChart = dynamic(() => import("recharts").then((mod) => mod.BarChart), { ssr: false })
-
-const Bar = dynamic(() => import("recharts").then((mod) => mod.Bar), { ssr: false })
-
-const XAxis = dynamic(() => import("recharts").then((mod) => mod.XAxis), { ssr: false })
-
-const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis), { ssr: false })
-
-const CartesianGrid = dynamic(() => import("recharts").then((mod) => mod.CartesianGrid), { ssr: false })
-
-const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip), { ssr: false })
-
-const ResponsiveContainer = dynamic(() => import("recharts").then((mod) => mod.ResponsiveContainer), { ssr: false })
-
-const LineChart = dynamic(() => import("recharts").then((mod) => mod.LineChart), { ssr: false })
-
-const Line = dynamic(() => import("recharts").then((mod) => mod.Line), { ssr: false })
-
-const PieChart = dynamic(() => import("recharts").then((mod) => mod.PieChart), { ssr: false })
-
-const Pie = dynamic(() => import("recharts").then((mod) => mod.Pie), { ssr: false })
-
-const Cell = dynamic(() => import("recharts").then((mod) => mod.Cell), { ssr: false })
-
-const Legend = dynamic(() => import("recharts").then((mod) => mod.Legend), { ssr: false })
+// Import the wrapper component with all Recharts components
+const DynamicRechartsComponents = dynamic(() => import("@/components/charts/recharts-wrapper"), {
+  ssr: false,
+  loading: () => <p>Loading charts...</p>,
+})
 
 // Dados de exemplo para os gráficos
 const dadosVisualizacoes = [
@@ -62,17 +41,34 @@ const dadosCategorias = [
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"]
 
+// Define types for the pie chart label function
+interface PieChartLabelProps {
+  nome: string
+  percent: number
+  [key: string]: any
+}
+
 export default function RelatoriosPage() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState("6meses")
   const [mounted, setMounted] = useState(false)
+  const [chartsLoaded, setChartsLoaded] = useState(false)
+
+  // Import all Recharts components
+  const [RechartsComponents, setRechartsComponents] = useState<any>(null)
 
   // useEffect para garantir que o componente só renderize no cliente
   useEffect(() => {
     setMounted(true)
+
+    // Import Recharts components dynamically
+    import("@/components/charts/recharts-wrapper").then((module) => {
+      setRechartsComponents(module)
+      setChartsLoaded(true)
+    })
   }, [])
 
   // Não renderizar os gráficos até que o componente esteja montado no cliente
-  if (!mounted) {
+  if (!mounted || !chartsLoaded) {
     return (
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
@@ -92,6 +88,28 @@ export default function RelatoriosPage() {
         </div>
       </div>
     )
+  }
+
+  // Destructure the components after they're loaded
+  const {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    PieChart,
+    Pie,
+    Cell,
+    Legend,
+  } = RechartsComponents
+
+  // Custom label function for pie chart with proper typing
+  const renderCustomizedLabel = ({ nome, percent }: PieChartLabelProps) => {
+    return `${nome} ${(percent * 100).toFixed(0)}%`
   }
 
   return (
@@ -180,7 +198,7 @@ export default function RelatoriosPage() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="valor"
-                      label={({ nome, percent }) => `${nome} ${(percent * 100).toFixed(0)}%`}
+                      label={renderCustomizedLabel}
                     >
                       {dadosCategorias.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -198,4 +216,3 @@ export default function RelatoriosPage() {
     </div>
   )
 }
-

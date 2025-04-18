@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import dbConnect from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb"
 import Panfleto from "@/lib/models/panfleto"
 import Loja from "@/lib/models/loja"
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    await dbConnect()
+    await connectToDatabase()
 
     // Buscar a loja do usuário
     const loja = await Loja.findOne({ usuarioId: session.user.id })
@@ -37,4 +37,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Erro ao buscar categorias" }, { status: 500 })
   }
 }
-

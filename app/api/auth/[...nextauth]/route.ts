@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
-import { MongoClient } from "mongodb"
+import { MongoClient, ObjectId } from "mongodb" // Import ObjectId separately
 import bcrypt from "bcryptjs"
 
 const MONGODB_URI = process.env.MONGODB_URI || ""
@@ -128,7 +128,8 @@ const handler = NextAuth({
         } else {
           // Credentials login
           token.id = user.id
-          token.role = user.role
+          // Ensure role is always a string by providing a default value
+          token.role = user.role || "user"
         }
       }
 
@@ -145,7 +146,8 @@ const handler = NextAuth({
           const { client: mongoClient, db } = await connectToDatabase()
           client = mongoClient
 
-          const user = await db.collection("usuarios").findOne({ _id: new MongoClient.ObjectId(token.id as string) })
+          // Use the imported ObjectId class directly
+          const user = await db.collection("usuarios").findOne({ _id: new ObjectId(token.id as string) })
 
           if (user) {
             // Garantir que a role do banco de dados seja usada

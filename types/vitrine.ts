@@ -1,3 +1,4 @@
+import type React from "react"
 import type { Loja, Produto } from "./loja"
 
 export interface VitrineConfig {
@@ -97,26 +98,27 @@ export interface VitrineMetrica {
 }
 
 export interface VitrineHeaderProps {
-  loja: any
-  config: VitrineConfig
-  searchTerm: string
-  setSearchTerm: (term: string) => void
-  favoritos: string[]
-  isDarkMode: boolean
-  setIsDarkMode: (isDark: boolean) => void
+  loja: Loja
+  config?: VitrineConfig
+  searchTerm?: string
+  setSearchTerm?: (term: string) => void
+  favoritos?: string[]
+  isDarkMode?: boolean
+  setIsDarkMode?: (isDark: boolean) => void
+  isOwner?: boolean
 }
 
 export interface VitrineBannerProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
 }
 
 export interface VitrineProdutosProps {
   loja: Loja
-  config: VitrineConfig
+  config?: VitrineConfig
   produtos: Produto[]
   categorias: string[]
-  categoriaAtiva: string | null // Permitindo null aqui
+  categoriaAtiva: string | null
   setCategoriaAtiva: React.Dispatch<React.SetStateAction<string | null>>
   favoritos: string[]
   toggleFavorito: (produto: Produto) => void
@@ -124,36 +126,36 @@ export interface VitrineProdutosProps {
 }
 
 export interface VitrineSobreProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
 }
 
 export interface VitrineContatoProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
 }
 
 export interface VitrineAvaliacoesProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
   avaliacoes: Avaliacao[]
   onAvaliacaoEnviada: () => void
 }
 
 export interface VitrineNewsletterProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
 }
 
 export interface VitrineFooterProps {
-  loja: any
-  config: VitrineConfig
+  loja: Loja
+  config?: VitrineConfig
 }
 
 export interface VitrineMetricasProps {
-  loja: any
+  loja: Loja
 }
 
 export interface BackToTopButtonProps {
-  config: VitrineConfig
+  config?: VitrineConfig
 }

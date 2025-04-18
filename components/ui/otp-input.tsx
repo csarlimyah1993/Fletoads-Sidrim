@@ -7,7 +7,7 @@ interface OTPInputProps {
   onChange: (value: string) => void
   numInputs: number
   renderInput: (
-    props: React.InputHTMLAttributes<HTMLInputElement> & { ref?: React.RefObject<HTMLInputElement> },
+    props: React.InputHTMLAttributes<HTMLInputElement> & { ref: React.Ref<HTMLInputElement> },
   ) => React.ReactNode
   inputStyle?: string
   containerStyle?: string
@@ -74,8 +74,12 @@ export const OTPInput: React.FC<OTPInputProps> = ({
               onChange: (event) => handleChange(index, event as React.ChangeEvent<HTMLInputElement>),
               onKeyDown: (event) => handleKeyDown(index, event as React.KeyboardEvent<HTMLInputElement>),
               className: inputStyle,
-              ref: (el: HTMLInputElement | null) => (inputRefs.current[index] = el),
-              "data-index": index,
+              ref: (el: HTMLInputElement | null) => {
+                inputRefs.current[index] = el
+              },
+              // Use the proper way to set data attributes in TypeScript
+              // by using the spread operator with a properly typed object
+              ...{ "data-index": index },
               inputMode: "numeric",
               autoComplete: "one-time-code",
             })}

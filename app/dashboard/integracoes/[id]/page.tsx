@@ -11,13 +11,14 @@ interface Params {
 }
 
 interface Props {
-  params: Params
+  params: Promise<Params> // Corrigido para Promise<Params>
 }
 
+// Função de metadados agora espera um "params" que é uma Promise
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const integrationId = params.id
+  const { id } = await params // Agora aguardamos a resolução do params
 
-  const integration = await getIntegrationById(integrationId)
+  const integration = await getIntegrationById(id)
 
   if (!integration) {
     return {
@@ -31,18 +32,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const IntegrationPage = async ({ params }: Props) => {
+  const { id } = await params // Aguardamos os parâmetros aqui também
   const session = await getServerSession(authOptions)
 
   if (!session) {
     redirect("/login")
   }
 
-  const integrationId = params.id
-
-  const integration = await getIntegrationById(integrationId, session.user.id)
+  const integration = await getIntegrationById(id, session.user.id)
 
   if (!integration) {
     redirect("/dashboard/integracoes")
+  }
+
+  // Create a complete integration object with all required properties
+  const completeIntegration = {
+    ...integration,
+    description: `Configuração da integração ${integration.name}`, // Simply add the description without trying to access the non-existent property
+    // Add any other missing required properties here
   }
 
   return (
@@ -55,7 +62,7 @@ const IntegrationPage = async ({ params }: Props) => {
       </div>
       <div className="mt-10">
         <IntegrationForm
-          integration={integration}
+          integration={completeIntegration}
           webhookUrl={integration.settings?.webhookUrl || ""}
           apiKey={integration.settings?.apiKey || ""}
         />

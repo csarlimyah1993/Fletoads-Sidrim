@@ -300,7 +300,7 @@ export default function NovaIntegracaoPage() {
                           const credenciais = { ...form.getValues("credenciais"), [campo.nome]: value }
                           form.setValue("credenciais", credenciais)
                         }}
-                        defaultValue={form.getValues("credenciais")[campo.nome] || ""}
+                        defaultValue={form.getValues("credenciais")?.[campo.nome] || ""}
                         disabled={isLoading}
                       >
                         <SelectTrigger id={campo.nome}>
@@ -319,7 +319,7 @@ export default function NovaIntegracaoPage() {
                         id={campo.nome}
                         type={campo.tipo}
                         placeholder={campo.label}
-                        value={form.getValues("credenciais")[campo.nome] || ""}
+                        value={form.getValues("credenciais")?.[campo.nome] || ""}
                         onChange={(e) => {
                           const credenciais = { ...form.getValues("credenciais"), [campo.nome]: e.target.value }
                           form.setValue("credenciais", credenciais)

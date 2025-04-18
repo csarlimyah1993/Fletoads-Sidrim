@@ -1,15 +1,35 @@
-import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook, Twitter, Linkedin, Youtube } from "lucide-react"
-import type { Loja } from "@/types/loja"
+import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook } from "lucide-react"
+import type { Loja, Endereco, HorarioFuncionamento } from "@/types/loja"
 
 interface VitrineInfoProps {
   loja: Loja
 }
 
 export function VitrineInfo({ loja }: VitrineInfoProps) {
-  const isPlanoPago = loja.plano?.id !== "gratis"
+  // Fix for "Property 'id' does not exist on type 'string'"
+  const isPlanoPago = loja.plano !== "gratis"
 
   // Definir cores com base no plano
   const corPrimaria = loja.cores?.primaria || "#4f46e5"
+
+  // Format address as string
+  const formatEndereco = (endereco: Endereco): string => {
+    return `${endereco.rua || endereco.logradouro || ""}, ${endereco.numero || ""}, ${endereco.bairro || ""}, ${endereco.cidade || ""} - ${endereco.estado || ""}`
+  }
+
+  // Format business hours as string
+  const formatHorarioFuncionamento = (horario: HorarioFuncionamento): string => {
+    const formatDia = (
+      dia: string | { open?: boolean; abertura?: string; fechamento?: string } | undefined,
+    ): string => {
+      if (!dia) return "Fechado"
+      if (typeof dia === "string") return dia
+      if (dia.open === false) return "Fechado"
+      return `${dia.abertura || ""} - ${dia.fechamento || ""}`
+    }
+
+    return `Seg: ${formatDia(horario.segunda)}, Ter: ${formatDia(horario.terca)}, Qua: ${formatDia(horario.quarta)}, Qui: ${formatDia(horario.quinta)}, Sex: ${formatDia(horario.sexta)}, Sáb: ${formatDia(horario.sabado)}, Dom: ${formatDia(horario.domingo)}`
+  }
 
   // Verificar se há informações de contato para exibir
   const hasContactInfo =
@@ -20,9 +40,8 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
     loja.horarioFuncionamento ||
     loja.redesSociais?.instagram ||
     loja.redesSociais?.facebook ||
-    loja.redesSociais?.twitter ||
-    loja.redesSociais?.linkedin ||
-    loja.redesSociais?.youtube
+    loja.instagram ||
+    loja.facebook
 
   if (!loja.descricao && !hasContactInfo) {
     return null
@@ -48,7 +67,7 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                   />
                   <div>
                     <p className="font-medium dark:text-white">Endereço</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{loja.endereco}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{formatEndereco(loja.endereco)}</p>
                   </div>
                 </div>
               )}
@@ -104,12 +123,14 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                   />
                   <div>
                     <p className="font-medium dark:text-white">Horário de Funcionamento</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{loja.horarioFuncionamento}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {formatHorarioFuncionamento(loja.horarioFuncionamento)}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {loja.redesSociais?.instagram && (
+              {(loja.redesSociais?.instagram || loja.instagram) && (
                 <div className="flex items-start gap-3">
                   <Instagram
                     className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -119,19 +140,19 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                     <p className="font-medium dark:text-white">Instagram</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       <a
-                        href={`https://instagram.com/${loja.redesSociais.instagram.replace("@", "")}`}
+                        href={`https://instagram.com/${(loja.redesSociais?.instagram || loja.instagram || "").replace("@", "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:underline"
                       >
-                        {loja.redesSociais.instagram}
+                        {loja.redesSociais?.instagram || loja.instagram}
                       </a>
                     </p>
                   </div>
                 </div>
               )}
 
-              {loja.redesSociais?.facebook && (
+              {(loja.redesSociais?.facebook || loja.facebook) && (
                 <div className="flex items-start gap-3">
                   <Facebook
                     className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -141,83 +162,20 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
                     <p className="font-medium dark:text-white">Facebook</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       <a
-                        href={loja.redesSociais.facebook}
+                        href={loja.redesSociais?.facebook || loja.facebook || ""}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:underline"
                       >
-                        {loja.redesSociais.facebook}
+                        {loja.redesSociais?.facebook || loja.facebook}
                       </a>
                     </p>
                   </div>
                 </div>
               )}
 
-              {loja.redesSociais?.twitter && (
-                <div className="flex items-start gap-3">
-                  <Twitter
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Twitter</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a
-                        href={loja.redesSociais.twitter}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {loja.redesSociais.twitter}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {loja.redesSociais?.linkedin && (
-                <div className="flex items-start gap-3">
-                  <Linkedin
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">LinkedIn</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a
-                        href={loja.redesSociais.linkedin}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {loja.redesSociais.linkedin}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {loja.redesSociais?.youtube && (
-                <div className="flex items-start gap-3">
-                  <Youtube
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">YouTube</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a
-                        href={loja.redesSociais.youtube}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {loja.redesSociais.youtube}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Remove or comment out the Twitter, LinkedIn, and YouTube sections since they're not in the type definition */}
+              {/* If you want to keep them, you'll need to update the Loja interface in types/loja.ts */}
             </div>
           )}
         </div>
@@ -225,4 +183,3 @@ export function VitrineInfo({ loja }: VitrineInfoProps) {
     </section>
   )
 }
-

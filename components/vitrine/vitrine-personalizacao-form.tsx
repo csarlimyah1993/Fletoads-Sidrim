@@ -72,16 +72,21 @@ export function VitrinePersonalizacaoForm({ loja }: VitrinePersonalizacaoFormPro
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-
+  
     if (name.includes(".")) {
       const [parent, child] = name.split(".")
-      setFormData((prev) => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof prev],
-          [child]: value,
-        },
-      }))
+      setFormData((prev) => {
+        // Get the parent object, ensuring it's treated as an object
+        const parentObj = prev[parent as keyof typeof prev] as Record<string, any> || {}
+        
+        return {
+          ...prev,
+          [parent]: {
+            ...parentObj,  // Now TypeScript knows this is an object that can be spread
+            [child]: value,
+          },
+        }
+      })
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }

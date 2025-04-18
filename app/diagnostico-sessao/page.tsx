@@ -75,7 +75,7 @@ export default function DiagnosticoSessaoPage() {
                   </div>
                   <div>
                     <h3 className="font-medium">Cargo:</h3>
-                    <p className="text-sm">{session.user?.cargo || "Não disponível"}</p>
+                    <p className="text-sm">{session.user?.role || "Não disponível"}</p>
                   </div>
                   <div>
                     <h3 className="font-medium">Plano:</h3>
@@ -156,7 +156,7 @@ export default function DiagnosticoSessaoPage() {
                     </div>
                     <div>
                       <h3 className="font-medium">Cargo:</h3>
-                      <p className="text-sm">{userInfo.cargo || "Não disponível"}</p>
+                      <p className="text-sm">{userInfo.cargo || userInfo.role || "Não disponível"}</p>
                     </div>
                     <div>
                       <h3 className="font-medium">Dados Completos:</h3>

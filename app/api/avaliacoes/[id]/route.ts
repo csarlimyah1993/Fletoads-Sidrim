@@ -5,9 +5,9 @@ import Avaliacao from "@/lib/models/avaliacao"
 import Loja from "@/lib/models/loja"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id
+    const { id } = await params
 
     await connectToDatabase()
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await params
     const { resposta } = await request.json()
 
     if (!resposta) {
@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -81,7 +81,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await params
 
     await connectToDatabase()
 
@@ -108,4 +108,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: "Erro ao excluir avaliação" }, { status: 500 })
   }
 }
-

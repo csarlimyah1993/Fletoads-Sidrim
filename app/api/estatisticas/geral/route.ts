@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Panfleto from "@/lib/models/panfleto"
 import Cliente from "@/lib/models/cliente"
 import Campanha from "@/lib/models/campanha"
-import Venda from "@/lib/models/venda"
+import VendaModel from "@/lib/models/venda" // Using default export
 import mongoose from "mongoose"
 
 export async function GET(req: NextRequest) {
@@ -29,8 +29,16 @@ export async function GET(req: NextRequest) {
     const mesAnterior = new Date()
     mesAnterior.setDate(mesAnterior.getDate() - 60)
 
+    // Data atual
+    const hoje = new Date()
+
+    // Data de início para "últimos 6 meses"
+    const dataInicio6Meses = new Date()
+    dataInicio6Meses.setMonth(dataInicio6Meses.getMonth() - 6)
+
     // Estatísticas de Panfletos
     const totalPanfletos = await Panfleto.countDocuments({ usuarioId: userId })
+    const panfletosAtivos = await Panfleto.countDocuments({ usuarioId: userId, ativo: true })
 
     //Panfletos por categoria
     const panfletosPorCategoria = await Panfleto.aggregate([
@@ -41,9 +49,6 @@ export async function GET(req: NextRequest) {
     ])
 
     // Panfletos por mês (últimos 6 meses)
-    const dataInicio6Meses = new Date()
-    dataInicio6Meses.setMonth(dataInicio6Meses.getMonth() - 6)
-
     const panfletosPorMes = await Panfleto.aggregate([
       {
         $match: {
@@ -144,65 +149,100 @@ export async function GET(req: NextRequest) {
     const crescimentoCampanhas =
       campanhasMesAnterior > 0 ? ((campanhasUltimoMes - campanhasMesAnterior) / campanhasMesAnterior) * 100 : 0
 
-    // Estatísticas Gerais
-    const vendasUltimoMes = await Venda.countDocuments({
-      usuarioId: userId,
-      createdAt: { $gte: ultimoMes },
+    // Estatísticas de Vendas
+    const vendasMesAtual = await VendaModel.find({
+      userId,
+      data: { $gte: ultimoMes, $lte: hoje },
     })
 
-    // Faturamento total
-    const faturamentoResult = await Venda.aggregate([
-      {
-        $match: {
-          usuarioId: new mongoose.Types.ObjectId(userId),
-          createdAt: { $gte: ultimoMes },
-        },
-      },
-      { $group: { _id: null, total: { $sum: "$valor" } } },
-    ])
+    const clientesAlcancadosMesAtual = await VendaModel.distinct("cliente", {
+      userId,
+      data: { $gte: ultimoMes, $lte: hoje },
+      cliente: { $exists: true, $ne: null },
+    })
 
-    const faturamentoTotal = faturamentoResult.length > 0 ? faturamentoResult[0].total : 0
+    // Calcular vendas totais do mês atual
+    const vendasTotais = vendasMesAtual.reduce((total, venda) => total + venda.valor, 0)
+
+    // Buscar estatísticas do mês anterior para comparação
+    const vendasMesAnterior = await VendaModel.find({
+      userId,
+      data: { $gte: mesAnterior, $lt: ultimoMes },
+    })
+
+    const clientesAlcancadosMesAnterior = await VendaModel.distinct("cliente", {
+      userId,
+      data: { $gte: mesAnterior, $lt: ultimoMes },
+      cliente: { $exists: true, $ne: null },
+    })
+
+    // Calcular vendas totais do mês anterior
+    const vendasTotaisMesAnterior = vendasMesAnterior.reduce((total, venda) => total + venda.valor, 0)
+
+    // Calcular crescimento percentual
+    const calcularCrescimento = (atual: number, anterior: number): number => {
+      if (anterior === 0) return atual > 0 ? 100 : 0
+      return Number((((atual - anterior) / anterior) * 100).toFixed(1))
+    }
+
+    const crescimentoVendas = calcularCrescimento(vendasTotais, vendasTotaisMesAnterior)
 
     // Taxa de conversão (estimativa)
     const visualizacoesEstimadas = totalPanfletos * 100 // Estimativa simples
-    const taxaConversao = visualizacoesEstimadas > 0 ? (vendasUltimoMes / visualizacoesEstimadas) * 100 : 0
+    const taxaConversao = visualizacoesEstimadas > 0 ? (vendasMesAtual.length / visualizacoesEstimadas) * 100 : 0
 
     // Crescimento da taxa de conversão (estimativa)
-    const vendasMesAnterior = await Venda.countDocuments({
-      usuarioId: userId,
-      createdAt: { $gte: mesAnterior, $lt: ultimoMes },
-    })
-
-    const taxaConversaoAnterior = visualizacoesEstimadas > 0 ? (vendasMesAnterior / visualizacoesEstimadas) * 100 : 0
+    const taxaConversaoAnterior =
+      visualizacoesEstimadas > 0 ? (vendasMesAnterior.length / visualizacoesEstimadas) * 100 : 0
 
     const crescimentoConversao =
       taxaConversaoAnterior > 0 ? ((taxaConversao - taxaConversaoAnterior) / taxaConversaoAnterior) * 100 : 0
 
-    // Montar o objeto de resposta
+    // Montar o objeto de resposta combinando ambas as estruturas
     const estatisticas = {
-      panfletos: {
-        total: totalPanfletos,
-        porCategoria: panfletosPorCategoria,
-        porMes: panfletosPorMes,
-        crescimento: Math.round(crescimentoPanfletos),
-      },
-      clientes: {
-        total: totalClientes,
-        ativos: clientesAtivos,
-        porSegmento: clientesPorSegmento,
-        crescimento: Math.round(crescimentoClientes),
-      },
-      campanhas: {
-        total: totalCampanhas,
-        ativas: campanhasAtivas,
-        performance: campanhasPorStatus,
-        crescimento: Math.round(crescimentoCampanhas),
-      },
-      geral: {
-        totalVendas: vendasUltimoMes,
-        faturamentoTotal: faturamentoTotal,
-        taxaConversao: Number.parseFloat(taxaConversao.toFixed(2)),
-        crescimentoConversao: Math.round(crescimentoConversao),
+      // Formato da sua resposta original
+      vendasTotais,
+      panfletosAtivos,
+      produtosTotal: await Panfleto.countDocuments({ usuarioId: userId }),
+      clientesAlcancados: clientesAlcancadosMesAtual.length,
+      crescimentoVendas,
+      crescimentoPanfletos,
+      crescimentoProdutos: calcularCrescimento(
+        await Panfleto.countDocuments({ usuarioId: userId, createdAt: { $gte: ultimoMes } }),
+        await Panfleto.countDocuments({ usuarioId: userId, createdAt: { $gte: mesAnterior, $lt: ultimoMes } }),
+      ),
+      crescimentoClientes,
+
+      // Formato detalhado
+      detalhado: {
+        panfletos: {
+          total: totalPanfletos,
+          ativos: panfletosAtivos,
+          porCategoria: panfletosPorCategoria,
+          porMes: panfletosPorMes,
+          crescimento: Math.round(crescimentoPanfletos),
+        },
+        clientes: {
+          total: totalClientes,
+          ativos: clientesAtivos,
+          porSegmento: clientesPorSegmento,
+          crescimento: Math.round(crescimentoClientes),
+        },
+        campanhas: {
+          total: totalCampanhas,
+          ativas: campanhasAtivas,
+          performance: campanhasPorStatus,
+          crescimento: Math.round(crescimentoCampanhas),
+        },
+        vendas: {
+          total: vendasMesAtual.length,
+          valor: vendasTotais,
+          crescimento: Math.round(crescimentoVendas),
+        },
+        geral: {
+          taxaConversao: Number.parseFloat(taxaConversao.toFixed(2)),
+          crescimentoConversao: Math.round(crescimentoConversao),
+        },
       },
     }
 

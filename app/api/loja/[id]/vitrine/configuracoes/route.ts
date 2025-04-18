@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import Usuario from "@/lib/models/usuario"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
@@ -16,7 +17,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Mock vitrine configurations
     const configuracoes = {
-      id: params.id,
+      id: id,
       nome: "Minha Vitrine",
       descricao: "Descrição da minha vitrine",
       logo: "https://example.com/logo.png",

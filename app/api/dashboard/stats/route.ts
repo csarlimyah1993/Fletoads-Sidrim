@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { Panfleto } from "@/lib/models/panfleto"
-import { Produto } from "@/lib/models/produto"
-import { Venda } from "@/lib/models/venda"
+import PanfletoModel from "@/lib/models/panfleto"
+import ProdutoModel from "@/lib/models/produto"
+import mongoose from "mongoose"
 
 export async function GET() {
   try {
@@ -19,6 +19,20 @@ export async function GET() {
 
     const userId = session.user.id
 
+    // Create or get the Venda model directly
+    const Venda =
+      mongoose.models.Venda ||
+      mongoose.model(
+        "Venda",
+        new mongoose.Schema({
+          userId: String,
+          dataVenda: Date,
+          valorTotal: Number,
+          cliente: mongoose.Schema.Types.Mixed,
+          // Add other fields as needed
+        }),
+      )
+
     // Data atual e data de um mês atrás
     const hoje = new Date()
     const umMesAtras = new Date()
@@ -29,47 +43,47 @@ export async function GET() {
 
     // Buscar estatísticas atuais
     const [panfletosAtivos, produtosTotal, vendasMesAtual, clientesAlcancadosMesAtual] = await Promise.all([
-      Panfleto.countDocuments({ userId, ativo: true }),
-      Produto.countDocuments({ userId }),
+      PanfletoModel.countDocuments({ userId, ativo: true }),
+      ProdutoModel.countDocuments({ userId }),
       Venda.find({
         userId,
-        data: { $gte: umMesAtras, $lte: hoje },
+        dataVenda: { $gte: umMesAtras, $lte: hoje },
       }),
       Venda.distinct("cliente", {
         userId,
-        data: { $gte: umMesAtras, $lte: hoje },
+        dataVenda: { $gte: umMesAtras, $lte: hoje },
         cliente: { $exists: true, $ne: null },
       }),
     ])
 
     // Calcular vendas totais do mês atual
-    const vendasTotais = vendasMesAtual.reduce((total, venda) => total + venda.valor, 0)
+    const vendasTotais = vendasMesAtual.reduce((total, venda) => total + venda.valorTotal, 0)
 
     // Buscar estatísticas do mês anterior para comparação
     const [panfletosMesAnterior, produtosMesAnterior, vendasMesAnterior, clientesAlcancadosMesAnterior] =
       await Promise.all([
-        Panfleto.countDocuments({
+        PanfletoModel.countDocuments({
           userId,
           ativo: true,
           dataPublicacao: { $gte: doisMesesAtras, $lte: umMesAtras },
         }),
-        Produto.countDocuments({
+        ProdutoModel.countDocuments({
           userId,
           createdAt: { $gte: doisMesesAtras, $lte: umMesAtras },
         }),
         Venda.find({
           userId,
-          data: { $gte: doisMesesAtras, $lte: umMesAtras },
+          dataVenda: { $gte: doisMesesAtras, $lte: umMesAtras },
         }),
         Venda.distinct("cliente", {
           userId,
-          data: { $gte: doisMesesAtras, $lte: umMesAtras },
+          dataVenda: { $gte: doisMesesAtras, $lte: umMesAtras },
           cliente: { $exists: true, $ne: null },
         }),
       ])
 
     // Calcular vendas totais do mês anterior
-    const vendasTotaisMesAnterior = vendasMesAnterior.reduce((total, venda) => total + venda.valor, 0)
+    const vendasTotaisMesAnterior = vendasMesAnterior.reduce((total, venda) => total + venda.valorTotal, 0)
 
     // Calcular crescimento percentual
     const calcularCrescimento = (atual: number, anterior: number): number => {
@@ -100,4 +114,3 @@ export async function GET() {
     return NextResponse.json({ error: "Erro ao buscar estatísticas do dashboard" }, { status: 500 })
   }
 }
-

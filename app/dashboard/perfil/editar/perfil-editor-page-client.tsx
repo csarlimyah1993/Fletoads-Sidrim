@@ -1,53 +1,53 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2 } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { UsuarioPerfilForm } from "@/components/perfil/usuario-perfil-form"
-import { LojaPerfilForm } from "@/components/perfil/loja-perfil-form"
-import { User, Store } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/components/ui/use-toast"
+import LojaPerfilForm from '@/components/perfil/loja-perfil-form';
+
+interface Loja {
+  _id?: string
+  nome?: string
+  descricao?: string
+  logo?: string
+  banner?: string
+}
 
 export default function PerfilEditorPageClient() {
-  const [activeTab, setActiveTab] = useState<string>("usuario")
-  const [usuario, setUsuario] = useState<any>(null)
-  const [loja, setLoja] = useState<any>(null)
+  const { data: session, status } = useSession()
+  const [loja, setLoja] = useState<Loja | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    const fetchData = async () => {
+    if (status === "loading") {
+      return
+    }
+
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+
+    const fetchLoja = async () => {
+      setIsLoading(true)
       try {
-        setIsLoading(true)
-        console.log("Fetching user and store data...")
-
-        // Fetch user data
-        const userResponse = await fetch("/api/usuario/perfil")
-        if (!userResponse.ok) {
-          throw new Error("Falha ao buscar dados do usuário")
+        if (!session?.user?.email) {
+          throw new Error("Usuário não autenticado")
         }
-        const userData = await userResponse.json()
-        setUsuario(userData)
-        console.log("User data fetched:", userData)
-
-        // Fetch store data
-        const storeResponse = await fetch("/api/loja/perfil")
-        // It's okay if the store doesn't exist yet
-        if (storeResponse.status !== 404) {
-          const storeData = await storeResponse.json()
-          setLoja(storeData.loja)
-          console.log("Store data fetched:", storeData)
-        } else {
-          console.log("No store found, will create a new one")
-          setLoja({})
+        const response = await fetch(`/api/lojas?email=${session.user.email}`)
+        if (!response.ok) {
+          throw new Error("Falha ao buscar perfil da loja")
         }
+        const data = await response.json()
+        setLoja(data.loja)
       } catch (error) {
-        console.error("Error fetching profile data:", error)
-        setError(error instanceof Error ? error.message : "Erro desconhecido")
+        console.error("Erro ao buscar perfil:", error)
         toast({
           title: "Erro",
-          description: "Erro ao carregar dados do perfil. Por favor, tente novamente.",
+          description: "Ocorreu um erro ao buscar o perfil da loja.",
           variant: "destructive",
         })
       } finally {
@@ -55,74 +55,78 @@ export default function PerfilEditorPageClient() {
       }
     }
 
-    fetchData()
-  }, [])
+    fetchLoja()
+  }, [session, status, router])
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-lg font-medium text-red-800">Erro ao carregar dados</h3>
-        <p className="text-red-700">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-        >
-          Tentar novamente
-        </button>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Carregando perfil...</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+            <Skeleton className="h-4 w-[300px]" />
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Editar Perfil</h1>
-        <p className="text-muted-foreground">Atualize suas informações pessoais e da loja</p>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Editar Perfil da Loja</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loja && (
+          <LojaPerfilForm
+            onSubmit={async (data) => {
+              try {
+                const response = await fetch(`/api/lojas/${loja._id || "new"}`, {
+                  method: loja._id ? "PATCH" : "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    nome: data.nomeLoja,
+                    descricao: data.descricao,
+                    logo: data.logoUrl,
+                    banner: data.bannerUrl,
+                  }),
+                })
 
-      <Tabs defaultValue="usuario" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="usuario" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <span>Perfil do Usuário</span>
-          </TabsTrigger>
-          <TabsTrigger value="loja" className="flex items-center gap-2">
-            <Store className="h-4 w-4" />
-            <span>Perfil da Loja</span>
-          </TabsTrigger>
-        </TabsList>
+                if (!response.ok) {
+                  throw new Error("Falha ao atualizar perfil da loja")
+                }
 
-        <TabsContent value="usuario">
-          <Card>
-            <CardHeader>
-              <CardTitle>Perfil do Usuário</CardTitle>
-              <CardDescription>Atualize suas informações pessoais, incluindo CPF e dados de contato.</CardDescription>
-            </CardHeader>
-            <CardContent>{usuario && <UsuarioPerfilForm initialData={usuario} />}</CardContent>
-          </Card>
-        </TabsContent>
+                toast({
+                  title: "Perfil atualizado",
+                  description: "O perfil da sua loja foi atualizado com sucesso.",
+                })
 
-        <TabsContent value="loja">
-          <Card>
-            <CardHeader>
-              <CardTitle>Perfil da Loja</CardTitle>
-              <CardDescription>
-                Atualize as informações da sua loja, incluindo CNPJ, endereço e contatos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>{loja && <LojaPerfilForm loja={loja} />}</CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                // Refresh the page or redirect
+                window.location.href = "/dashboard/perfil"
+              } catch (error) {
+                console.error("Erro ao atualizar perfil:", error)
+                toast({
+                  title: "Erro",
+                  description: "Ocorreu um erro ao atualizar o perfil da loja.",
+                  variant: "destructive",
+                })
+              }
+            }}
+            initialValues={{
+              nomeLoja: loja.nome || "",
+              descricao: loja.descricao || "",
+              logoUrl: loja.logo || "",
+              bannerUrl: loja.banner || "",
+            }}
+          />
+        )}
+      </CardContent>
+    </Card>
   )
 }
-

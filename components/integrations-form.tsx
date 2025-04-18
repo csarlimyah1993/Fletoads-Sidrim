@@ -1,323 +1,394 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import * as z from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { toast } from "sonner"
-
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle, Copy, RefreshCw } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Loader2, CheckCircle2 } from "lucide-react"
 
+// Define the form schema
 const formSchema = z.object({
-  webhookUrl: z.string().url({ message: "URL inválida" }).optional().or(z.literal("")),
+  webhookUrl: z.string().url("URL inválida").optional().or(z.literal("")),
   apiKey: z.string().optional(),
-  notificationsEnabled: z.boolean().default(true),
-  syncInterval: z.enum(["realtime", "hourly", "daily"]).default("realtime"),
-  notes: z.string().optional(),
+  ativo: z.boolean().default(true),
+  credenciais: z.record(z.string()).optional(),
+  configuracoes: z.record(z.string()).optional(),
 })
 
-type FormValues = z.infer<typeof formSchema>
-
+// Define the props for the component
 interface IntegrationFormProps {
   integration: {
     id: string
     name: string
-    type: string
-    userId: string
+    description: string
+    logo?: string
+    fields?: {
+      credenciais?: Array<{
+        nome: string
+        label: string
+        tipo: string
+        obrigatorio?: boolean
+        opcoes?: string[]
+        descricao?: string
+      }>
+      configuracoes?: Array<{
+        nome: string
+        label: string
+        tipo: string
+        obrigatorio?: boolean
+        opcoes?: string[]
+        descricao?: string
+      }>
+    }
     settings?: {
       webhookUrl?: string
       apiKey?: string
-      notificationsEnabled?: boolean
-      syncInterval?: "realtime" | "hourly" | "daily"
-      notes?: string
+      credenciais?: Record<string, string>
+      configuracoes?: Record<string, string>
     }
   }
   webhookUrl?: string
   apiKey?: string
 }
 
-export default function IntegrationForm({ integration, webhookUrl, apiKey }: IntegrationFormProps) {
+export default function IntegrationForm({ integration, webhookUrl = "", apiKey = "" }: IntegrationFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [isTested, setIsTested] = useState(false)
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showApiKey, setShowApiKey] = useState(false)
 
-  const form = useForm<FormValues>({
+  // Initialize the form
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       webhookUrl: webhookUrl || "",
       apiKey: apiKey || "",
-      notificationsEnabled: integration.settings?.notificationsEnabled !== false,
-      syncInterval: integration.settings?.syncInterval || "realtime",
-      notes: integration.settings?.notes || "",
+      ativo: true,
+      credenciais: integration.settings?.credenciais || {},
+      configuracoes: integration.settings?.configuracoes || {},
     },
   })
 
-  async function onSubmit(values: FormValues) {
-    setIsSubmitting(true)
+  // Handle form submission
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true)
     try {
-      const response = await fetch(`/api/integrations/${integration.id}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/integracoes/${integration.id}/configurar`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          settings: {
-            ...values,
-          },
-        }),
+        body: JSON.stringify(values),
       })
 
       if (!response.ok) {
-        throw new Error("Falha ao atualizar a integração")
+        const error = await response.json()
+        throw new Error(error.message || "Erro ao salvar configurações")
       }
 
-      toast.success("Integração atualizada com sucesso")
+      toast.success("Configurações salvas com sucesso!")
+      router.push("/dashboard/integracoes")
       router.refresh()
     } catch (error) {
-      console.error(error)
-      toast.error("Erro ao atualizar a integração")
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar configurações")
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
-  function regenerateApiKey() {
-    const newApiKey = Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("")
+  // Handle testing the integration
+  async function testIntegration() {
+    setIsLoading(true)
+    try {
+      const values = form.getValues()
+      const response = await fetch(`/api/integracoes/${integration.id}/testar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
 
-    form.setValue("apiKey", newApiKey)
-    toast.success("Nova chave API gerada")
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Erro ao testar integração")
+      }
+
+      setIsTested(true)
+      toast.success("Integração testada com sucesso!")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao testar integração")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  function copyToClipboard(text: string | undefined, message: string) {
-    if (text) {
-      navigator.clipboard.writeText(text)
-      toast.success(message)
-    }
+  // Helper function to safely get field value
+  const getFieldValue = (fieldType: "credenciais" | "configuracoes", fieldName: string): string => {
+    const values = form.getValues(fieldType)
+    return values && values[fieldName] ? values[fieldName] : ""
   }
 
   return (
-    <Tabs defaultValue="settings" className="w-full">
-      <TabsList className="mb-4">
-        <TabsTrigger value="settings">Configurações</TabsTrigger>
-        <TabsTrigger value="api">API</TabsTrigger>
-        <TabsTrigger value="logs">Logs</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="settings">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Configurações da Integração</CardTitle>
-            <CardDescription>Configure como a integração com {integration.name} deve funcionar.</CardDescription>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="webhookUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL do Webhook</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
-                      </FormControl>
-                      <FormDescription>URL para onde enviaremos notificações de eventos.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="ativo"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Status da Integração</FormLabel>
+                      <FormDescription>
+                        Ative ou desative esta integração. Quando desativada, a integração não processará dados.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="notificationsEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Notificações</FormLabel>
-                        <FormDescription>Receba notificações sobre eventos desta integração.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+              <Tabs defaultValue="credenciais" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="credenciais">Credenciais</TabsTrigger>
+                  <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
+                  <TabsTrigger value="webhook">Webhook</TabsTrigger>
+                </TabsList>
 
-                <FormField
-                  control={form.control}
-                  name="syncInterval"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Intervalo de Sincronização</FormLabel>
-                      <div className="flex gap-4">
+                <TabsContent value="credenciais" className="space-y-4 pt-4">
+                  {integration.fields?.credenciais && integration.fields.credenciais.length > 0 ? (
+                    integration.fields.credenciais.map((campo) => {
+                      if (campo.tipo === "text" || campo.tipo === "password") {
+                        return (
+                          <FormField
+                            key={campo.nome}
+                            control={form.control}
+                            name={`credenciais.${campo.nome}`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{campo.label}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type={campo.tipo}
+                                    placeholder={`Digite ${campo.label.toLowerCase()}`}
+                                    {...field}
+                                    value={field.value || ""}
+                                    disabled={isLoading}
+                                  />
+                                </FormControl>
+                                {campo.descricao && <FormDescription>{campo.descricao}</FormDescription>}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )
+                      } else if (campo.tipo === "select" && campo.opcoes) {
+                        return (
+                          <FormField
+                            key={campo.nome}
+                            control={form.control}
+                            name={`credenciais.${campo.nome}`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{campo.label}</FormLabel>
+                                <Select
+                                  onValueChange={(value) => {
+                                    field.onChange(value)
+                                    const credenciais = form.getValues("credenciais") || {}
+                                    credenciais[campo.nome] = value
+                                    form.setValue("credenciais", credenciais)
+                                  }}
+                                  defaultValue={form.getValues("credenciais")?.[campo.nome] || ""}
+                                  disabled={isLoading}
+                                >
+                                  <SelectTrigger id={campo.nome}>
+                                    <SelectValue placeholder={`Selecione ${campo.label.toLowerCase()}`} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {campo.opcoes?.map((opcao) => (
+                                      <SelectItem key={opcao} value={opcao}>
+                                        {opcao}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {campo.descricao && <FormDescription>{campo.descricao}</FormDescription>}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )
+                      }
+                      return null
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Esta integração não requer credenciais adicionais.</p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="configuracoes" className="space-y-4 pt-4">
+                  {integration.fields?.configuracoes && integration.fields.configuracoes.length > 0 ? (
+                    integration.fields.configuracoes.map((campo) => {
+                      if (campo.tipo === "text" || campo.tipo === "number") {
+                        return (
+                          <FormField
+                            key={campo.nome}
+                            control={form.control}
+                            name={`configuracoes.${campo.nome}`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{campo.label}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type={campo.tipo}
+                                    placeholder={`Digite ${campo.label.toLowerCase()}`}
+                                    {...field}
+                                    value={field.value || ""}
+                                    disabled={isLoading}
+                                  />
+                                </FormControl>
+                                {campo.descricao && <FormDescription>{campo.descricao}</FormDescription>}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )
+                      } else if (campo.tipo === "select") {
+                        return (
+                          <FormField
+                            key={campo.nome}
+                            control={form.control}
+                            name={`configuracoes.${campo.nome}`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{campo.label}</FormLabel>
+                                <Select
+                                  onValueChange={(value) => {
+                                    field.onChange(value)
+                                    const configuracoes = form.getValues("configuracoes") || {}
+                                    configuracoes[campo.nome] = value
+                                    form.setValue("configuracoes", configuracoes)
+                                  }}
+                                  defaultValue={(form.getValues("configuracoes") || {})[campo.nome] || ""}
+                                  disabled={isLoading}
+                                >
+                                  <SelectTrigger id={campo.nome}>
+                                    <SelectValue placeholder={`Selecione ${campo.label.toLowerCase()}`} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {campo.opcoes?.map((opcao) => (
+                                      <SelectItem key={opcao} value={opcao}>
+                                        {opcao}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {campo.descricao && <FormDescription>{campo.descricao}</FormDescription>}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )
+                      }
+                      return null
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Esta integração não possui configurações adicionais.
+                    </p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="webhook" className="space-y-4 pt-4">
+                  <FormField
+                    control={form.control}
+                    name="webhookUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL do Webhook</FormLabel>
                         <FormControl>
-                          <div className="flex flex-col space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="realtime"
-                                value="realtime"
-                                checked={field.value === "realtime"}
-                                onChange={() => field.onChange("realtime")}
-                                className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="realtime" className="text-sm font-medium">
-                                Tempo real
-                              </label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="hourly"
-                                value="hourly"
-                                checked={field.value === "hourly"}
-                                onChange={() => field.onChange("hourly")}
-                                className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="hourly" className="text-sm font-medium">
-                                A cada hora
-                              </label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="daily"
-                                value="daily"
-                                checked={field.value === "daily"}
-                                onChange={() => field.onChange("daily")}
-                                className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="daily" className="text-sm font-medium">
-                                Diariamente
-                              </label>
-                            </div>
-                          </div>
+                          <Input placeholder="https://seu-site.com/api/webhook" {...field} disabled={isLoading} />
                         </FormControl>
-                      </div>
-                      <FormDescription>Define com que frequência os dados serão sincronizados.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormDescription>
+                          URL para onde enviaremos notificações quando eventos ocorrerem.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notas</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Adicione notas sobre esta integração..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>Notas internas sobre esta integração.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" type="button" onClick={() => router.back()}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Salvando..." : "Salvar alterações"}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="api">
-        <Card>
-          <CardHeader>
-            <CardTitle>Configurações de API</CardTitle>
-            <CardDescription>Gerencie as credenciais de API para esta integração.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <div className="text-sm font-medium">Chave de API</div>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowApiKey(!showApiKey)}>
-                    {showApiKey ? "Ocultar" : "Mostrar"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(form.getValues("apiKey"), "Chave API copiada")}
-                  >
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copiar
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={regenerateApiKey}>
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Regenerar
-                  </Button>
-                </div>
-              </div>
-              <div className="p-3 bg-muted rounded-md font-mono text-sm">
-                {showApiKey ? form.getValues("apiKey") || "Nenhuma chave API gerada" : "••••••••••••••••••••••••"}
-              </div>
-            </div>
-
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Atenção</AlertTitle>
-              <AlertDescription>
-                Regenerar a chave API invalidará a chave anterior. Todos os serviços que usam a chave atual precisarão
-                ser atualizados.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-2">
-              <div className="text-sm font-medium">URL da API</div>
-              <div className="p-3 bg-muted rounded-md font-mono text-sm break-all">
-                https://api.fletoads.com/v1/integrations/{integration.id}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() =>
-                  copyToClipboard(`https://api.fletoads.com/v1/integrations/${integration.id}`, "URL da API copiada")
-                }
-              >
-                <Copy className="h-4 w-4 mr-1" />
-                Copiar URL
-              </Button>
+                  <FormField
+                    control={form.control}
+                    name="apiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Chave de API</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Sua chave de API secreta" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormDescription>Chave secreta para autenticar requisições ao webhook.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
-      </TabsContent>
 
-      <TabsContent value="logs">
-        <Card>
-          <CardHeader>
-            <CardTitle>Logs da Integração</CardTitle>
-            <CardDescription>Visualize os logs recentes desta integração.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border p-4 text-sm">
-              <p className="text-muted-foreground">Nenhum log disponível para esta integração.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+        <div className="flex justify-between">
+          <Button type="button" variant="outline" onClick={testIntegration} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testando...
+              </>
+            ) : isTested ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                Testado com Sucesso
+              </>
+            ) : (
+              "Testar Integração"
+            )}
+          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/dashboard/integracoes")}
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Configurações"
+              )}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Form>
   )
 }
-

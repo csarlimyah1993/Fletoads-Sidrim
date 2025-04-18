@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-interface ImageUploadProps extends React.HTMLAttributes<HTMLDivElement> {
+// Create a type that omits 'onChange' from HTMLAttributes to avoid conflict
+type HTMLAttributesWithoutOnChange = Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">
+
+// Define our interface with the custom onChange and the rest of HTMLAttributes
+interface ImageUploadProps extends HTMLAttributesWithoutOnChange {
   value: string
   onChange: (value: string) => void
   tipo?: "logo" | "banner" | "produto" | "perfil"
@@ -74,4 +78,3 @@ export function ImageUpload({ value, onChange, tipo = "logo", className, ...prop
     </div>
   )
 }
-

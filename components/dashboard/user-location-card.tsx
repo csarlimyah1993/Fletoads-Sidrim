@@ -326,7 +326,12 @@ export function UserLocationCard() {
         {addressDisplay && <div className="text-xs text-muted-foreground">{addressDisplay}</div>}
 
         {hasCoordinates ? (
-          <GoogleMap latitude={latitude} longitude={longitude} height="180px" className="mt-2 rounded-md border" />
+          <GoogleMap
+            defaultCenter={{ lat: latitude, lng: longitude }}
+            defaultZoom={15}
+            markers={[{ position: { lat: latitude, lng: longitude }, title: addressDisplay || "Localização" }]}
+            apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+          />
         ) : (
           <div className="h-[180px] w-full flex items-center justify-center bg-muted/30 rounded-md border mt-2">
             <p className="text-sm text-muted-foreground">Coordenadas não disponíveis</p>

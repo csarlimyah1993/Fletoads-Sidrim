@@ -5,17 +5,18 @@ import { connectToDatabase } from "@/lib/mongodb"
 import WhatsappIntegracao from "@/lib/models/whatsapp-integracao"
 
 // Obter detalhes de uma integração
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase()
 
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const integracao = await WhatsappIntegracao.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
     })
 
@@ -31,10 +32,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // Atualizar uma integração
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase()
 
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -43,7 +45,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const dados = await req.json()
 
     const integracao = await WhatsappIntegracao.findOneAndUpdate(
-      { _id: params.id, userId: session.user.id },
+      { _id: id, userId: session.user.id },
       { $set: dados },
       { new: true },
     )
@@ -60,17 +62,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // Excluir uma integração
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase()
 
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const integracao = await WhatsappIntegracao.findOneAndDelete({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
     })
 
@@ -84,4 +87,3 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return NextResponse.json({ error: "Erro ao excluir integração do WhatsApp" }, { status: 500 })
   }
 }
-

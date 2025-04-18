@@ -9,17 +9,33 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AffiliateModal } from "./affiliate-modal"
 import type { Loja } from "@/types/loja"
+import type { VitrineConfig } from "@/types/vitrine"
 
 interface VitrineHeaderProps {
   loja: Loja
-  isOwner: boolean
+  config?: VitrineConfig
+  searchTerm?: string
+  setSearchTerm?: (term: string) => void
+  favoritos?: string[]
+  isDarkMode?: boolean
+  setIsDarkMode?: (isDark: boolean) => void
+  isOwner?: boolean
 }
 
-export default function VitrineHeader({ loja, isOwner }: VitrineHeaderProps) {
+export function VitrineHeader({
+  loja,
+  isOwner = false,
+  config,
+  searchTerm = "",
+  setSearchTerm,
+  favoritos = [],
+  isDarkMode = false,
+  setIsDarkMode,
+}: VitrineHeaderProps) {
   const { data: session } = useSession()
   const [showAffiliateModal, setShowAffiliateModal] = useState(false)
   const [isAffiliated, setIsAffiliated] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm)
 
   useEffect(() => {
     if (session?.user?.id && loja?._id) {
@@ -41,8 +57,26 @@ export default function VitrineHeader({ loja, isOwner }: VitrineHeaderProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     // Implementar a lógica de busca
-    if (searchTerm.trim()) {
-      window.location.href = `/vitrines/${loja._id}/produtos?search=${encodeURIComponent(searchTerm)}`
+    if (localSearchTerm.trim()) {
+      if (setSearchTerm) {
+        setSearchTerm(localSearchTerm)
+      } else {
+        window.location.href = `/vitrines/${loja._id}/produtos?search=${encodeURIComponent(localSearchTerm)}`
+      }
+    }
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setLocalSearchTerm(value)
+    if (setSearchTerm) {
+      setSearchTerm(value)
+    }
+  }
+
+  const handleToggleDarkMode = () => {
+    if (setIsDarkMode) {
+      setIsDarkMode(!isDarkMode)
     }
   }
 
@@ -72,14 +106,64 @@ export default function VitrineHeader({ loja, isOwner }: VitrineHeaderProps) {
                 type="search"
                 placeholder="Buscar produtos..."
                 className="w-full pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={localSearchTerm}
+                onChange={handleSearchChange}
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             </form>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botão de tema escuro/claro */}
+            {setIsDarkMode && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleDarkMode}
+                title={isDarkMode ? "Modo claro" : "Modo escuro"}
+              >
+                {isDarkMode ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                  >
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                  >
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                  </svg>
+                )}
+              </Button>
+            )}
+
             {/* Botão de afiliação */}
             {session ? (
               isOwner ? (
@@ -115,8 +199,8 @@ export default function VitrineHeader({ loja, isOwner }: VitrineHeaderProps) {
               type="search"
               placeholder="Buscar produtos..."
               className="w-full pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={localSearchTerm}
+              onChange={handleSearchChange}
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </form>
@@ -137,5 +221,3 @@ export default function VitrineHeader({ loja, isOwner }: VitrineHeaderProps) {
     </header>
   )
 }
-
-export { VitrineHeader }

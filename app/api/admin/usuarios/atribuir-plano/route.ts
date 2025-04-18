@@ -39,13 +39,19 @@ export async function POST(request: Request) {
     const dataInicio = new Date()
     const dataFim = new Date(dataInicio)
 
-    if (plano.intervalo === "mensal") {
+    // Converter o documento Mongoose para um objeto JavaScript simples e usar type assertion
+    const planoObj = plano.toObject() as any
+
+    // Usar uma abordagem segura para acessar a propriedade intervalo
+    const intervalo = planoObj.intervalo || "mensal"
+
+    if (intervalo === "mensal") {
       dataFim.setMonth(dataFim.getMonth() + 1)
-    } else if (plano.intervalo === "trimestral") {
+    } else if (intervalo === "trimestral") {
       dataFim.setMonth(dataFim.getMonth() + 3)
-    } else if (plano.intervalo === "semestral") {
+    } else if (intervalo === "semestral") {
       dataFim.setMonth(dataFim.getMonth() + 6)
-    } else if (plano.intervalo === "anual") {
+    } else if (intervalo === "anual") {
       dataFim.setFullYear(dataFim.getFullYear() + 1)
     } else {
       // Padrão: 30 dias
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
     usuario.plano = {
       id: plano._id,
       nome: plano.nome,
-      slug: plano.slug || plano.nome.toLowerCase().replace(/\s+/g, "-"),
+      slug: planoObj.slug || plano.nome.toLowerCase().replace(/\s+/g, "-"),
       ativo: true,
       dataInicio,
       dataFim,
@@ -105,4 +111,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

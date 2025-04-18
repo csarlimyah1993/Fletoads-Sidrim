@@ -9,16 +9,8 @@ import { ProdutoCard } from "./produto-card"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
-
-interface Produto {
-  _id: string
-  name: string
-  description: string
-  price: number
-  images: string[]
-  createdAt: string
-  status: "active" | "inactive"
-}
+import type { Produto } from "@/types/loja"
+import type { VitrineConfig } from "@/types/vitrine"
 
 export function ProdutosList() {
   const [produtos, setProdutos] = useState<Produto[]>([])
@@ -26,6 +18,43 @@ export function ProdutosList() {
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
   const { toast } = useToast()
+
+  // Default vitrine config using your existing structure
+  const defaultConfig: VitrineConfig = {
+    corPrimaria: "#3b82f6",
+    corSecundaria: "#f59e0b",
+    corTexto: "#ffffff",
+    corFundo: "#ffffff",
+    corDestaque: "#f59e0b",
+    tema: "claro",
+    mostrarPrecos: true,
+    mostrarEstoque: true,
+    mostrarAvaliacao: false,
+    mostrarPromocoes: true,
+    mostrarCompartilhar: true,
+    layout: "padrao",
+    animacoes: true,
+  }
+
+  // Share handler function
+  const handleShare = (produto: Produto) => {
+    if (navigator.share) {
+      navigator
+        .share({
+          title: produto.nome || "",
+          text: produto.descricaoCurta || produto.descricao || "",
+          url: window.location.href,
+        })
+        .catch((err) => console.error("Error sharing:", err))
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      toast({
+        title: "Link copiado",
+        description: "O link do produto foi copiado para a área de transferência.",
+      })
+      navigator.clipboard.writeText(window.location.href)
+    }
+  }
 
   useEffect(() => {
     const fetchProdutos = async () => {
@@ -35,7 +64,22 @@ export function ProdutosList() {
           throw new Error("Falha ao carregar produtos")
         }
         const data = await response.json()
-        setProdutos(data)
+
+        // Transform the data to match the expected property names
+        const transformedData = data.map((item: any) => ({
+          _id: item._id,
+          nome: item.name || item.nome || "",
+          descricao: item.description || item.descricao || "",
+          descricaoCurta: item.shortDescription || item.descricaoCurta || "",
+          preco: item.price || item.preco || 0,
+          precoPromocional: item.promotionalPrice || item.precoPromocional,
+          imagens: item.images || item.imagens || [],
+          estoque: item.stock || item.estoque,
+          createdAt: item.createdAt,
+          status: item.status || "active",
+        }))
+
+        setProdutos(transformedData)
       } catch (error) {
         console.error("Erro ao carregar produtos:", error)
         toast({
@@ -53,8 +97,8 @@ export function ProdutosList() {
 
   const filteredProdutos = produtos.filter(
     (produto) =>
-      produto.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      produto.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      (produto.nome || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (produto.descricao || "").toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
@@ -94,7 +138,7 @@ export function ProdutosList() {
       ) : filteredProdutos.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProdutos.map((produto) => (
-            <ProdutoCard key={produto._id} produto={produto} />
+            <ProdutoCard key={produto._id} produto={produto} config={defaultConfig} onShare={handleShare} />
           ))}
         </div>
       ) : (
@@ -118,4 +162,3 @@ export function ProdutosList() {
     </div>
   )
 }
-

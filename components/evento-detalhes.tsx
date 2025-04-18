@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ParticipacaoEventoModal } from "@/components/participacao-evento-modal"
 
-export function EventoDetalhes({ id }) {
+interface EventoDetalhesProps {
+  id: string
+}
+
+export function EventoDetalhes({ id }: EventoDetalhesProps) {
   const router = useRouter()
   const [infoExpanded, setInfoExpanded] = useState(true)
   const [statsExpanded, setStatsExpanded] = useState(true)
@@ -108,7 +112,7 @@ export function EventoDetalhes({ id }) {
     setCurrentSlide((prev) => (prev === evento.images.length - 1 ? 0 : prev + 1))
   }
 
-  const handleDotClick = (index) => {
+  const handleDotClick = (index: number) => {
     setCurrentSlide(index)
   }
 
@@ -294,4 +298,3 @@ export function EventoDetalhes({ id }) {
     </div>
   )
 }
-

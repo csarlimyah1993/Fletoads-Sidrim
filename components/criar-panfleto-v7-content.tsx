@@ -19,6 +19,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+// Define interfaces for our data types
+interface Product {
+  id: number
+  name: string
+  price: string
+  code: string
+  image: string
+}
+
+interface PanfletoTypeCardProps {
+  id: string
+  title: string
+  count: number
+  total: number
+  description: string
+  selected?: boolean
+  onClick: () => void
+}
+
 export function CriarPanfletoV7Content() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -26,7 +45,7 @@ export function CriarPanfletoV7Content() {
 
   const [selectedType, setSelectedType] = useState(eventoId ? "eventos" : "ativo")
   const [addPromotionalValue, setAddPromotionalValue] = useState(false)
-  const [tags, setTags] = useState(["Tag 1", "Tag 2", "Tag 3", "Tag 4"])
+  const [tags, setTags] = useState<string[]>(["Tag 1", "Tag 2", "Tag 3", "Tag 4"])
   const [newTag, setNewTag] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -39,10 +58,10 @@ export function CriarPanfletoV7Content() {
   const [buttonLink, setButtonLink] = useState("")
   const [showProductsList, setShowProductsList] = useState(false)
   const [searchProduct, setSearchProduct] = useState("")
-  const [selectedProducts, setSelectedProducts] = useState([])
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>([])
 
   // Produtos de exemplo
-  const [products, setProducts] = useState([
+  const [products, setProducts] = useState<Product[]>([
     {
       id: 1,
       name: "Smartphone Galaxy S23",
@@ -98,7 +117,7 @@ export function CriarPanfletoV7Content() {
     router.back()
   }
 
-  const handleRemoveTag = (tagToRemove) => {
+  const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove))
   }
 
@@ -144,7 +163,7 @@ export function CriarPanfletoV7Content() {
   )
 
   // Função para selecionar um produto
-  const handleSelectProduct = (product) => {
+  const handleSelectProduct = (product: Product) => {
     if (selectedProducts.some((p) => p.id === product.id)) {
       setSelectedProducts(selectedProducts.filter((p) => p.id !== product.id))
     } else {
@@ -153,7 +172,7 @@ export function CriarPanfletoV7Content() {
   }
 
   // Função para usar um produto selecionado como base para o panfleto
-  const handleUseProduct = (product) => {
+  const handleUseProduct = (product: Product) => {
     setTitle(product.name)
     setCode(product.code)
     setPrice(product.price.replace("R$ ", ""))
@@ -532,7 +551,7 @@ export function CriarPanfletoV7Content() {
 }
 
 // Components
-function PanfletoTypeCard({ id, title, count, total, description, selected = false, onClick }) {
+function PanfletoTypeCard({ id, title, count, total, description, selected = false, onClick }: PanfletoTypeCardProps) {
   return (
     <div
       className={`p-4 rounded-lg border ${selected ? "border-2 border-blue-600" : "border-gray-200"} cursor-pointer hover:shadow-md transition-shadow bg-white`}
@@ -557,4 +576,3 @@ function ImageUploadBox() {
     </div>
   )
 }
-

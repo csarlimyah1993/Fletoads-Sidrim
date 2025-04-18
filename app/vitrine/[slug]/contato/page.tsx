@@ -7,10 +7,75 @@ import { getPlanoDoUsuario } from "@/lib/planos"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook } from "lucide-react"
-import { createIdFilter } from "@/lib/utils/mongodb-helpers"
-import type { Loja } from "@/types/loja"
+import type { Loja, Endereco, HorarioFuncionamento } from "@/types/loja"
+import type { VitrineConfig } from "@/types/vitrine"
+import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
+
+type Props = {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+// Helper function to render complex types as strings
+function renderAsString(value: any): string {
+  if (typeof value === "string") {
+    return value
+  }
+
+  if (!value) {
+    return ""
+  }
+
+  if (typeof value === "object") {
+    // Handle Endereco type
+    if ("rua" in value || "logradouro" in value) {
+      const endereco = value as Endereco
+      const parts = [
+        endereco.logradouro || endereco.rua,
+        endereco.numero && `nº ${endereco.numero}`,
+        endereco.complemento,
+        endereco.bairro && `${endereco.bairro},`,
+        endereco.cidade && `${endereco.cidade},`,
+        endereco.estado,
+        endereco.cep,
+      ].filter(Boolean)
+
+      return parts.join(" ")
+    }
+
+    // Handle HorarioFuncionamento type
+    if ("segunda" in value || "terca" in value) {
+      const horarios = value as HorarioFuncionamento
+      const formatDay = (day: any): string => {
+        if (typeof day === "string") return day
+        if (day && typeof day === "object") {
+          if (day.open === false) return "Fechado"
+          return `${day.abertura || ""} - ${day.fechamento || ""}`
+        }
+        return ""
+      }
+
+      const parts = [
+        horarios.segunda && `Segunda: ${formatDay(horarios.segunda)}`,
+        horarios.terca && `Terça: ${formatDay(horarios.terca)}`,
+        horarios.quarta && `Quarta: ${formatDay(horarios.quarta)}`,
+        horarios.quinta && `Quinta: ${formatDay(horarios.quinta)}`,
+        horarios.sexta && `Sexta: ${formatDay(horarios.sexta)}`,
+        horarios.sabado && `Sábado: ${formatDay(horarios.sabado)}`,
+        horarios.domingo && `Domingo: ${formatDay(horarios.domingo)}`,
+      ].filter(Boolean)
+
+      return parts.join("\n")
+    }
+
+    // Default object rendering
+    return JSON.stringify(value)
+  }
+
+  return String(value)
+}
 
 // Função para buscar a loja pelo slug (nome ou ID)
 async function getLojaBySlug(slug: string): Promise<Loja | null> {
@@ -22,7 +87,8 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
     // Tentar buscar por ID
     try {
       if (ObjectId.isValid(slug)) {
-        loja = await db.collection("lojas").findOne(createIdFilter(slug))
+        // Use direct ObjectId instead of createIdFilter to avoid type issues
+        loja = await db.collection("lojas").findOne({ _id: new ObjectId(slug) })
       } else {
         // Se não for um ID válido, buscar por nome ou slug
         loja = await db.collection("lojas").findOne({
@@ -53,7 +119,7 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
           if (ObjectId.isValid(loja.usuarioId)) {
             usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(loja.usuarioId) })
           } else {
-            usuario = await db.collection("usuarios").findOne({ _id: loja.usuarioId })
+            usuario = await db.collection("usuarios").findOne({ _id: loja.usuarioId as any })
           }
         } else {
           usuario = await db.collection("usuarios").findOne({ _id: loja.usuarioId })
@@ -63,7 +129,7 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
           if (ObjectId.isValid(loja.userId)) {
             usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(loja.userId) })
           } else {
-            usuario = await db.collection("usuarios").findOne({ _id: loja.userId })
+            usuario = await db.collection("usuarios").findOne({ _id: loja.userId as any })
           }
         } else {
           usuario = await db.collection("usuarios").findOne({ _id: loja.userId })
@@ -81,9 +147,12 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
     const lojaCompleta: Loja = {
       ...loja,
       _id: loja._id.toString(),
+      id: loja._id.toString(), // Add the id property here
       nome: loja.nome || "Loja",
-      ativo: loja.ativo !== undefined ? loja.ativo : true,
-      plano,
+      // Fix for the TypeScript error - ensure ativo is always a boolean
+      ativo: Boolean(loja.ativo), // Convert to boolean explicitly
+      produtos: [], // Provide an empty array as default
+      plano: plano.nome,
       planoId: typeof planoId === "object" ? "gratis" : String(planoId),
       banner: loja.banner || "",
       logo: loja.logo || "",
@@ -96,8 +165,8 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  // Aguardar os parâmetros antes de usá-los
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  // Await the params Promise to get the actual slug value
   const resolvedParams = await params
   const loja = await getLojaBySlug(resolvedParams.slug)
 
@@ -119,8 +188,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ContatoPage({ params }: { params: { slug: string } }) {
-  // Aguardar os parâmetros antes de usá-los
+export default async function ContatoPage({ params }: Props) {
+  // Await the params Promise to get the actual slug value
   const resolvedParams = await params
   const loja = await getLojaBySlug(resolvedParams.slug)
   const session = await getServerSession(authOptions)
@@ -130,7 +199,7 @@ export default async function ContatoPage({ params }: { params: { slug: string }
   }
 
   // Garantir que ativo seja um booleano
-  const isAtivo = loja.ativo === true
+  const isAtivo = Boolean(loja.ativo)
 
   if (!isAtivo) {
     notFound()
@@ -140,13 +209,24 @@ export default async function ContatoPage({ params }: { params: { slug: string }
   let isOwner = false
   if (session?.user?.id) {
     const userId = session.user.id
-    isOwner =
+    isOwner = Boolean(
       (loja.usuarioId && (loja.usuarioId === userId || loja.usuarioId.toString() === userId)) ||
-      (loja.userId && (loja.userId === userId || loja.userId.toString() === userId))
+        (loja.userId && (loja.userId === userId || loja.userId.toString() === userId)),
+    )
   }
 
   // Definir cores com base no plano
   const corPrimaria = loja.cores?.primaria || "#4f46e5"
+
+  // Create a default config object
+  const defaultConfig: VitrineConfig = {
+    corPrimaria: loja.cores?.primaria,
+    corSecundaria: loja.cores?.secundaria,
+    corTexto: loja.cores?.texto,
+    corFundo: loja.cores?.fundo,
+    titulo: loja.nome,
+    descricao: loja.descricao,
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -169,7 +249,7 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                     />
                     <div>
                       <p className="font-medium dark:text-white">Endereço</p>
-                      <p className="text-gray-600 dark:text-gray-400">{loja.endereco}</p>
+                      <p className="text-gray-600 dark:text-gray-400">{renderAsString(loja.endereco)}</p>
                     </div>
                   </div>
                 )}
@@ -200,7 +280,7 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                   </div>
                 )}
 
-                {loja.website && (
+                {(loja.website || loja.site) && (
                   <div className="flex items-start gap-3">
                     <Globe
                       className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -209,8 +289,13 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                     <div>
                       <p className="font-medium dark:text-white">Website</p>
                       <p className="text-gray-600 dark:text-gray-400">
-                        <a href={loja.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {loja.website}
+                        <a
+                          href={loja.website || loja.site}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {loja.website || loja.site}
                         </a>
                       </p>
                     </div>
@@ -225,12 +310,15 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                     />
                     <div>
                       <p className="font-medium dark:text-white">Horário de Funcionamento</p>
-                      <p className="text-gray-600 dark:text-gray-400">{loja.horarioFuncionamento}</p>
+                      <p className="text-gray-600 dark:text-gray-400 whitespace-pre-line">
+                        {renderAsString(loja.horarioFuncionamento)}
+                      </p>
                     </div>
                   </div>
                 )}
 
-                {loja.instagram && (
+                {/* Use both direct properties and nested redesSociais */}
+                {(loja.instagram || loja.redesSociais?.instagram) && (
                   <div className="flex items-start gap-3">
                     <Instagram
                       className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -240,19 +328,19 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                       <p className="font-medium dark:text-white">Instagram</p>
                       <p className="text-gray-600 dark:text-gray-400">
                         <a
-                          href={`https://instagram.com/${loja.instagram.replace("@", "")}`}
+                          href={`https://instagram.com/${(loja.instagram || loja.redesSociais?.instagram || "").replace("@", "")}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:underline"
                         >
-                          {loja.instagram}
+                          {loja.instagram || loja.redesSociais?.instagram}
                         </a>
                       </p>
                     </div>
                   </div>
                 )}
 
-                {loja.facebook && (
+                {(loja.facebook || loja.redesSociais?.facebook) && (
                   <div className="flex items-start gap-3">
                     <Facebook
                       className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
@@ -261,8 +349,13 @@ export default async function ContatoPage({ params }: { params: { slug: string }
                     <div>
                       <p className="font-medium dark:text-white">Facebook</p>
                       <p className="text-gray-600 dark:text-gray-400">
-                        <a href={loja.facebook} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {loja.facebook}
+                        <a
+                          href={loja.facebook || loja.redesSociais?.facebook}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {loja.facebook || loja.redesSociais?.facebook}
                         </a>
                       </p>
                     </div>
@@ -345,8 +438,7 @@ export default async function ContatoPage({ params }: { params: { slug: string }
         </div>
       </main>
 
-      <VitrineFooter loja={loja} />
+      <VitrineFooter loja={loja} config={defaultConfig} />
     </div>
   )
 }
-

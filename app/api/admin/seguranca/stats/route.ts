@@ -94,16 +94,10 @@ export async function GET(request: NextRequest) {
     const securityLogs = await SecurityLog.countDocuments()
 
     // Obter tentativas de login recentes
-    const recentLoginAttempts = (await LoginAttempt.find()
-      .sort({ timestamp: -1 })
-      .limit(10)
-      .lean()) as LoginAttemptDocument[]
+    const recentLoginAttempts = await LoginAttempt.find().sort({ timestamp: -1 }).limit(10).lean()
 
     // Obter logs de segurança recentes
-    const recentSecurityLogs = (await SecurityLog.find()
-      .sort({ timestamp: -1 })
-      .limit(10)
-      .lean()) as SecurityLogDocument[]
+    const recentSecurityLogs = await SecurityLog.find().sort({ timestamp: -1 }).limit(10).lean()
 
     // Se não existirem dados reais, criar alguns dados de exemplo
     const mockLoginAttempts = [
@@ -174,7 +168,7 @@ export async function GET(request: NextRequest) {
       securityLogs: securityLogs || 42,
       recentLoginAttempts:
         recentLoginAttempts.length > 0
-          ? recentLoginAttempts.map((item) => ({
+          ? recentLoginAttempts.map((item: any) => ({
               id: item._id.toString(),
               email: item.email,
               success: item.success,
@@ -186,7 +180,7 @@ export async function GET(request: NextRequest) {
           : mockLoginAttempts,
       recentSecurityLogs:
         recentSecurityLogs.length > 0
-          ? recentSecurityLogs.map((item) => ({
+          ? recentSecurityLogs.map((item: any) => ({
               id: item._id.toString(),
               type: item.type,
               severity: item.severity,
@@ -204,4 +198,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

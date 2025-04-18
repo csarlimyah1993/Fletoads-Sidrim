@@ -52,8 +52,11 @@ const limites = {
   },
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Await the params to get the id
+    const { id: userId } = await params
+
     // Verificar autenticação e permissões
     const session = await getServerSession(authOptions)
 
@@ -64,8 +67,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     if (session.user.role !== "admin") {
       return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
     }
-
-    const userId = params.id
 
     if (!userId) {
       return NextResponse.json({ error: "ID do usuário é obrigatório" }, { status: 400 })

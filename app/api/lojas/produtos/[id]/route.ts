@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -20,9 +20,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
+    const { id } = await context.params
+
     // Verificar se a loja existe
     const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     })
 
     if (!loja) {
@@ -32,14 +34,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Buscar produtos da loja
     const produtos = await db
       .collection("produtos")
-      .find({ lojaId: params.id })
+      .find({ lojaId: id })
       .sort({ destaque: -1, dataCriacao: -1 })
       .skip(skip)
       .limit(limit)
       .toArray()
 
     // Contar total de produtos
-    const total = await db.collection("produtos").countDocuments({ lojaId: params.id })
+    const total = await db.collection("produtos").countDocuments({ lojaId: id })
 
     return NextResponse.json({
       produtos,

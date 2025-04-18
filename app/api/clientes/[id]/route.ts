@@ -4,7 +4,21 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Define a type for the session user with lojaId
+interface SessionUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role: string
+  nome?: string
+  emailVerificado?: boolean
+  plano?: string
+  lojaId?: string
+  permissoes?: string[]
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -13,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -21,10 +35,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Buscar cliente
     const cliente = await db.collection("clientes").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!cliente) {
@@ -38,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -47,7 +64,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -62,10 +79,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Verificar se o cliente existe e pertence à loja do usuário
     const clienteExistente = await db.collection("clientes").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!clienteExistente) {
@@ -101,7 +121,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -110,7 +130,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -118,10 +138,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Verificar se o cliente existe e pertence à loja do usuário
     const clienteExistente = await db.collection("clientes").findOne({
       _id: new ObjectId(id),
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
     })
 
     if (!clienteExistente) {

@@ -237,3 +237,20 @@ export function getPlanoDoUsuario(planoId?: string): PlanoLimites {
   return plano || planos.gratis
 }
 
+// Add the missing function to get a plan by its slug (assuming slug is the same as id)
+export function getPlanoBySlug(slug: string): PlanoLimites | null {
+  // First check if the slug directly matches a plan id
+  const planoKey = Object.keys(planos).find((key) => key === slug || planos[key as TipoPlano].id === slug)
+
+  if (planoKey) {
+    return planos[planoKey as TipoPlano]
+  }
+
+  // If no match, try case-insensitive matching or handle slug variations
+  const normalizedSlug = slug.toLowerCase()
+  const planoKeyByNormalizedName = Object.keys(planos).find(
+    (key) => key.toLowerCase() === normalizedSlug || planos[key as TipoPlano].nome.toLowerCase() === normalizedSlug,
+  )
+
+  return planoKeyByNormalizedName ? planos[planoKeyByNormalizedName as TipoPlano] : null
+}

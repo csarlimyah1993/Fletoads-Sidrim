@@ -1,4 +1,3 @@
-// Renomear a exportação para authOptions para manter consistência
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -51,6 +50,8 @@ const getUserData = async (userId: string) => {
       cargo: user.cargo || "user",
       permissoes: user.permissoes || [],
       plano: user.plano || "gratuito",
+      lojaId: user.lojaId,
+      emailVerificado: user.emailVerificado,
     }
   } catch (error) {
     console.error("Erro ao buscar dados atualizados do usuário:", error)
@@ -151,6 +152,8 @@ export const authOptions: NextAuthOptions = {
               cargo: "admin", // Forçar cargo admin
               permissoes: ["admin"],
               plano: "admin",
+              lojaId: user.lojaId,
+              emailVerificado: user.emailVerificado,
             }
           }
 
@@ -177,6 +180,8 @@ export const authOptions: NextAuthOptions = {
             cargo: user.cargo || user.role || "user",
             permissoes: user.permissoes || [],
             plano: user.plano || "gratuito",
+            lojaId: user.lojaId,
+            emailVerificado: user.emailVerificado,
           }
         } catch (error) {
           console.error("Erro na autenticação:", error)
@@ -207,6 +212,7 @@ export const authOptions: NextAuthOptions = {
               dataCriacao: new Date(),
               ultimoLogin: new Date(),
               imagemPerfil: user.image,
+              emailVerificado: true,
             }
 
             await db.collection("usuarios").insertOne(newUser)
@@ -241,6 +247,8 @@ export const authOptions: NextAuthOptions = {
         token.cargo = user.cargo || "user"
         token.permissoes = user.permissoes || []
         token.plano = user.plano || "gratuito"
+        token.lojaId = user.lojaId
+        token.emailVerificado = user.emailVerificado
       }
 
       // Se for login do Google e o email for sidrimthiago@gmail.com, garantir permissões de admin
@@ -266,6 +274,8 @@ export const authOptions: NextAuthOptions = {
           token.cargo = updatedUser.cargo
           token.permissoes = updatedUser.permissoes
           token.plano = updatedUser.plano
+          token.lojaId = updatedUser.lojaId
+          token.emailVerificado = updatedUser.emailVerificado
         }
       }
 
@@ -273,12 +283,17 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id || ""
-        session.user.role = token.role || "user"
-        session.user.nome = token.nome || ""
-        session.user.cargo = token.cargo || "user"
-        session.user.permissoes = token.permissoes || []
-        session.user.plano = token.plano || "gratuito"
+        // Use type assertion to bypass TypeScript's type checking
+        const user = session.user as any
+
+        user.id = token.id || ""
+        user.role = token.role || "user"
+        user.nome = token.nome || ""
+        user.cargo = token.cargo || "user"
+        user.permissoes = token.permissoes || []
+        user.plano = token.plano || "gratuito"
+        user.lojaId = token.lojaId
+        user.emailVerificado = token.emailVerificado
       }
 
       // console.log("Session callback - session data:", session)

@@ -27,8 +27,9 @@ interface Plano {
 }
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   try {
+    const unwrappedParams = await params
     await connectToDatabase()
 
     const Plano =
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
         }),
       )
 
-    const plano = await Plano.findOne({ slug: params.slug })
+    const plano = await Plano.findOne({ slug: unwrappedParams.slug })
 
     if (!plano) {
       return {
@@ -91,8 +92,9 @@ const planoDetalhes: Record<string, string> = {
     "O plano Empresarial é nossa solução mais completa, projetada para grandes negócios e franquias. Ele oferece um Tour Virtual 360° premium, 4 integrações com WhatsApp, assistente virtual premium com IA, CRM empresarial, vitrine virtual com até 400 produtos, 200 panfletos digitais e 100 promoções em destaque. Com todos os recursos de localização e notificação incluídos, é a escolha ideal para empresas que buscam uma solução digital completa e escalável.",
 }
 
-export default async function PlanoPage({ params }: { params: { slug: string } }) {
+export default async function PlanoPage({ params }: { params: Promise<{ slug: string }> }) {
   try {
+    const unwrappedParams = await params
     await connectToDatabase()
 
     const Plano =
@@ -117,7 +119,7 @@ export default async function PlanoPage({ params }: { params: { slug: string } }
         }),
       )
 
-    const plano = await Plano.findOne({ slug: params.slug })
+    const plano = await Plano.findOne({ slug: unwrappedParams.slug })
 
     if (!plano || !plano.ativo) {
       notFound()
@@ -126,7 +128,7 @@ export default async function PlanoPage({ params }: { params: { slug: string } }
     // Add detailed description to the plan
     const planoWithDetails = {
       ...plano.toObject(),
-      detalhes: planoDetalhes[params.slug] || plano.descricao,
+      detalhes: planoDetalhes[unwrappedParams.slug] || plano.descricao,
     }
 
     return (
@@ -150,4 +152,3 @@ export default async function PlanoPage({ params }: { params: { slug: string } }
     notFound()
   }
 }
-

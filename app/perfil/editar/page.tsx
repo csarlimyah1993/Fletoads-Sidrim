@@ -1,3 +1,5 @@
+"use client"
+
 import { Header } from "@/components/header"
 import { EditarPerfilContent } from "@/components/editar-perfil-content"
 
@@ -11,4 +13,3 @@ export default function EditarPerfilPage() {
     </>
   )
 }
-

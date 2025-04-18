@@ -2,10 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+type ParamsContext = { params: Promise<{ id: string }> }
+
+export async function GET(request: NextRequest, context: ParamsContext) {
   try {
-    // Destructure id from params to avoid the Next.js warning
-    const { id } = await params
+    const { id } = await context.params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -14,19 +15,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log(`API: Buscando vitrine com ID: ${id}`)
     const { db } = await connectToDatabase()
 
-    // Tentar converter para ObjectId se for um ID válido
-    let objectId = null
-    try {
-      if (ObjectId.isValid(id)) {
-        objectId = new ObjectId(id)
-      }
-    } catch (error) {
-      console.log("ID não é um ObjectId válido, continuando com busca por string")
+    let objectId: ObjectId | null = null
+    if (ObjectId.isValid(id)) {
+      objectId = new ObjectId(id)
     }
 
-    // Buscar a loja pelo ID, slug da vitrine ou vitrineId
     const loja = await db.collection("lojas").findOne({
-      $or: [...(objectId ? [{ _id: objectId }] : []), { "vitrine.slug": id }, { vitrineId: id }],
+      $or: [
+        ...(objectId ? [{ _id: objectId }] : []),
+        { "vitrine.slug": id },
+        { vitrineId: id },
+      ],
     })
 
     if (!loja) {
@@ -37,19 +36,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log(`API: Vitrine encontrada: ${loja._id}, ${loja.nome}`)
     const lojaId = loja._id.toString()
 
-    // Buscar produtos da loja - agora verificando múltiplos campos
     const produtos = await db
       .collection("produtos")
       .find({
-        $or: [{ lojaId: lojaId }, { lojaId: id }, { vitrineId: lojaId }, { vitrineId: id }],
-        ativo: { $ne: false }, // Apenas produtos ativos
+        $or: [
+          { lojaId: lojaId },
+          { lojaId: id },
+          { vitrineId: lojaId },
+          { vitrineId: id },
+        ],
+        ativo: { $ne: false },
       })
       .sort({ destaque: -1, dataCriacao: -1 })
       .toArray()
 
     console.log(`API: Encontrados ${produtos.length} produtos`)
 
-    // Serializar os dados para evitar erros de serialização
     const serializableLoja = {
       ...loja,
       _id: loja._id.toString(),

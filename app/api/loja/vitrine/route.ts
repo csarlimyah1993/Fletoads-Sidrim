@@ -25,17 +25,23 @@ export async function PUT(request: NextRequest) {
       let loja = null
 
       try {
-        // Tentar com ObjectId
-        const objectId = new ObjectId(userId)
-        loja = await db.collection("lojas").findOne({
-          $or: [{ usuarioId: objectId }, { userId: objectId }, { usuarioId: userId }, { userId: userId }],
-        })
+        // Criar um filtro que funcione tanto com ObjectId quanto com string
+        const lojaFilter: any = { $or: [] }
+
+        // Adicionar condições para ObjectId se for válido
+        if (ObjectId.isValid(userId)) {
+          const objectId = new ObjectId(userId)
+          lojaFilter.$or.push({ usuarioId: objectId })
+          lojaFilter.$or.push({ userId: objectId })
+        }
+
+        // Adicionar condições para string
+        lojaFilter.$or.push({ usuarioId: userId })
+        lojaFilter.$or.push({ userId: userId })
+
+        loja = await db.collection("lojas").findOne(lojaFilter)
       } catch (error) {
-        console.error("Erro ao buscar loja com ObjectId:", error)
-        // Se falhar, tentar com string
-        loja = await db.collection("lojas").findOne({
-          $or: [{ usuarioId: userId }, { userId: userId }],
-        })
+        console.error("Erro ao buscar loja:", error)
       }
 
       if (!loja) {
@@ -47,25 +53,31 @@ export async function PUT(request: NextRequest) {
       // Buscar o plano do usuário para verificar permissões
       let usuario = null
       try {
-        if (typeof userId === "string") {
-          try {
-            const objectId = new ObjectId(userId)
-            usuario = await db.collection("usuarios").findOne({
-              $or: [{ _id: objectId }, { _id: userId }],
-            })
-          } catch {
-            usuario = await db.collection("usuarios").findOne({ _id: userId })
-          }
-        } else {
-          usuario = await db.collection("usuarios").findOne({ _id: userId })
+        // Criar um filtro que funcione tanto com ObjectId quanto com string
+        const userFilter: any = { $or: [] }
+
+        // Adicionar condição para ObjectId se for válido
+        if (ObjectId.isValid(userId)) {
+          userFilter.$or.push({ _id: new ObjectId(userId) })
         }
+
+        // Adicionar outras possíveis condições de busca
+        userFilter.$or.push({ email: session.user.email })
+
+        // Se não houver email, tentar com o ID como string em outros campos
+        if (!session.user.email) {
+          userFilter.$or.push({ userId: userId })
+          userFilter.$or.push({ identificador: userId })
+        }
+
+        usuario = await db.collection("usuarios").findOne(userFilter)
       } catch (error) {
         console.error("Erro ao buscar usuário:", error)
       }
 
       // Obter o plano do usuário
       const planoId = usuario?.plano || usuario?.metodosPagemento?.plano || "gratis"
-      const plano = getPlanoDoUsuario(planoId)
+      const plano = getPlanoDoUsuario(typeof planoId === "object" ? "gratis" : String(planoId))
 
       // Validar os dados com base no plano
       const dadosValidados = {
@@ -76,16 +88,16 @@ export async function PUT(request: NextRequest) {
           secundaria: data.cores?.secundaria,
           texto: data.cores?.texto,
           // Apenas incluir destaque se o plano permitir
-          ...(plano.personalizacaoVitrine.cores.destaque && { destaque: data.cores?.destaque }),
+          ...(plano.personalizacaoVitrine?.cores?.destaque && { destaque: data.cores?.destaque }),
         },
         // Incluir campos adicionais apenas se o plano permitir
         ...(data.layout && { layout: data.layout }),
-        ...(plano.personalizacaoVitrine.fontes && data.fonte && { fonte: data.fonte }),
-        ...(plano.personalizacaoVitrine.animacoes && { animacoes: data.animacoes }),
+        ...(plano.personalizacaoVitrine?.fontes && data.fonte && { fonte: data.fonte }),
+        ...(plano.personalizacaoVitrine?.animacoes && { animacoes: data.animacoes }),
         // Garantir que widgets seja sempre um array
         widgets: Array.isArray(data.widgets)
           ? // Limitar o número de widgets com base no plano
-            data.widgets.slice(0, plano.personalizacaoVitrine.widgets)
+            data.widgets.slice(0, plano.personalizacaoVitrine?.widgets || 1)
           : ["produtos"],
         dataAtualizacao: new Date(),
       }
@@ -127,4 +139,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

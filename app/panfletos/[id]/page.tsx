@@ -1,6 +1,13 @@
 import { PanfletoDetalhes } from "@/components/panfleto-detalhes"
 
-export default function PanfletoDetalhesPage({ params }) {
-  return <PanfletoDetalhes id={params.id} />
+// Define the type for the params object
+interface PageParams {
+  id: string
 }
 
+export default async function PanfletoDetalhesPage({ params }: { params: Promise<PageParams> }) {
+  // Await the params Promise to get the actual params object
+  const resolvedParams = await params
+
+  return <PanfletoDetalhes id={resolvedParams.id} />
+}

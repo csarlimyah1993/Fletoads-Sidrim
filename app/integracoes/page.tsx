@@ -1,6 +1,6 @@
-import { Metadata } from "next"
+import type { Metadata } from "next"
 import { Header } from "@/components/header"
-import { IntegracoesList } from "@/components/integracoes/integracoes-list"
+import { IntegracoesContainer } from "@/components/integracoes/integracoes-container"
 
 export const metadata: Metadata = {
   title: "Integrações | FletoAds",
@@ -13,7 +13,7 @@ export default function IntegracoesPage() {
       <Header title="Integrações" />
       <main className="flex-1">
         <div className="container py-6">
-          <IntegracoesList />
+          <IntegracoesContainer />
         </div>
       </main>
     </div>

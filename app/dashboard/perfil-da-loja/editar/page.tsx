@@ -1,10 +1,13 @@
+// app/dashboard/perfil-da-loja/editar/page.tsx
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import { Skeleton } from "@/components/ui/skeleton"
-import LojaPerfilForm from "@/components/perfil/loja-perfil-form"
+import LojaPerfilFormWrapper from "@/components/perfil/loja-perfil-form-wrapper"
 
 // Helper function to ensure all ObjectIds are converted to strings
 function serializeData(obj: any): any {
@@ -69,11 +72,19 @@ export default async function EditarPerfilLojaPage() {
 
     console.log("Dados da loja serializados com sucesso")
 
+    // Extract the initial values from lojaData
+    const initialValues = {
+      nomeLoja: lojaData.nome || "",
+      descricao: lojaData.descricao || "",
+      logoUrl: lojaData.logo || "",
+      bannerUrl: lojaData.banner || "",
+    }
+
     return (
       <div className="container py-10">
         <h1 className="text-2xl font-bold mb-6">Editar Perfil da Loja</h1>
         <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-          <LojaPerfilForm loja={lojaData} />
+          <LojaPerfilFormWrapper lojaId={lojaData._id} initialValues={initialValues} />
         </Suspense>
       </div>
     )

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
+import { connectToDatabase } from "@/lib/mongodb"
 import Plano from "@/lib/models/plano" // Corrected path
 import Usuario from "@/lib/models/usuario" // Corrected path
 

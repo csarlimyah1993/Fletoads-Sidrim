@@ -18,6 +18,9 @@ export function AdicionarProdutoContent() {
   const router = useRouter()
   const [imagem, setImagem] = useState<string | null>(null)
 
+  // Add state for sidebar open/close functionality
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
+
   const handleImagemChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -37,7 +40,8 @@ export function AdicionarProdutoContent() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      <VitrineSidebar />
+      {/* Pass the required props to VitrineSidebar */}
+      <VitrineSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-2 mb-6">
@@ -141,4 +145,3 @@ export function AdicionarProdutoContent() {
     </div>
   )
 }
-

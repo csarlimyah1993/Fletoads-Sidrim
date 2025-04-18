@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Check,
@@ -20,10 +20,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CriarPanfletoButton } from "@/components/criar-panfleto-button"
 
-export function AdicionarPanfletosEvento() {
+interface AdicionarPanfletosEventoProps {
+  eventoId: string
+}
+
+export function AdicionarPanfletosEvento({ eventoId }: AdicionarPanfletosEventoProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const eventoId = searchParams.get("evento") || "1"
 
   const [selectedPanfletos, setSelectedPanfletos] = useState<number[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -360,4 +362,3 @@ export function AdicionarPanfletosEvento() {
     </div>
   )
 }
-

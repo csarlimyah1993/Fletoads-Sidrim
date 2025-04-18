@@ -1,10 +1,13 @@
+// Add this line at the top of the file
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from "next"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Eye, BarChart2, Download } from "lucide-react"
+import { Eye, BarChart2, Download } from 'lucide-react'
 import Link from "next/link"
 
 export const metadata: Metadata = {
@@ -107,4 +110,3 @@ export default async function EventosPage() {
     </div>
   )
 }
-

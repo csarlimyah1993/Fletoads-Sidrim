@@ -5,23 +5,21 @@ import { CupomForm } from "@/components/cupons/cupom-form"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-interface EditarCupomPageProps {
-  params: {
-    id: string
-  }
+type PageProps = {
+  params: Promise<{ id: string }>
 }
 
-export default async function EditarCupomPage({ params }: EditarCupomPageProps) {
+export default async function EditarCupomPage({ params }: PageProps) {
+  const { id } = await params
+
   const session = await getServerSession(authOptions)
 
   if (!session) {
     redirect("/login")
   }
 
-  const { id } = params
-
-  // Buscar dados do cupom
   const { db } = await connectToDatabase()
+
   const cupom = await db.collection("cupons").findOne({
     _id: new ObjectId(id),
     lojaId: session.user.lojaId,

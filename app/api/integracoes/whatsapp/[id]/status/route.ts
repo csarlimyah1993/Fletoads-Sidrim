@@ -4,17 +4,18 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import WhatsappIntegracao from "@/lib/models/whatsapp-integracao"
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase()
 
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const integracao = await WhatsappIntegracao.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
     })
 
@@ -61,7 +62,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           if (profileResponse.ok) {
             const profileData = await profileResponse.json()
             if (profileData.instance && profileData.instance.owner) {
-              await WhatsappIntegracao.findByIdAndUpdate(params.id, {
+              await WhatsappIntegracao.findByIdAndUpdate(id, {
                 $set: {
                   telefone: profileData.instance.owner,
                   ultimaConexao: new Date(),
@@ -76,7 +77,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         novoStatus = "desconectado"
       }
 
-      await WhatsappIntegracao.findByIdAndUpdate(params.id, {
+      await WhatsappIntegracao.findByIdAndUpdate(id, {
         $set: { status: novoStatus },
       })
 
@@ -93,4 +94,3 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: "Erro ao verificar status" }, { status: 500 })
   }
 }
-

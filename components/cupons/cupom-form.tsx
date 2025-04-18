@@ -539,10 +539,10 @@ export function CupomForm({ cupom }: CupomFormProps) {
                                 role="combobox"
                                 className={cn(
                                   "w-full justify-between",
-                                  !(field.value && field.value.length) && "text-muted-foreground",
+                                  !field.value || field.value.length === 0 ? "text-muted-foreground" : "",
                                 )}
                               >
-                                {(field.value && field.value.length) > 0
+                                {field.value && field.value.length > 0
                                   ? `${field.value.length} categoria(s) selecionada(s)`
                                   : "Selecione as categorias"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -649,10 +649,10 @@ export function CupomForm({ cupom }: CupomFormProps) {
                                 role="combobox"
                                 className={cn(
                                   "w-full justify-between",
-                                  !(field.value && field.value.length) && "text-muted-foreground",
+                                  !field.value || field.value.length === 0 ? "text-muted-foreground" : "",
                                 )}
                               >
-                                {(field.value && field.value.length) > 0
+                                {field.value && field.value.length > 0
                                   ? `${field.value.length} produto(s) selecionado(s)`
                                   : "Selecione os produtos"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -769,10 +769,10 @@ export function CupomForm({ cupom }: CupomFormProps) {
                                 role="combobox"
                                 className={cn(
                                   "w-full justify-between",
-                                  !(field.value && field.value.length) && "text-muted-foreground",
+                                  !field.value || field.value.length === 0 ? "text-muted-foreground" : "",
                                 )}
                               >
-                                {(field.value && field.value.length) > 0
+                                {field.value && field.value.length > 0
                                   ? `${field.value.length} cliente(s) selecionado(s)`
                                   : "Selecione os clientes"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

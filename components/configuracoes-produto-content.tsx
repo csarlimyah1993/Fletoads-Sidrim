@@ -16,8 +16,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { VitrineSidebar } from "@/components/vitrine-sidebar"
 
-export function ConfiguracoesProdutoContent({ id }) {
+// Define the props interface with proper typing for id
+interface ConfiguracoesProdutoContentProps {
+  id: string
+}
+
+export function ConfiguracoesProdutoContent({ id }: ConfiguracoesProdutoContentProps) {
   const router = useRouter()
+  // Add state for sidebar open/close functionality
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
   const [imagem, setImagem] = useState<string | null>("/placeholder.svg?height=300&width=300")
   const [activeTab, setActiveTab] = useState("informacoes")
   const [fazEntrega, setFazEntrega] = useState(true)
@@ -52,7 +59,7 @@ export function ConfiguracoesProdutoContent({ id }) {
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      <VitrineSidebar />
+      <VitrineSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2 mb-6">
@@ -320,4 +327,3 @@ export function ConfiguracoesProdutoContent({ id }) {
     </div>
   )
 }
-

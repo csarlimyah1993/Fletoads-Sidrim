@@ -82,6 +82,7 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
     const lojaCompleta: Loja = {
       ...loja,
       _id: loja._id.toString(),
+      id: loja._id.toString(), // Add the id property here
       nome: loja.nome || "Loja",
       ativo: loja.ativo === true ? true : false, // Garantir que seja boolean
       produtos: produtos.map((p) => ({ ...p, _id: p._id.toString() })) as Produto[],
@@ -98,7 +99,7 @@ async function getLojaBySlug(slug: string): Promise<Loja | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   // Aguardar os parâmetros antes de usá-los
   const resolvedParams = await params
   const loja = await getLojaBySlug(resolvedParams.slug)

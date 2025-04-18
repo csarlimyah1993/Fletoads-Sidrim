@@ -1,5 +1,5 @@
 import { Header } from "@/components/header"
-import { VitrineGerenciamentoContent } from "@/components/vitrine-gerenciamento-content"
+import  VitrineGerenciamentoContent  from "@/components/vitrine-gerenciamento-content"
 
 export default function VitrineGerenciamentoPage() {
   return (

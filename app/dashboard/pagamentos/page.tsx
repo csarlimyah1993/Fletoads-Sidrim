@@ -20,11 +20,8 @@ import {
 } from "@/components/ui/dialog"
 import { AlertCircle, CreditCard, Trash2, Edit, Copy, QrCode } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { loadStripe } from "@stripe/stripe-js"
 import { toast } from "@/components/ui/use-toast"
-
-// Inicializar Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
+import StripeCardElement from "@/components/payment/stripe-card-element"
 
 interface CartaoProps {
   id: string
@@ -52,10 +49,7 @@ export default function PagamentosPage() {
 
   // Estados para adicionar cartão
   const [addingCard, setAddingCard] = useState(false)
-  const [cardNumber, setCardNumber] = useState("")
-  const [cardExpiry, setCardExpiry] = useState("")
-  const [cardCvc, setCardCvc] = useState("")
-  const [cardName, setCardName] = useState("")
+  const [isSubmittingCard, setIsSubmittingCard] = useState(false)
 
   // Estados para adicionar PIX
   const [addingPix, setAddingPix] = useState(false)
@@ -96,41 +90,9 @@ export default function PagamentosPage() {
     }
   }
 
-  const handleAddCard = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const handleCardSuccess = async (paymentMethodId: string) => {
     try {
-      setAddingCard(true)
-
-      // Carregar Stripe
-      const stripe = await stripePromise
-      if (!stripe) {
-        throw new Error("Falha ao carregar Stripe")
-      }
-
-      // Criar elementos do Stripe
-      const { elements, error } = await stripe.elements()
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      // Criar PaymentMethod
-      const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
-        type: "card",
-        card: {
-          number: cardNumber,
-          exp_month: Number.parseInt(cardExpiry.split("/")[0], 10),
-          exp_year: Number.parseInt(cardExpiry.split("/")[1], 10),
-          cvc: cardCvc,
-        },
-        billing_details: {
-          name: cardName,
-        },
-      })
-
-      if (pmError) {
-        throw new Error(pmError.message)
-      }
+      setIsSubmittingCard(true)
 
       // Enviar para o servidor
       const response = await fetch("/api/pagamentos/metodos", {
@@ -141,7 +103,7 @@ export default function PagamentosPage() {
         body: JSON.stringify({
           tipo: "cartao",
           dados: {
-            paymentMethodId: paymentMethod.id,
+            paymentMethodId,
           },
         }),
       })
@@ -151,14 +113,11 @@ export default function PagamentosPage() {
         throw new Error(errorData.error || "Falha ao adicionar cartão")
       }
 
-      // Limpar formulário
-      setCardNumber("")
-      setCardExpiry("")
-      setCardCvc("")
-      setCardName("")
-
       // Atualizar lista
       fetchPaymentMethods()
+
+      // Fechar modal
+      setAddingCard(false)
 
       toast({
         title: "Cartão adicionado",
@@ -172,7 +131,7 @@ export default function PagamentosPage() {
         variant: "destructive",
       })
     } finally {
-      setAddingCard(false)
+      setIsSubmittingCard(false)
     }
   }
 
@@ -180,6 +139,25 @@ export default function PagamentosPage() {
     e.preventDefault()
 
     try {
+      // Validação básica
+      if (!pixChave.trim()) {
+        toast({
+          title: "Erro",
+          description: "A chave PIX é obrigatória",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!pixNome.trim()) {
+        toast({
+          title: "Erro",
+          description: "O nome da chave é obrigatório",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch("/api/pagamentos/metodos", {
         method: "POST",
         headers: {
@@ -229,6 +207,25 @@ export default function PagamentosPage() {
     if (!editingPix) return
 
     try {
+      // Validação básica
+      if (!editPixChave.trim()) {
+        toast({
+          title: "Erro",
+          description: "A chave PIX é obrigatória",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!editPixNome.trim()) {
+        toast({
+          title: "Erro",
+          description: "O nome da chave é obrigatório",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch("/api/pagamentos/metodos", {
         method: "PUT",
         headers: {
@@ -324,47 +321,6 @@ export default function PagamentosPage() {
         variant: "destructive",
       })
     }
-  }
-
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "")
-    const matches = v.match(/\d{4,16}/g)
-    const match = (matches && matches[0]) || ""
-    const parts = []
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4))
-    }
-
-    if (parts.length) {
-      return parts.join(" ")
-    } else {
-      return value
-    }
-  }
-
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "")
-
-    if (v.length >= 2) {
-      return `${v.substring(0, 2)}/${v.substring(2, 4)}`
-    }
-
-    return v
-  }
-
-  const getCardBrandIcon = (brand: string) => {
-    const brandIcons: Record<string, string> = {
-      visa: "visa",
-      mastercard: "mastercard",
-      amex: "amex",
-      discover: "discover",
-      jcb: "jcb",
-      diners: "diners",
-      unionpay: "unionpay",
-    }
-
-    return brandIcons[brand.toLowerCase()] || "credit-card"
   }
 
   const startEditPix = (pix: PixProps) => {
@@ -538,67 +494,11 @@ export default function PagamentosPage() {
             <DialogDescription>Adicione um novo cartão de crédito ou débito para pagamentos.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleAddCard}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="cardName">Nome no Cartão</Label>
-                <Input
-                  id="cardName"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                  placeholder="Nome como aparece no cartão"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="cardNumber">Número do Cartão</Label>
-                <Input
-                  id="cardNumber"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                  placeholder="1234 5678 9012 3456"
-                  maxLength={19}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="cardExpiry">Validade</Label>
-                  <Input
-                    id="cardExpiry"
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                    placeholder="MM/AA"
-                    maxLength={5}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="cardCvc">CVC</Label>
-                  <Input
-                    id="cardCvc"
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, ""))}
-                    placeholder="123"
-                    maxLength={4}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddingCard(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={addingCard}>
-                {addingCard ? "Adicionando..." : "Adicionar Cartão"}
-              </Button>
-            </DialogFooter>
-          </form>
+          <StripeCardElement
+            onSuccess={handleCardSuccess}
+            onCancel={() => setAddingCard(false)}
+            isSubmitting={isSubmittingCard}
+          />
         </DialogContent>
       </Dialog>
 
@@ -724,4 +624,3 @@ export default function PagamentosPage() {
     </div>
   )
 }
-

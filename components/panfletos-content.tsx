@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -27,13 +29,63 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { CriarPanfletoButton } from "@/components/criar-panfleto-button"
 
+// Define TypeScript interfaces for our components
+interface StatusCardProps {
+  id: string
+  icon: React.ReactNode
+  label: string
+  count: number
+  total: number
+  color: string
+  isActive: boolean
+  onClick: () => void
+}
+
+interface ProductStats {
+  views: number
+  likes: number
+  shares: number
+  comments: number
+}
+
+interface ProductCardProps {
+  image: string
+  title: string
+  price: string
+  period: string
+  stats: ProductStats
+  type: string[] | string
+  timeRemaining?: string
+  activeFilter: string
+}
+
+interface StatusCardData {
+  id: string
+  icon: React.ReactNode
+  label: string
+  count: number
+  total: number
+  color: string
+}
+
+interface ProductData {
+  id: number
+  image: string
+  title: string
+  price: string
+  period: string
+  stats: ProductStats
+  type: string[] | string
+  timeRemaining?: string
+}
+
 export function PanfletosContent() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeFilter, setActiveFilter] = useState("all") // 'all', 'ativos', 'programados', 'hotpromo', 'desativados', 'eventos'
 
   // Status card data
-  const statusCards = [
+  const statusCards: StatusCardData[] = [
     {
       id: "ativos",
       icon: <FileText className="h-5 w-5" />,
@@ -77,7 +129,7 @@ export function PanfletosContent() {
   ]
 
   // Product data
-  const products = [
+  const products: ProductData[] = [
     {
       id: 1,
       image: "/placeholder.svg?height=200&width=200",
@@ -169,7 +221,7 @@ export function PanfletosContent() {
         )
 
   // Handle status card click
-  const handleStatusCardClick = (cardId) => {
+  const handleStatusCardClick = (cardId: string) => {
     setActiveFilter(cardId === activeFilter ? "all" : cardId)
   }
 
@@ -304,7 +356,7 @@ export function PanfletosContent() {
 }
 
 // Components
-function StatusCard({ id, icon, label, count, total, color, isActive, onClick }) {
+function StatusCard({ id, icon, label, count, total, color, isActive, onClick }: StatusCardProps) {
   return (
     <Card
       className={`flex flex-col items-center p-4 hover:shadow-md transition-shadow cursor-pointer ${
@@ -328,7 +380,7 @@ function StatusCard({ id, icon, label, count, total, color, isActive, onClick })
   )
 }
 
-function ProductCard({ image, title, price, period, stats, type, timeRemaining, activeFilter }) {
+function ProductCard({ image, title, price, period, stats, type, timeRemaining, activeFilter }: ProductCardProps) {
   const router = useRouter()
 
   // Determine badge type and color based on active filter
@@ -401,4 +453,3 @@ function ProductCard({ image, title, price, period, stats, type, timeRemaining, 
     </Card>
   )
 }
-

@@ -5,16 +5,17 @@ import { ObjectId } from "mongodb"
 import ProdutoDetalhe from "@/components/vitrine/produto-detalhe"
 
 interface ProdutoPageProps {
-  params: {
+  params: Promise<{
     id: string
     productId: string
-  }
+  }>
 }
 
 export default async function ProdutoPage({ params }: ProdutoPageProps) {
   // Properly await params in Next.js 15
-  const id = await params.id
-  const productId = await params.productId
+  const resolvedParams = await params
+  const id = resolvedParams.id
+  const productId = resolvedParams.productId
 
   if (!id || !productId) {
     notFound()
@@ -87,6 +88,7 @@ export default async function ProdutoPage({ params }: ProdutoPageProps) {
   const serializableLoja = {
     ...loja,
     _id: loja._id.toString(),
+    id: loja._id.toString(), // Add the id property here
     nome: loja.nome || "",
     descricao: loja.descricao || "",
     dataCriacao: loja.dataCriacao ? loja.dataCriacao.toISOString() : null,
@@ -121,8 +123,9 @@ export default async function ProdutoPage({ params }: ProdutoPageProps) {
 // Gerar metadados dinâmicos para SEO
 export async function generateMetadata({ params }: ProdutoPageProps) {
   // Properly await params in Next.js 15
-  const id = await params.id
-  const productId = await params.productId
+  const resolvedParams = await params
+  const id = resolvedParams.id
+  const productId = resolvedParams.productId
 
   try {
     const { db } = await connectToDatabase()

@@ -1,140 +1,139 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { PerfilDaLojaClient } from "@/components/perfil/perfil-da-loja-client"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import type { Produto } from "@/types/loja"
+"use client"
 
-export default async function PerfilDaLojaPage() {
-  const session = await getServerSession(authOptions)
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { toast } from "@/components/ui/use-toast"
 
-  if (!session) {
-    redirect("/login")
-  }
+interface Loja {
+  _id: string
+  nome: string
+  cnpj: string
+  endereco: string
+  userId: string
+  dataCriacao: string
+  dataAtualizacao: string
+}
 
-  const userId = session.user.id
-  console.log("ID do usuário:", userId)
+interface Produto {
+  _id: string
+  nome: string
+  preco: number
+  descricaoCurta: string
+  precoPromocional: number
+  imagens: string[]
+  destaque: boolean
+  ativo: boolean
+  lojaId: string
+  dataCriacao: string
+  dataAtualizacao: string
+}
 
-  // Buscar a loja diretamente do banco de dados
-  const { db } = await connectToDatabase()
+const PerfilEditarPage = () => {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [loja, setLoja] = useState<Loja | null>(null)
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Buscar o usuário para verificar o lojaId
-  const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
-  console.log("Usuário encontrado:", usuario ? "Sim" : "Não")
-  console.log("LojaId do usuário:", usuario?.lojaId)
-
-  // Se o usuário tiver lojaId, buscar a loja diretamente pelo ID
-  let loja = null
-  if (usuario && usuario.lojaId) {
-    try {
-      console.log("Buscando loja pelo lojaId:", usuario.lojaId)
-      loja = await db.collection("lojas").findOne({
-        _id: typeof usuario.lojaId === "string" ? new ObjectId(usuario.lojaId) : usuario.lojaId,
-      })
-      console.log("Loja encontrada pelo lojaId:", loja ? "Sim" : "Não")
-    } catch (error) {
-      console.error("Erro ao buscar loja pelo lojaId:", error)
+  useEffect(() => {
+    if (status === "loading") {
+      setIsLoading(true)
+      return
     }
-  }
 
-  // Se não encontrou pelo lojaId, tentar pelos campos proprietarioId/usuarioId
-  if (!loja) {
-    console.log("Buscando loja por proprietarioId/usuarioId:", userId)
-    loja = await db.collection("lojas").findOne({
-      $or: [
-        { proprietarioId: userId },
-        { proprietarioId: new ObjectId(userId) },
-        { usuarioId: userId },
-        { usuarioId: new ObjectId(userId) },
-      ],
-    })
-    console.log("Loja encontrada por proprietarioId/usuarioId:", loja ? "Sim" : "Não")
-  }
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
 
-  // Buscar produtos da loja
-  let produtos: Produto[] = []
-  if (loja) {
-    console.log("Buscando produtos da loja:", loja._id.toString())
-    const produtosData = await db
-      .collection("produtos")
-      .find({ lojaId: loja._id.toString() })
-      .limit(8)
-      .sort({ destaque: -1, dataCriacao: -1 })
-      .toArray()
-
-    produtos = produtosData.map((produto) => ({
-      _id: produto._id.toString(),
-      nome: produto.nome,
-      preco: produto.preco,
-      descricaoCurta: produto.descricaoCurta,
-      precoPromocional: produto.precoPromocional,
-      imagens: produto.imagens,
-      destaque: produto.destaque,
-      ativo: produto.ativo,
-      dataCriacao: produto.dataCriacao,
-      dataAtualizacao: produto.dataAtualizacao,
-    }))
-
-    console.log("Produtos encontrados:", produtos.length)
-  }
-
-  // Buscar informações do plano
-  let planoInfo = null
-  try {
-    console.log("Buscando informações do plano para o usuário:", userId)
-    if (usuario && usuario.plano) {
-      planoInfo = {
-        nome: usuario.plano,
-        panfletos: { usado: 0, limite: usuario.plano === "premium" ? 100 : 10 },
-        produtos: { usado: produtos.length, limite: usuario.plano === "premium" ? 1000 : 100 },
-        integracoes: { usado: 0, limite: usuario.plano === "premium" ? 10 : 1 },
+    const fetchLoja = async () => {
+      try {
+        const response = await fetch(`/api/lojas/user/${session?.user.id}`)
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`)
+        }
+        const data = await response.json()
+        setLoja(data)
+      } catch (error: any) {
+        console.error("Erro ao buscar loja:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível buscar os dados da loja.",
+          variant: "destructive",
+        })
       }
-      console.log("Plano do usuário:", usuario.plano)
     }
-  } catch (error) {
-    console.error("Erro ao buscar informações do plano:", error)
+
+    const fetchProdutos = async () => {
+      if (!loja?._id) return
+
+      try {
+        const response = await fetch(`/api/produtos/loja/${loja._id}`)
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`)
+        }
+        const produtosData = await response.json()
+
+        const mappedProdutos = produtosData.map((produto: any) => ({
+          _id: produto._id.toString(),
+          nome: produto.nome,
+          preco: produto.preco,
+          descricaoCurta: produto.descricaoCurta,
+          precoPromocional: produto.precoPromocional,
+          imagens: produto.imagens,
+          destaque: produto.destaque,
+          ativo: produto.ativo,
+          lojaId: produto.lojaId || loja._id.toString(), // Add the lojaId property
+          dataCriacao: produto.dataCriacao,
+          dataAtualizacao: produto.dataAtualizacao,
+        }))
+
+        setProdutos(mappedProdutos)
+      } catch (error: any) {
+        console.error("Erro ao buscar produtos:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível buscar os produtos da loja.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLoja()
+    if (loja?._id) {
+      fetchProdutos()
+    } else {
+      setIsLoading(false)
+    }
+  }, [session, status, router, loja?._id])
+
+  if (isLoading) {
+    return <div>Carregando...</div>
   }
 
-  // Serializar os dados para evitar erros de serialização
-  const serializableLoja = loja
-    ? JSON.parse(
-        JSON.stringify({
-          ...loja,
-          _id: loja._id.toString(),
-          dataCriacao: loja.dataCriacao ? loja.dataCriacao.toISOString() : null,
-          dataAtualizacao: loja.dataAtualizacao ? loja.dataAtualizacao.toISOString() : null,
-        }),
-      )
-    : null
+  if (!loja) {
+    return <div>Nenhuma loja encontrada para este usuário.</div>
+  }
 
-  const serializableProdutos = JSON.parse(
-    JSON.stringify(
-      produtos.map((produto) => ({
-        ...produto,
-        dataCriacao: produto.dataCriacao
-          ? typeof produto.dataCriacao === "string"
-            ? produto.dataCriacao
-            : produto.dataCriacao.toISOString()
-          : null,
-        dataAtualizacao: produto.dataAtualizacao
-          ? typeof produto.dataAtualizacao === "string"
-            ? produto.dataAtualizacao
-            : produto.dataAtualizacao.toISOString()
-          : null,
-      })),
-    ),
-  )
-
-  console.log("Renderizando perfil da loja com dados serializados")
-
-  // Se tiver loja, mostrar o perfil
   return (
-    <PerfilDaLojaClient 
-      userId={userId} 
-      loja={serializableLoja} 
-      produtos={serializableProdutos} 
-      planoInfo={planoInfo} 
-    />
+    <div>
+      <h1>Editar Perfil da Loja</h1>
+      <p>Nome da Loja: {loja.nome}</p>
+      <h2>Produtos da Loja</h2>
+      {produtos.length > 0 ? (
+        <ul>
+          {produtos.map((produto) => (
+            <li key={produto._id}>{produto.nome}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>Nenhum produto cadastrado.</p>
+      )}
+    </div>
   )
 }
+
+export default PerfilEditarPage

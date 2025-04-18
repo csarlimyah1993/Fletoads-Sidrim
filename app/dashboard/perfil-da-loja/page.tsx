@@ -7,6 +7,12 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import type { Produto } from "@/types/loja"
 
+// Define an extended type for internal use that includes the date properties
+interface ProdutoWithDates extends Produto {
+  dataCriacao?: Date | string
+  dataAtualizacao?: Date | string
+}
+
 export default async function PerfilDaLojaPage() {
   const session = await getServerSession(authOptions)
 
@@ -76,8 +82,8 @@ export default async function PerfilDaLojaPage() {
     .sort({ destaque: -1, dataCriacao: -1 })
     .toArray()
 
-  // Converter para o tipo Produto
-  const produtos: Produto[] = produtosData.map((produto) => ({
+  // Converter para o tipo Produto, adicionando o lojaId que é obrigatório
+  const produtos: ProdutoWithDates[] = produtosData.map((produto) => ({
     _id: produto._id.toString(),
     nome: produto.nome,
     preco: produto.preco,
@@ -86,6 +92,7 @@ export default async function PerfilDaLojaPage() {
     imagens: produto.imagens,
     destaque: produto.destaque,
     ativo: produto.ativo,
+    lojaId: produto.lojaId || loja._id.toString(), // Adicionar lojaId que é obrigatório
     dataCriacao: produto.dataCriacao,
     dataAtualizacao: produto.dataAtualizacao,
   }))
@@ -124,6 +131,7 @@ export default async function PerfilDaLojaPage() {
       produtos.map((produto) => ({
         ...produto,
         _id: produto._id.toString(),
+        lojaId: produto.lojaId, // Garantir que lojaId está incluído na serialização
         dataCriacao: produto.dataCriacao
           ? typeof produto.dataCriacao === "string"
             ? produto.dataCriacao

@@ -6,12 +6,12 @@ import { ObjectId } from "mongodb"
 
 // Definição correta do tipo para Next.js 15
 interface VitrinePageProps {
-  params: Promise<{ id: string }> | { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function VitrinePage(props: VitrinePageProps) {
   // Aguardar os parâmetros corretamente
-  const params = props.params instanceof Promise ? await props.params : props.params
+  const params = await props.params
   const vitrineId = params.id
 
   if (!vitrineId) {
@@ -59,7 +59,7 @@ export default async function VitrinePage(props: VitrinePageProps) {
 // Gerar metadados dinâmicos para SEO
 export async function generateMetadata(props: VitrinePageProps) {
   // Aguardar os parâmetros corretamente
-  const params = props.params instanceof Promise ? await props.params : props.params
+  const params = await props.params
   const vitrineId = params.id
 
   if (!vitrineId) {

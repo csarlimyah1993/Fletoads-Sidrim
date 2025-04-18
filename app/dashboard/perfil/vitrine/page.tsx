@@ -1,143 +1,119 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { toast } from "@/components/ui/use-toast"
 import { QRCodeGenerator } from "@/components/perfil/qr-code-generator"
-import { Loader2, ArrowLeft, ExternalLink } from "lucide-react"
-import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Copy } from "lucide-react"
 
-export default function VitrineManagerPage() {
-  const [loading, setLoading] = useState(true)
-  const [loja, setLoja] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("preview")
-  const searchParams = useSearchParams()
-  const tab = searchParams.get("tab")
+// Define the Loja type
+interface Loja {
+  _id: string
+  nome: string
+  logo?: string
+  [key: string]: any
+}
+
+export default function VitrinePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [loja, setLoja] = useState<Loja | null>(null)
+  const [vitrineUrl, setVitrineUrl] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (tab) {
-      setActiveTab(tab)
+    if (status === "unauthenticated") {
+      router.push("/auth/login")
     }
+  }, [status, router])
 
-    const fetchLojaData = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/loja/perfil")
+  useEffect(() => {
+    if (session?.user) {
+      fetchLoja()
+    }
+  }, [session])
 
-        if (!response.ok) {
-          throw new Error(`Erro ao buscar dados da loja: ${response.status}`)
-        }
+  async function fetchLoja() {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/loja/me")
 
-        const data = await response.json()
-        console.log("Dados da loja recebidos:", data)
-
-        if (!data || Object.keys(data).length === 0) {
-          setLoja(null)
-          setError("Loja não encontrada")
-        } else {
-          setLoja(data)
-          setError(null)
-        }
-      } catch (err) {
-        console.error("Erro ao buscar dados da loja:", err)
-        setError("Erro ao carregar dados da loja")
-        setLoja(null)
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
       }
+
+      const data = await response.json()
+      setLoja(data)
+      setVitrineUrl(`${process.env.NEXT_PUBLIC_APP_URL}/loja/${data._id}`)
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao carregar loja",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    fetchLojaData()
-  }, [tab])
+  const handleCopyVitrineUrl = () => {
+    navigator.clipboard.writeText(vitrineUrl)
+    toast({
+      title: "Sucesso",
+      description: "URL da vitrine copiada!",
+    })
+  }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container py-8">
+        <h1 className="text-2xl font-bold mb-4">Vitrine</h1>
+        <div className="space-y-2">
+          <Skeleton className="w-[200px] h-8" />
+          <Skeleton className="w-full h-10" />
+          <Skeleton className="w-full h-64" />
+        </div>
       </div>
     )
   }
 
-  if (error || !loja) {
+  if (!loja) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Loja não encontrada</CardTitle>
-          <CardDescription>{error || "Você precisa criar uma loja antes de acessar a vitrine."}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild>
-            <Link href="/dashboard/perfil/editar">Criar Loja</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="container py-8">
+        <h1 className="text-2xl font-bold mb-4">Vitrine</h1>
+        <p>Você ainda não possui uma loja. Crie uma para ter sua vitrine.</p>
+      </div>
     )
   }
-
-  // Construir a URL da vitrine
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || "http://localhost:3000"
-  const vitrineUrl = `${baseUrl}/vitrine/${loja.slug || loja._id}`
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard/perfil">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+    <div className="container py-8">
+      <h1 className="text-2xl font-bold mb-4">Vitrine</h1>
+      <div className="mb-4">
+        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="vitrineUrl">
+          URL da Vitrine
+        </label>
+        <div className="flex items-center">
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="vitrineUrl"
+            type="text"
+            value={vitrineUrl}
+            readOnly
+          />
+          <Button variant="outline" size="sm" className="ml-2" onClick={handleCopyVitrineUrl}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copiar
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Gerenciar Vitrine</h2>
         </div>
-        <Button asChild variant="outline">
-          <Link href={vitrineUrl} target="_blank">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Acessar Vitrine
-          </Link>
-        </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="preview">Visualizar</TabsTrigger>
-          <TabsTrigger value="qrcode">QR Code</TabsTrigger>
-          <TabsTrigger value="settings">Configurações</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="preview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pré-visualização da Vitrine</CardTitle>
-              <CardDescription>Veja como sua vitrine aparece para os clientes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden h-[600px]">
-                <iframe src={vitrineUrl} className="w-full h-full" title="Pré-visualização da Vitrine" />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="qrcode" className="space-y-4">
-          <QRCodeGenerator url={vitrineUrl} logoUrl={loja.logo} storeName={loja.nome} />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configurações da Vitrine</CardTitle>
-              <CardDescription>Personalize como sua vitrine aparece para os clientes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Configurações avançadas da vitrine estarão disponíveis em breve.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <div>
+        <QRCodeGenerator url={vitrineUrl} logoUrl={loja.logo} storeName={loja.nome} storeId={loja._id} />
+      </div>
     </div>
   )
 }
-

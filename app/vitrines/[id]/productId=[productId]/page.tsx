@@ -5,16 +5,17 @@ import { ObjectId } from "mongodb"
 import ProdutoDetalhe from "@/components/vitrine/produto-detalhe"
 
 interface ProdutoPageProps {
-  params: {
+  params: Promise<{
     id: string
     productId: string
-  }
+  }>
 }
 
 export default async function ProdutoPage(props: ProdutoPageProps) {
-  // Use props.params instead of destructuring to avoid Next.js warning
-  const id = props.params.id
-  const productId = props.params.productId
+  // Await the params Promise
+  const params = await props.params
+  const id = params.id
+  const productId = params.productId
 
   if (!id || !productId) {
     notFound()
@@ -114,9 +115,10 @@ export default async function ProdutoPage(props: ProdutoPageProps) {
 
 // Gerar metadados dinâmicos para SEO
 export async function generateMetadata(props: ProdutoPageProps) {
-  // Use props.params instead of destructuring to avoid Next.js warning
-  const id = props.params.id
-  const productId = props.params.productId
+  // Await the params Promise
+  const params = await props.params
+  const id = params.id
+  const productId = params.productId
 
   try {
     const { db } = await connectToDatabase()

@@ -5,9 +5,9 @@ import Promocao from "@/lib/models/promocao"
 import Loja from "@/lib/models/loja"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id
+    const { id } = await params // Esperar a resolução do parâmetro 'params'
 
     await connectToDatabase()
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await params // Esperar a resolução do parâmetro 'params'
     const data = await request.json()
     const {
       titulo,
@@ -106,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -114,7 +114,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const id = params.id
+    const { id } = await params // Esperar a resolução do parâmetro 'params'
 
     await connectToDatabase()
 
@@ -147,4 +147,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: "Erro ao excluir promoção" }, { status: 500 })
   }
 }
-

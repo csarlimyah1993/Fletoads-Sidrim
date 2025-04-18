@@ -13,10 +13,12 @@ export function PersonalizacaoContent() {
   const [primaryColor, setPrimaryColor] = useState("#3b82f6")
   const [secondaryColor, setSecondaryColor] = useState("#f59e0b")
   const [fontFamily, setFontFamily] = useState("Inter")
+  // Add state for sidebar open/close functionality
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      <VitrineSidebar />
+      <VitrineSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-5xl mx-auto">
           <h1 className="text-2xl font-bold mb-4">Personalização</h1>
@@ -194,4 +196,3 @@ export function PersonalizacaoContent() {
     </div>
   )
 }
-

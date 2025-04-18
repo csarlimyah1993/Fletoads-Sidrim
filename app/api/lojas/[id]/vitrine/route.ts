@@ -3,15 +3,15 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
     if (!id) {
       return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
     }
@@ -77,9 +77,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
+    const { id } = await context.params
     if (!id) {
       return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
     }

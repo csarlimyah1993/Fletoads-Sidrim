@@ -5,7 +5,7 @@ import { MongoClient, ObjectId } from "mongodb"
 import bcrypt from "bcryptjs"
 import * as speakeasy from "speakeasy"
 
-// Extend the Session and JWT types
+// Update the Session user interface to include lojaId
 declare module "next-auth" {
   interface Session {
     user: {
@@ -20,14 +20,17 @@ declare module "next-auth" {
       twoFactorEnabled?: boolean
       twoFactorMethod?: "app" | "email"
       permissoes?: string[]
+      lojaId?: string // Add this line
     }
   }
 }
 
+// Also update the JWT interface to include lojaId
 declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: string
+    lojaId?: string // Add this line
   }
 }
 
@@ -44,6 +47,50 @@ async function connectToDatabase() {
     console.error("Error connecting to MongoDB:", error)
     throw error
   }
+}
+
+// Add the missing functions
+/**
+ * Hash a password using bcrypt
+ * @param password The plain text password to hash
+ * @returns The hashed password
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 10
+  return bcrypt.hash(password, saltRounds)
+}
+
+/**
+ * Validate password strength
+ * @param password The password to validate
+ * @returns An object with validation result and message
+ */
+export function validatePasswordStrength(password: string): { valid: boolean; message: string } {
+  if (password.length < 8) {
+    return { valid: false, message: "A senha deve ter pelo menos 8 caracteres" }
+  }
+
+  // Check for at least one uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra maiúscula" }
+  }
+
+  // Check for at least one lowercase letter
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra minúscula" }
+  }
+
+  // Check for at least one number
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos um número" }
+  }
+
+  // Check for at least one special character
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos um caractere especial" }
+  }
+
+  return { valid: true, message: "Senha válida" }
 }
 
 export const authOptions: NextAuthOptions = {
@@ -200,6 +247,8 @@ export const authOptions: NextAuthOptions = {
 
               token.id = existingUser._id.toString()
               token.role = existingUser.role || "user"
+              // Add this line to include lojaId in the token
+              token.lojaId = existingUser.lojaId || null
             } else {
               // Create new user
               const newUser = {
@@ -226,7 +275,9 @@ export const authOptions: NextAuthOptions = {
         } else {
           // Credentials login
           token.id = user.id
-          token.role = user.role
+          token.role = user.role || "user"  // Fixed line: Added default value "user"
+          // Add this line to include lojaId in the token if it exists in the user object
+          if ("lojaId" in user) token.lojaId = user.lojaId
         }
       }
 
@@ -236,6 +287,9 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id
         session.user.role = token.role
+
+        // Add this line to include lojaId from token
+        if (token.lojaId) session.user.lojaId = token.lojaId
 
         // Buscar informações adicionais do usuário
         let client
@@ -257,6 +311,9 @@ export const authOptions: NextAuthOptions = {
             session.user.plano = user.plano || "gratuito"
             session.user.twoFactorEnabled = user.twoFactorEnabled || false
             session.user.twoFactorMethod = user.twoFactorMethod || "app"
+
+            // Add this line to include lojaId from the user document
+            session.user.lojaId = user.lojaId || null
 
             if (user.permissoes) {
               session.user.permissoes = user.permissoes

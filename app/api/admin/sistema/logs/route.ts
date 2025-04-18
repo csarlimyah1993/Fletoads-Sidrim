@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions)
 
     // Verificar se o usuário está autenticado e é admin
-    if (!session || session.user.cargo !== "admin") {
+    if (!session || session.user.role !== "admin") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions)
 
     // Verificar se o usuário está autenticado e é admin
-    if (!session || session.user.cargo !== "admin") {
+    if (!session || session.user.role !== "admin") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
@@ -135,4 +135,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

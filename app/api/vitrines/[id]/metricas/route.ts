@@ -4,10 +4,12 @@ import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+type ParamsContext = { params: Promise<{ id: string }> }
+
+export async function GET(request: NextRequest, context: ParamsContext) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
+    const { id } = await context.params
 
     if (!id) {
       return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
@@ -15,35 +17,31 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const { db } = await connectToDatabase()
 
-    // Construir a query corretamente para MongoDB
     const query: any = { $or: [] }
 
-    // Adicionar condição para _id se for um ObjectId válido
     if (ObjectId.isValid(id)) {
       query.$or.push({ _id: new ObjectId(id) })
     }
 
-    // Adicionar outras condições
     query.$or.push({ "vitrine.slug": id })
     query.$or.push({ vitrineId: id })
 
-    // Verificar se o usuário é o proprietário da loja
     const loja = await db.collection("lojas").findOne(query)
 
     if (!loja) {
       return NextResponse.json({ error: "Vitrine não encontrada" }, { status: 404 })
     }
 
-    // Verificar se o usuário é o proprietário
     const isProprietario =
       session &&
-      (loja.proprietarioId === session.user.id || loja.usuarioId === session.user.id || session.user.role === "admin")
+      (loja.proprietarioId === session.user.id ||
+        loja.usuarioId === session.user.id ||
+        session.user.role === "admin")
 
     if (!isProprietario) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
-    // Buscar métricas
     const visualizacoes = await db
       .collection("vitrine_metricas")
       .countDocuments({ lojaId: loja._id.toString(), tipo: "visualizacao" })
@@ -74,9 +72,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: ParamsContext) {
   try {
-    const { id } = params
+    const { id } = await context.params
     const body = await request.json()
     const { tipo = "visualizacao", detalhes = {} } = body
 
@@ -86,26 +84,21 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const { db } = await connectToDatabase()
 
-    // Construir a query corretamente para MongoDB
     const query: any = { $or: [] }
 
-    // Adicionar condição para _id se for um ObjectId válido
     if (ObjectId.isValid(id)) {
       query.$or.push({ _id: new ObjectId(id) })
     }
 
-    // Adicionar outras condições
     query.$or.push({ "vitrine.slug": id })
     query.$or.push({ vitrineId: id })
 
-    // Buscar a loja
     const loja = await db.collection("lojas").findOne(query)
 
     if (!loja) {
       return NextResponse.json({ error: "Vitrine não encontrada" }, { status: 404 })
     }
 
-    // Registrar métrica
     const metrica = {
       lojaId: loja._id.toString(),
       tipo,

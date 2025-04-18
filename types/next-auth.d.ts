@@ -1,12 +1,9 @@
 import type { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      role: string
-    } & DefaultSession["user"]
-  }
+  /**
+   * Extending the User interface
+   */
   interface User {
     id: string
     role?: string
@@ -16,35 +13,41 @@ declare module "next-auth" {
     plano?: string
     emailVerificado?: boolean
     lojaId?: string
+    twoFactorEnabled?: boolean
+    twoFactorMethod?: "email" | "app"
   }
 
   /**
-   * Estendendo a interface Session
+   * Extending the Session interface
    */
   interface Session {
     user: {
       id: string
       role: string
-      nome: string
-      cargo: string
-      permissoes: string[]
-      plano: string
-      emailVerificado: boolean
+      nome?: string
+      cargo?: string
+      permissoes?: string[]
+      plano?: string
+      emailVerificado?: boolean
       lojaId?: string
+      twoFactorEnabled?: boolean
+      twoFactorMethod?: "email" | "app"
     } & DefaultSession["user"]
   }
 }
 
 declare module "next-auth/jwt" {
-  /** Estendendo a interface JWT */
+  /** Extending the JWT interface */
   interface JWT {
     id: string
     role: string
-    nome: string
-    cargo: string
-    permissoes: string[]
-    plano: string
-    emailVerificado: boolean
+    nome?: string
+    cargo?: string
+    permissoes?: string[]
+    plano?: string
+    emailVerificado?: boolean
     lojaId?: string
+    twoFactorEnabled?: boolean
+    twoFactorMethod?: "email" | "app"
   }
 }

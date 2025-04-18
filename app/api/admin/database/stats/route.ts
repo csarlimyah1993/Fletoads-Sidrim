@@ -10,11 +10,14 @@ interface Collection {
 
 // Definindo uma interface para as estatísticas da coleção
 interface CollectionStats {
+  ns: string
   count: number
   size: number
   avgObjSize: number
   storageSize: number
   nindexes: number
+  totalIndexSize: number
+  indexSizes: Record<string, number>
 }
 
 export async function GET(request: NextRequest) {
@@ -36,7 +39,8 @@ export async function GET(request: NextRequest) {
     // Obter estatísticas para cada coleção
     const collectionsStats = await Promise.all(
       collections.map(async (collection: Collection) => {
-        const stats = (await db.collection(collection.name).stats()) as CollectionStats
+        // Use db.command() to run the collStats command instead of stats() method
+        const stats = (await db.command({ collStats: collection.name })) as CollectionStats
         return {
           name: collection.name,
           count: stats.count,
@@ -77,4 +81,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

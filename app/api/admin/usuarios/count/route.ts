@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/mongodb"
+import {connectToDatabase} from "@/lib/mongodb"
 import Usuario from "@/lib/models/usuario" // Corrected path
 
 export async function GET(request: NextRequest) {

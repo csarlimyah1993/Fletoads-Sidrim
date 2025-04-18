@@ -3,6 +3,22 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 
+// Define a type for the session user with lojaId
+interface SessionUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role: string
+  nome?: string
+  emailVerificado?: boolean
+  plano?: string
+  lojaId?: string
+  permissoes?: string[]
+  twoFactorEnabled?: boolean
+  twoFactorMethod?: "email" | "app"
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -21,10 +37,13 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase()
 
+    // Use type assertion to access lojaId
+    const user = session.user as SessionUser
+
     // Buscar cupom pelo código
     const cupom = await db.collection("cupons").findOne({
       codigo: codigo,
-      lojaId: session.user.lojaId,
+      lojaId: user.lojaId,
       ativo: true,
     })
 

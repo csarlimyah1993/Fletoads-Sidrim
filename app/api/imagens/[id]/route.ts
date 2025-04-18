@@ -2,9 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { GridFSBucket, ObjectId } from "mongodb"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const id = params.id
+    const { id } = await context.params
 
     if (!id || !ObjectId.isValid(id)) {
       return NextResponse.json({ error: "ID de imagem inválido" }, { status: 400 })
@@ -17,11 +17,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     })
 
     // Buscar os metadados do arquivo
-    const files = await db.collection("imagens.files").findOne({
-      _id: new ObjectId(id),
-    })
+    const file = await db.collection("imagens.files").findOne({ _id: new ObjectId(id) })
 
-    if (!files) {
+    if (!file) {
       return NextResponse.json({ error: "Imagem não encontrada" }, { status: 404 })
     }
 
@@ -34,13 +32,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       chunks.push(Buffer.from(chunk))
     }
 
-    // Combinar os chunks em um único buffer
     const buffer = Buffer.concat(chunks)
 
-    // Retornar a imagem com o tipo de conteúdo correto
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": files.contentType,
+        "Content-Type": file.contentType,
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     })
@@ -49,4 +45,3 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Erro ao buscar imagem" }, { status: 500 })
   }
 }
-

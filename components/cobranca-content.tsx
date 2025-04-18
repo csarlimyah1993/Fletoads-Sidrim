@@ -1,11 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { VitrineSidebar } from "@/components/vitrine-sidebar"
 
 export function CobrancaContent() {
+  // Add state for sidebar open/close functionality
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true)
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      <VitrineSidebar />
+      <VitrineSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-5xl mx-auto">
           <h1 className="text-2xl font-bold mb-4">Editor de Checkout</h1>
@@ -19,4 +23,3 @@ export function CobrancaContent() {
     </div>
   )
 }
-

@@ -1,34 +1,21 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+// Updated type definition for params to match Next.js 15
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    console.log(`PATCH request received for loja ID: ${params.id}`)
+    const { id } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
-      console.log("Unauthorized: No session or user")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { id } = params
-    if (!id) {
-      console.log("Bad request: No ID provided")
-      return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
-    }
-
-    const body = await request.json()
-    console.log(`Request body received for loja ${id}:`, JSON.stringify(body, null, 2))
-
-    const { nome, cnpj, descricao, endereco, contato, categorias, horarioFuncionamento, redesSociais, logo, banner } =
-      body
-
     const { db } = await connectToDatabase()
 
-    // Verificar se a loja existe e pertence ao usuário
-    console.log(`Checking if loja ${id} belongs to user ${session.user.id}`)
+    // Verificar se a loja pertence ao usuário
     const loja = await db.collection("lojas").findOne({
       _id: new ObjectId(id),
       $or: [
@@ -40,68 +27,42 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     })
 
     if (!loja) {
-      console.log(`Loja ${id} not found or doesn't belong to user ${session.user.id}`)
-      return NextResponse.json(
-        { error: "Loja não encontrada ou você não tem permissão para editá-la" },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    console.log(`Loja ${id} found and belongs to user ${session.user.id}`)
+    const data = await request.json()
 
-    // Preparar dados para atualização
-    const dadosAtualizados = {
-      nome,
-      cnpj,
-      descricao,
-      endereco,
-      contato,
-      categorias,
-      horarioFuncionamento,
-      redesSociais,
-      logo,
-      banner,
+    // Validar dados
+    if (!data.nome) {
+      return NextResponse.json({ error: "Nome da loja é obrigatório" }, { status: 400 })
+    }
+
+    // Atualizar loja
+    const updateData: Record<string, any> = {
+      nome: data.nome,
       dataAtualizacao: new Date(),
     }
 
-    // Remover campos undefined
-    Object.keys(dadosAtualizados).forEach((key) => {
-      if (dadosAtualizados[key as keyof typeof dadosAtualizados] === undefined) {
-        delete dadosAtualizados[key as keyof typeof dadosAtualizados]
-      }
-    })
+    // Adicionar campos opcionais se fornecidos
+    if (data.descricao !== undefined) updateData.descricao = data.descricao
+    if (data.logo !== undefined) updateData.logo = data.logo
+    if (data.banner !== undefined) updateData.banner = data.banner
 
-    console.log(`Updating loja ${id} with data:`, JSON.stringify(dadosAtualizados, null, 2))
+    await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: updateData })
 
-    // Atualizar a loja
-    await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: dadosAtualizados })
-
-    console.log(`Loja ${id} updated successfully`)
-    return NextResponse.json({
-      success: true,
-      message: "Loja atualizada com sucesso",
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Erro ao atualizar loja:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao atualizar loja",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro ao processar requisição" }, { status: 500 })
   }
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+// Updated GET handler to match Next.js 15 type definitions
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params
-    if (!id) {
-      return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
-    }
-
+    const { id } = await params
     const { db } = await connectToDatabase()
 
-    // Buscar a loja
     const loja = await db.collection("lojas").findOne({
       _id: new ObjectId(id),
     })
@@ -110,22 +71,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Converter ObjectId para string para serialização JSON
-    const lojaFormatada = {
+    // Converter ObjectId para string
+    const lojaData = {
       ...loja,
       _id: loja._id.toString(),
-      usuarioId: loja.usuarioId ? loja.usuarioId.toString() : undefined,
-      proprietarioId: loja.proprietarioId ? loja.proprietarioId.toString() : undefined,
     }
 
-    return NextResponse.json(lojaFormatada)
+    return NextResponse.json(lojaData)
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao buscar loja",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro ao processar requisição" }, { status: 500 })
   }
 }

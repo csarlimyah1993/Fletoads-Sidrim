@@ -25,8 +25,8 @@ export function BackToTopButton({ config }: BackToTopButtonProps) {
         className="rounded-full shadow-lg h-12 w-12"
         onClick={scrollToTop}
         style={{
-          backgroundColor: config.corPrimaria || "#3b82f6",
-          color: config.corTexto || "#ffffff",
+          backgroundColor: config?.corPrimaria || "#3b82f6",
+          color: config?.corTexto || "#ffffff",
         }}
       >
         <ChevronUp className="h-6 w-6" />

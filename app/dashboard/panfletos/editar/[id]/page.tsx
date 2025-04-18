@@ -3,10 +3,12 @@ import { Header } from "@/components/header"
 import { PanfletoForm } from "@/components/panfletos/panfleto-form"
 import { getPanfletoById } from "@/lib/panfletos"
 
+interface Params {
+  id: string
+}
+
 interface EditarPanfletoPageProps {
-  params: {
-    id: string
-  }
+  params: Promise<Params> // Corrigido para Promise<Params>
 }
 
 export const metadata: Metadata = {
@@ -15,8 +17,10 @@ export const metadata: Metadata = {
 }
 
 export default async function EditarPanfletoPage({ params }: EditarPanfletoPageProps) {
-  const panfleto = await getPanfletoById(params.id)
-  
+  const { id } = await params  // Aguardamos a resolução do params
+
+  const panfleto = await getPanfletoById(id)
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header title="Editar Panfleto" />
