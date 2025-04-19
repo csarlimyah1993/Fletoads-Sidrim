@@ -33,6 +33,10 @@ export default function LoginPage() {
         return
       }
 
+      // Adicionar um pequeno atraso para garantir que o cookie seja definido
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Redirecionar para o dashboard
       router.push("/dashboard")
     } catch (error) {
       setError("Ocorreu um erro ao fazer login")
