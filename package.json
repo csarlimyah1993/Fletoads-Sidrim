@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3",
     "@ai-sdk/togetherai": "^0.1.16",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "^11.14.0",
