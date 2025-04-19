@@ -193,7 +193,7 @@ export const authOptions: NextAuthOptions = {
             }
           }
 
-          // Update last login
+          // Update last login teste
           await db.collection("usuarios").updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } })
 
           return {
