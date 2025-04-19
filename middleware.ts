@@ -1,39 +1,50 @@
-// middleware.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-// Configuração do matcher - Removendo rotas públicas
-export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/perfil/:path*",
-    "/vitrine/:path*",
-  ],
+// This function can be marked `async` if using `await` inside
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Check if the path is protected
+  const isProtectedPath = pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/perfil"
+
+  // Check if the path is auth related
+  const isAuthPath = pathname === "/login" || pathname === "/cadastro" || pathname === "/esqueci-senha"
+
+  // Get the token with detailed logging
+  console.log("Middleware: Checking token for path", pathname)
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  })
+
+  console.log(
+    "Middleware: Token result",
+    token ? "Token exists" : "No token",
+    token ? `User ID: ${token.sub}, Role: ${token.role || "user"}` : "",
+  )
+
+  // Redirect unauthenticated users to login page if they're trying to access protected routes
+  if (isProtectedPath && !token) {
+    console.log("Middleware: Redirecting to login - no token for protected path")
+    const url = new URL("/login", request.url)
+    url.searchParams.set("callbackUrl", encodeURI(request.url))
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect authenticated users to dashboard if they're trying to access auth routes
+  if (isAuthPath && token) {
+    console.log("Middleware: Redirecting to dashboard - user already authenticated")
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  console.log("Middleware: Allowing request to proceed")
+  return NextResponse.next()
 }
 
-export async function middleware(request: NextRequest) {
-  // Log para depuração
-  console.log("Middleware executando em:", request.nextUrl.pathname)
-  
-  try {
-    // Verificar se o cookie de sessão existe
-    const sessionCookie = request.cookies.get("next-auth.session-token")
-    
-    // Se não houver cookie, redirecionar para login
-    if (!sessionCookie) {
-      console.log("Nenhum cookie de sessão encontrado, redirecionando para login")
-      const baseUrl = request.nextUrl.origin
-      return NextResponse.redirect(new URL("/login", baseUrl))
-    }
-
-    // Verificações de role podem ser adicionadas posteriormente
-    // Por enquanto, apenas permitir acesso se o cookie existir
-    return NextResponse.next()
-  } catch (error) {
-    console.error("Erro no middleware:", error)
-    // Em caso de erro, redirecionar para login
-    const baseUrl = request.nextUrl.origin
-    return NextResponse.redirect(new URL("/login", baseUrl))
-  }
+// See "Matching Paths" below to learn more
+export const config = {
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/perfil", "/login", "/cadastro", "/esqueci-senha"],
 }

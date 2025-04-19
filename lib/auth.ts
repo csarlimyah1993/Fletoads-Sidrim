@@ -87,6 +87,7 @@ export function validatePasswordStrength(password: string): { valid: boolean; me
 function getCookieDomain() {
   // First check for explicit COOKIE_DOMAIN env var
   if (process.env.COOKIE_DOMAIN) {
+    console.log(`Using explicit COOKIE_DOMAIN: ${process.env.COOKIE_DOMAIN}`)
     return process.env.COOKIE_DOMAIN
   }
 
@@ -95,13 +96,16 @@ function getCookieDomain() {
     try {
       const url = new URL(process.env.NEXTAUTH_URL)
       // Return just the hostname without www. prefix
-      return url.hostname.replace(/^www\./, "")
+      const domain = url.hostname.replace(/^www\./, "")
+      console.log(`Derived cookie domain from NEXTAUTH_URL: ${domain}`)
+      return domain
     } catch (e) {
       console.warn("Failed to parse NEXTAUTH_URL for cookie domain:", e)
     }
   }
 
   // Return undefined for localhost/development
+  console.log("Using default cookie domain (undefined) for development")
   return undefined
 }
 
