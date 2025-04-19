@@ -13,16 +13,17 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Cores do Fleto */
+    --primary: 240 96% 65%; /* #525bfc */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 163 69% 63%; /* #5fe0b7 */
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 163 69% 63%; /* #5fe0b7 */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -30,9 +31,17 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 240 96% 65%; /* #525bfc */
 
     --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 240 96% 65%; /* #525bfc */
+    --chart-2: 163 69% 63%; /* #5fe0b7 */
+    --chart-3: 215.4 16.3% 46.9%;
+    --chart-4: 24.6 95% 53.1%;
+    --chart-5: 262.1 83.3% 57.8%;
+    --chart-6: 231 91% 18%;
   }
 
   .dark {
@@ -45,24 +54,42 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Cores do Fleto para tema escuro */
+    --primary: 240 96% 65%; /* #525bfc */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 163 69% 63%; /* #5fe0b7 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 163 69% 63%; /* #5fe0b7 */
+    --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 163 69% 63%; /* #5fe0b7 */
+
+    /* Chart colors */
+    --chart-1: 240 96% 65%; /* #525bfc */
+    --chart-2: 163 69% 63%; /* #5fe0b7 */
+    --chart-3: 215 20.2% 65.1%;
+    --chart-4: 20.5 90.2% 48.2%;
+    --chart-5: 263.4 70% 50.4%;
+    --chart-6: 231 91% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
@@ -101,4 +128,33 @@
       background-position: -200% 0;
     }
   }
+}
+
+/* Animações adicionais */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

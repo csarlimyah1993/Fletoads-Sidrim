@@ -18,6 +18,12 @@ module.exports = {
     },
     extend: {
       colors: {
+        // Adicionando cores do Fleto para acesso direto
+        fleto: {
+          primary: '#525bfc',
+          dark: '#3c12c3',
+          secondary: '#5fe0b7',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -84,4 +90,3 @@ module.exports = {
   },
   plugins: [require("tailwindcss-animate")],
 }
-

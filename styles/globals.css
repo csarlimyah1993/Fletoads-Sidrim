@@ -13,16 +13,17 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    /* Cores do Fleto */
+    --primary: 240 96% 65%; /* #525bfc */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 163 69% 63%; /* #5fe0b7 */
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 163 69% 63%; /* #5fe0b7 */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -30,13 +31,13 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 240 96% 65%; /* #525bfc */
 
     --radius: 0.5rem;
 
     /* Chart colors */
-    --chart-1: 221.2 83.2% 53.3%;
-    --chart-2: 142.1 76.2% 36.3%;
+    --chart-1: 240 96% 65%; /* #525bfc */
+    --chart-2: 163 69% 63%; /* #5fe0b7 */
     --chart-3: 215.4 16.3% 46.9%;
     --chart-4: 24.6 95% 53.1%;
     --chart-5: 262.1 83.3% 57.8%;
@@ -53,28 +54,29 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Cores do Fleto para tema escuro */
+    --primary: 240 96% 65%; /* #525bfc */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 163 69% 63%; /* #5fe0b7 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 163 69% 63%; /* #5fe0b7 */
+    --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 163 69% 63%; /* #5fe0b7 */
 
     /* Chart colors */
-    --chart-1: 217.2 91.2% 59.8%;
-    --chart-2: 142.1 70.6% 45.3%;
+    --chart-1: 240 96% 65%; /* #525bfc */
+    --chart-2: 163 69% 63%; /* #5fe0b7 */
     --chart-3: 215 20.2% 65.1%;
     --chart-4: 20.5 90.2% 48.2%;
     --chart-5: 263.4 70% 50.4%;
@@ -91,7 +93,44 @@
   }
 }
 
-/* Adicionar animações básicas para substituir framer-motion */
+@layer components {
+  .prose {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+
+  .prose-sm {
+    @apply max-w-none;
+  }
+
+  .prose-lg {
+    @apply max-w-none;
+  }
+
+  .prose-xl {
+    @apply max-w-none;
+  }
+
+  .prose-2xl {
+    @apply max-w-none;
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/* Animações adicionais */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -108,8 +147,7 @@
 }
 
 @keyframes pulse {
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
   }
   50% {
@@ -120,4 +158,3 @@
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-

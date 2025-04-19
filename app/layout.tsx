@@ -11,6 +11,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "FletoAds - Plataforma de Marketing Digital",
   description: "Plataforma completa para gerenciamento de marketing digital",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+  },
 }
 
 export default function RootLayout({
