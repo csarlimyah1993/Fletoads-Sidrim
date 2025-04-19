@@ -9,8 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3",
     "@ai-sdk/togetherai": "^0.1.16",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "^11.14.0",
@@ -46,6 +44,7 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@react-google-maps/api": "^2.20.6",
     "@stripe/stripe-js": "^6.1.0",
+    "@types/nodemailer": "^6.4.17",
     "@vercel/analytics": "^1.5.0",
     "@vercel/blob": "^0.22.1",
     "@vercel/speed-insights": "^1.2.0",
@@ -59,6 +58,8 @@
     "cmdk": "1.0.4",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "8.5.1",
+    "eslint": "^9.25.0",
+    "eslint-config-next": "15.2.4",
     "framer-motion": "^10.16.4",
     "input-otp": "1.4.1",
     "jose": "^6.0.10",
@@ -93,14 +94,10 @@
     "together-ai": "^0.13.0",
     "typescript": "^5.8.3",
     "vaul": "^0.9.6",
-    "zod": "^3.24.1",
-    "eslint": "^9.25.0",
-    "eslint-config-next": "15.2.4"
-    
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
-    "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
@@ -108,8 +105,6 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.30.1",
     "@typescript-eslint/parser": "^8.30.1",
-    "eslint": "^9.25.0",
-    "eslint-config-next": "15.2.4",
     "postcss": "^8"
   }
 }
