@@ -2,8 +2,9 @@ import type { NextAuthOptions } from "next-auth"
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
-import { MongoClient, ObjectId } from "mongodb"
+import { ObjectId } from "mongodb"
 import bcrypt from "bcryptjs"
+import { connectToDatabase } from "./mongodb"
 
 // Update the Session user interface to include lojaId
 declare module "next-auth" {
@@ -35,31 +36,6 @@ declare module "next-auth/jwt" {
     emailVerificado?: boolean
     plano?: string
     permissoes?: string[]
-  }
-}
-
-const MONGODB_URI = process.env.MONGODB_URI || ""
-
-// Connect to MongoDB with proper connection pooling
-let clientPromise: Promise<MongoClient> | null = null
-
-async function getMongoClient() {
-  if (!clientPromise) {
-    clientPromise = MongoClient.connect(MONGODB_URI)
-  }
-  return clientPromise
-}
-
-// Connect to MongoDB
-async function connectToDatabase() {
-  try {
-    const client = await getMongoClient()
-    const dbName = MONGODB_URI.split("/").pop()?.split("?")[0] || "prod-db"
-    const db = client.db(dbName)
-    return { client, db }
-  } catch (error) {
-    console.error("Error connecting to MongoDB:", error)
-    throw error
   }
 }
 
@@ -118,7 +94,8 @@ function getCookieDomain() {
   if (process.env.NEXTAUTH_URL && process.env.NODE_ENV === "production") {
     try {
       const url = new URL(process.env.NEXTAUTH_URL)
-      return url.hostname
+      // Return just the hostname without www. prefix
+      return url.hostname.replace(/^www\./, "")
     } catch (e) {
       console.warn("Failed to parse NEXTAUTH_URL for cookie domain:", e)
     }
@@ -128,10 +105,9 @@ function getCookieDomain() {
   return undefined
 }
 
-// Simple OTP verification function to replace speakeasy
+// Simple OTP verification function
 function verifyOTP(token: string, secret: string): boolean {
   // This is a simplified placeholder - in production you should use a proper OTP library
-  // or implement a secure algorithm
   console.log("OTP verification bypassed - implement proper verification")
   return token === secret.substring(0, 6) // Very basic check - NOT for production
 }
@@ -157,16 +133,19 @@ export const authOptions: NextAuthOptions = {
 
           // Normalize email for case-insensitive comparison
           const normalizedEmail = credentials.email.toLowerCase()
+          console.log(`Tentando login com email: ${normalizedEmail}`)
 
           // Find user by email
           const user = await db.collection("usuarios").findOne({
-            email: { $regex: new RegExp(`^${normalizedEmail}`, "i") },
+            email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
           })
 
           if (!user) {
             console.log(`Usuário não encontrado: ${normalizedEmail}`)
             return null
           }
+
+          console.log(`Usuário encontrado: ${user.email}`)
 
           // If emailVerified flag is set, skip password check (coming from email verification flow)
           if (credentials.emailVerified === "true") {
@@ -202,6 +181,8 @@ export const authOptions: NextAuthOptions = {
             console.log("Senha inválida")
             return null
           }
+
+          console.log("Senha válida, autenticação bem-sucedida")
 
           // Check if email verification is required
           const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === "true"

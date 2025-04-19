@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { FcGoogle } from "react-icons/fc"
@@ -13,33 +13,64 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for error in URL params (from NextAuth)
+  useEffect(() => {
+    const errorParam = searchParams?.get("error")
+    if (errorParam) {
+      switch (errorParam) {
+        case "CredentialsSignin":
+          setError("Email ou senha inválidos")
+          break
+        default:
+          setError(`Erro de autenticação: ${errorParam}`)
+      }
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+    setDebugInfo(null)
 
     try {
+      console.log("Iniciando login com:", { email })
+
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       })
 
+      console.log("Resultado do login:", result)
+      setDebugInfo(result)
+
       if (result?.error) {
-        setError("Email ou senha inválidos")
+        setError(`Erro: ${result.error}`)
+        setIsLoading(false)
+        return
+      }
+
+      if (!result?.ok) {
+        setError("Falha na autenticação")
         setIsLoading(false)
         return
       }
 
       // Adicionar um pequeno atraso para garantir que o cookie seja definido
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
       // Redirecionar para o dashboard
       router.push("/dashboard")
+      router.refresh()
     } catch (error) {
-      setError("Ocorreu um erro ao fazer login")
+      console.error("Erro no login:", error)
+      setError(`Ocorreu um erro ao fazer login: ${error instanceof Error ? error.message : String(error)}`)
+      setDebugInfo(error)
       setIsLoading(false)
     }
   }
@@ -54,10 +85,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleForgotPassword = () => {
-    window.location.href = "/esqueci-senha"
-  }
-
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Coluna esquerda - Imagem/Gradiente */}
@@ -65,38 +92,28 @@ export default function LoginPage() {
         <div className="max-w-md text-white">
           <h1 className="text-4xl font-bold mb-6">Bem-vindo ao FletoAds</h1>
           <p className="text-lg opacity-90 mb-8">
-            Gerencie suas campanhas, produtos e vendas em um só lugar. 
-            Potencialize seu negócio com nossa plataforma completa.
+            Gerencie suas campanhas, produtos e vendas em um só lugar. Potencialize seu negócio com nossa plataforma
+            completa.
           </p>
           <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
             <p className="italic text-white/90">
-              "O FletoAds transformou a maneira como gerencio meu negócio. 
-              Agora consigo acompanhar todas as minhas vendas e campanhas de forma simples e eficiente."
+              "O FletoAds transformou a maneira como gerencio meu negócio. Agora consigo acompanhar todas as minhas
+              vendas e campanhas de forma simples e eficiente."
             </p>
             <p className="mt-4 font-semibold">— Maria Silva, Loja Conceito</p>
           </div>
         </div>
       </div>
-      
+
       {/* Coluna direita - Formulário */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 bg-white dark:bg-gray-900">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-6">
-              <Image 
-                src="/assets/logoFleto.svg" 
-                alt="FletoAds Logo" 
-                width={180} 
-                height={60} 
-                priority
-              />
+              <Image src="/assets/logoFleto.svg" alt="FletoAds Logo" width={180} height={60} priority />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Acesse sua conta
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Entre com suas credenciais para continuar
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Acesse sua conta</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Entre com suas credenciais para continuar</p>
           </div>
 
           {error && (
@@ -113,6 +130,8 @@ export default function LoginPage() {
               <input
                 type="email"
                 id="email"
+                name="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -120,23 +139,24 @@ export default function LoginPage() {
                 placeholder="seu@email.com"
               />
             </div>
-            
+
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Senha
                 </label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
+                <Link
+                  href="/esqueci-senha"
                   className="text-sm text-fleto-primary dark:text-fleto-secondary hover:underline bg-transparent border-none p-0 cursor-pointer"
                 >
                   Esqueceu a senha?
-                </button>
+                </Link>
               </div>
               <input
                 type="password"
                 id="password"
+                name="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -144,7 +164,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
               />
             </div>
-            
+
             <button
               type="submit"
               disabled={isLoading}
@@ -152,9 +172,25 @@ export default function LoginPage() {
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Entrando...
                 </span>
@@ -170,9 +206,7 @@ export default function LoginPage() {
                 <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
-                  Ou continue com
-                </span>
+                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">Ou continue com</span>
               </div>
             </div>
 
@@ -190,14 +224,22 @@ export default function LoginPage() {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Não tem uma conta?{" "}
-              <Link 
-                href="/cadastro" 
+              <Link
+                href="/cadastro"
                 className="text-fleto-primary dark:text-fleto-secondary font-medium hover:underline"
               >
                 Cadastre-se
               </Link>
             </p>
           </div>
+
+          {/* Debug information - only in development */}
+          {process.env.NODE_ENV === "development" && debugInfo && (
+            <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-60">
+              <h3 className="font-medium mb-2">Debug Info:</h3>
+              <pre className="text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          )}
         </div>
       </div>
     </div>
