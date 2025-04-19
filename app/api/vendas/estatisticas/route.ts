@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import Venda from "@/lib/models/venda"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Loja from "@/lib/models/loja"
 

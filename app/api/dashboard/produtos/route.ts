@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { MongoClient } from "mongodb"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 
 const MONGODB_URI = process.env.MONGODB_URI || ""
 

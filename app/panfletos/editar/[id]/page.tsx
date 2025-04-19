@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Header } from "@/components/header"
 import { PanfletoForm } from "@/components/panfletos/panfleto-form"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { redirect } from "next/navigation"
 import { getPanfletoById } from "@/lib/panfletos"
 

@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { PerfilForm } from "@/components/perfil/perfil-form"

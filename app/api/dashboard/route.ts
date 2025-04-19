@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 
 // Definindo a interface Panfleto como opcional para todos os campos

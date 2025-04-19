@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import { Skeleton } from "@/components/ui/skeleton"
 import LojaPerfilFormWrapper from "@/components/perfil/loja-perfil-form-wrapper"

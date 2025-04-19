@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Integracao from "@/lib/models/integracao"
 import Loja from "@/lib/models/loja"

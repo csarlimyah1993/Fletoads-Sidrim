@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { getUserResourceLimits } from "@/lib/plan-limits"
 import PanfletoModel from "@/lib/models/panfleto" // Import as default

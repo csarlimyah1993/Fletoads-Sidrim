@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Loja from "@/lib/models/loja"
 import { redirect } from "next/navigation"

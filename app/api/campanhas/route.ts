@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import Campanha from "@/lib/models/campanha"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 
 export async function GET(req: NextRequest) {
   try {

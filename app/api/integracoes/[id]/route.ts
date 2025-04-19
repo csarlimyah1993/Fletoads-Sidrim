@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 
 export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {

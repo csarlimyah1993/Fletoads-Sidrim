@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import NotificacaoAvancada from "@/lib/models/notificacao-avancada"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 
 export async function POST(request: NextRequest) {
   try {

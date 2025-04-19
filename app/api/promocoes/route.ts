@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Promocao from "@/lib/models/promocao"
 import Loja from "@/lib/models/loja"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 
 export async function GET(request: NextRequest) {
   try {

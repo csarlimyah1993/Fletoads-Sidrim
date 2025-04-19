@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 
 // Updated type definition for params to match Next.js 15

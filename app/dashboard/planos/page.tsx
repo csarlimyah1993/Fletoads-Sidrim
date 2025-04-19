@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { PlanosSection } from "@/components/planos/planos-section"
 
 export const metadata = {

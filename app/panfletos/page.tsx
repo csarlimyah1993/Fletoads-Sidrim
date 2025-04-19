@@ -3,7 +3,7 @@ import { Header } from "@/components/header"
 import { PanfletosList } from "@/components/panfletos/panfletos-list"
 import { HotPromosSection } from "@/components/panfletos/hot-promos-section"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../lib/auth"
 import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {

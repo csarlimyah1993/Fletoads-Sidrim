@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { redirect } from "next/navigation"
 import { PerfilDaLojaClient } from "@/components/perfil/perfil-da-loja-client"
 import { CriarLojaForm } from "@/components/loja/criar-loja-form"

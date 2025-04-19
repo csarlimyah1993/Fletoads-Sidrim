@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { put } from "@vercel/blob"
 import { v4 as uuidv4 } from "uuid"

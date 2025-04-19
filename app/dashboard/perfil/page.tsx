@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../lib/auth"
 import { connectToDatabase, ensureCollectionsExist } from "@/lib/mongodb"
 import { redirect } from "next/navigation"
 import Link from "next/link"
