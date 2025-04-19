@@ -16,7 +16,7 @@ export default function AdminSettingsPage() {
   const handleSave = () => {
     setSaving(true)
 
-    // Simulate API call
+    // Simulate API call teste
     setTimeout(() => {
       setSaving(false)
       toast.success("Configurações salvas com sucesso")
