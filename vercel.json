@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "npm install --save-dev typescript eslint && npm run build",
+  "buildCommand": "rm -f tsconfig.json && npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next"
