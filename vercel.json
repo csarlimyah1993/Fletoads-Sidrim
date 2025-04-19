@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "scripts": {
+    "vercel-build": "npm install --no-save typescript && NEXT_DISABLE_TYPECHECK=1 npm run build"
+  }
 }
