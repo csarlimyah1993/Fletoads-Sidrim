@@ -3,7 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Usuario from "@/lib/models/usuario"
 import Plano from "@/lib/models/plano"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../../lib/auth"
 import mongoose from "mongoose"
 
 export async function POST(request: Request) {
