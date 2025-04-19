@@ -1,9 +1,4 @@
-const path = require('path');
-
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import path from 'path';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -45,7 +40,9 @@ const nextConfig = {
     // Removemos nodeMiddleware daqui
   },
   webpack: (config, { isServer }) => {
+
     config.resolve.alias['@'] = path.resolve(__dirname);
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
