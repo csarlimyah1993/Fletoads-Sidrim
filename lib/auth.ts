@@ -269,7 +269,7 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await db.collection("usuarios").findOne({ email: user.email })
 
           if (existingUser) {
-            // Update user with Google info
+            // Update user with Google info but preserve important fields
             await db.collection("usuarios").updateOne(
               { email: user.email },
               {
@@ -277,6 +277,8 @@ export const authOptions: NextAuthOptions = {
                   googleId: user.id,
                   image: user.image || existingUser.image,
                   ultimoLogin: new Date(),
+                  // Only update name if it doesn't exist
+                  nome: existingUser.nome || user.name,
                 },
               },
             )
@@ -328,6 +330,14 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (userData) {
+            // Log para depuração
+            console.log(`Atualizando token para usuário: ${userData.email}`, {
+              role: userData.role,
+              nome: userData.nome || userData.name,
+              plano: userData.plano,
+              lojaId: userData.lojaId,
+            })
+
             token.role = userData.role || "user"
             token.nome = userData.nome || userData.name || ""
             token.emailVerificado = userData.emailVerificado || false
