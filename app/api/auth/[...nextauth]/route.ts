@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -155,6 +156,7 @@ const handler = NextAuth({
 
             // Adicionar outros campos do usuário à sessão
             session.user.nome = user.nome || ""
+            // Corrigido: Converter null para undefined para satisfazer o tipo
             session.user.emailVerificado = user.emailVerificado || false
             session.user.plano = user.plano || "gratuito"
 
@@ -162,7 +164,8 @@ const handler = NextAuth({
             // session.user.cargo = user.cargo || "user"
 
             if (user.permissoes) {
-              session.user.permissoes = user.permissoes
+              // Corrigido: Garantir que permissoes é um array
+              session.user.permissoes = Array.isArray(user.permissoes) ? user.permissoes : []
             } else {
               session.user.permissoes = []
             }

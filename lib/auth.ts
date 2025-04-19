@@ -1,4 +1,6 @@
+// auth.ts
 import type { NextAuthOptions } from "next-auth"
+import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import { MongoClient, ObjectId } from "mongodb"
@@ -20,7 +22,7 @@ declare module "next-auth" {
       twoFactorEnabled?: boolean
       twoFactorMethod?: "app" | "email"
       permissoes?: string[]
-      lojaId?: string // Add this line
+      lojaId?: string
     }
   }
 }
@@ -30,7 +32,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: string
-    lojaId?: string // Add this line
+    lojaId?: string
   }
 }
 
@@ -131,6 +133,7 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               role: user.role || "user",
               image: user.image || null,
+              lojaId: user.lojaId || null,
             }
           }
 
@@ -174,9 +177,6 @@ export const authOptions: NextAuthOptions = {
               }
             } else if (user.twoFactorMethod === "email") {
               // Verify the token from email
-              // This will be handled by the email verification endpoint
-              // and should be already verified before this point
-              // But we'll check if the token is valid just in case
               const emailVerification = await db.collection("emailVerifications").findOne({
                 email: user.email,
                 otp: credentials.twoFactorToken,
@@ -202,6 +202,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             role: user.role || "user",
             image: user.image || null,
+            lojaId: user.lojaId || null,
           }
         } catch (error) {
           console.error("Error in authorize:", error)
@@ -216,6 +217,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
   ],
   callbacks: {
@@ -247,7 +255,6 @@ export const authOptions: NextAuthOptions = {
 
               token.id = existingUser._id.toString()
               token.role = existingUser.role || "user"
-              // Add this line to include lojaId in the token
               token.lojaId = existingUser.lojaId || null
             } else {
               // Create new user
@@ -275,8 +282,7 @@ export const authOptions: NextAuthOptions = {
         } else {
           // Credentials login
           token.id = user.id
-          token.role = user.role || "user"  // Fixed line: Added default value "user"
-          // Add this line to include lojaId in the token if it exists in the user object
+          token.role = user.role || "user"
           if ("lojaId" in user) token.lojaId = user.lojaId
         }
       }
@@ -287,8 +293,6 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id
         session.user.role = token.role
-
-        // Add this line to include lojaId from token
         if (token.lojaId) session.user.lojaId = token.lojaId
 
         // Buscar informações adicionais do usuário
@@ -311,8 +315,6 @@ export const authOptions: NextAuthOptions = {
             session.user.plano = user.plano || "gratuito"
             session.user.twoFactorEnabled = user.twoFactorEnabled || false
             session.user.twoFactorMethod = user.twoFactorMethod || "app"
-
-            // Add this line to include lojaId from the user document
             session.user.lojaId = user.lojaId || null
 
             if (user.permissoes) {
@@ -339,7 +341,46 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
+  // Configuração de cookies para garantir que funcionem em produção
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
+  // Importante: não usar debug em produção
+  debug: process.env.NODE_ENV === "development",
+  // O Vercel define automaticamente o NEXTAUTH_SECRET
   secret: process.env.NEXTAUTH_SECRET,
 }
+
+// Para compatibilidade com código existente
+export const nextAuthConfig = authOptions
+
+// Exportar handlers para uso no App Router
+export const { handlers, auth, signIn, signOut } = NextAuth(authOptions)

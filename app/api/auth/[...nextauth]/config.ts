@@ -1,36 +1,11 @@
+// lib/auth-config.ts
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import { connectToDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
 import { ObjectId } from "mongodb"
-
-// Função para comparar senhas com suporte a texto plano e hash bcrypt
-const comparePasswords = async (plainPassword: string, storedPassword: string): Promise<boolean> => {
-  // Caso especial para senhas específicas
-  if (plainPassword === "sidrinho123" && storedPassword.startsWith("$2")) {
-    console.log("Usando comparação especial para sidrinho123")
-    return true
-  }
-
-  // Se a senha armazenada parece ser um hash bcrypt
-  if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")) {
-    try {
-      const result = await bcrypt.compare(plainPassword, storedPassword)
-      console.log(`Comparação bcrypt: ${result ? "sucesso" : "falha"}`)
-      return result
-    } catch (error) {
-      console.error("Erro ao comparar senhas com bcrypt:", error)
-      // Fallback para comparação direta em caso de erro
-      return plainPassword === storedPassword
-    }
-  }
-
-  // Comparação direta para senhas em texto plano
-  const result = plainPassword === storedPassword
-  console.log(`Comparação direta: ${result ? "sucesso" : "falha"}`)
-  return result
-}
+import * as speakeasy from "speakeasy"
 
 // Função para obter dados atualizados do usuário
 const getUserData = async (userId: string) => {
@@ -47,11 +22,12 @@ const getUserData = async (userId: string) => {
       email: user.email,
       role: user.role || "user",
       nome: user.nome || "",
-      cargo: user.cargo || "user",
       permissoes: user.permissoes || [],
       plano: user.plano || "gratuito",
       lojaId: user.lojaId,
       emailVerificado: user.emailVerificado,
+      twoFactorEnabled: user.twoFactorEnabled || false,
+      twoFactorMethod: user.twoFactorMethod || "app",
     }
   } catch (error) {
     console.error("Erro ao buscar dados atualizados do usuário:", error)
@@ -77,21 +53,18 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
+        twoFactorToken: { label: "Código de verificação", type: "text" },
+        emailVerified: { label: "Email verificado", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          console.log("Credenciais incompletas")
-          throw new Error("Email e senha são obrigatórios")
+        if (!credentials?.email) {
+          console.log("Credenciais incompletas: email ausente")
+          return null
         }
 
         try {
           const { db } = await connectToDatabase()
           console.log("Conectado ao MongoDB com sucesso")
-
-          // Verificar as coleções disponíveis
-          const collections = await db.listCollections().toArray()
-          const collectionNames = collections.map((c) => c.name)
-          console.log("Coleções disponíveis:", collectionNames)
 
           // Normalizar o email para comparação case-insensitive
           const normalizedEmail = credentials.email.toLowerCase()
@@ -104,65 +77,90 @@ export const authOptions: NextAuthOptions = {
 
           if (!user) {
             console.log(`Usuário não encontrado: ${normalizedEmail}`)
-            throw new Error("Email ou senha incorretos")
+            return null
           }
 
           console.log(`Usuário encontrado: ${user.email}`)
-          console.log("Dados do usuário:", {
-            id: user._id.toString(),
-            email: user.email,
-            nome: user.nome,
-            role: user.role,
-            cargo: user.cargo,
-            plano: user.plano,
-            permissoes: user.permissoes,
-          })
+
+          // Se emailVerified flag estiver definido, pular verificação de senha (vindo do fluxo de verificação de email)
+          if (credentials.emailVerified === "true") {
+            // Atualizar último login
+            await db.collection("usuarios").updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } })
+
+            return {
+              id: user._id.toString(),
+              name: user.nome || user.name,
+              email: user.email,
+              role: user.role || "user",
+              image: user.image || null,
+              lojaId: user.lojaId || null,
+            }
+          }
+
+          // Fluxo de login regular - verificar senha
+          if (!credentials.password) {
+            console.log("Credenciais incompletas: senha ausente")
+            return null
+          }
 
           // Verificar qual campo de senha usar
           const senhaField = user.senha || user.password
           if (!senhaField) {
             console.log("Usuário não possui campo de senha")
-            throw new Error("Configuração de usuário inválida")
+            return null
           }
 
-          // Caso especial para sidrimthiago@gmail.com
-          if (normalizedEmail === "sidrimthiago@gmail.com" && credentials.password === "sidrinho123") {
-            console.log("Login especial bem-sucedido para:", user.email)
-
-            // Atualizar último login e garantir permissões de admin
-            await db.collection("usuarios").updateOne(
-              { _id: user._id },
-              {
-                $set: {
-                  ultimoLogin: new Date(),
-                  role: "admin",
-                  cargo: "admin",
-                  permissoes: ["admin"],
-                  plano: "admin",
-                },
-              },
-            )
-
-            return {
-              id: user._id.toString(),
-              name: user.nome || "",
-              email: user.email,
-              role: "admin", // Forçar role admin
-              nome: user.nome || "",
-              cargo: "admin", // Forçar cargo admin
-              permissoes: ["admin"],
-              plano: "admin",
-              lojaId: user.lojaId,
-              emailVerificado: user.emailVerificado,
-            }
-          }
-
-          // Verificação normal para outros usuários
-          const isValidPassword = await comparePasswords(credentials.password, senhaField)
+          // Verificar senha com bcrypt
+          const isValidPassword = await bcrypt.compare(credentials.password, senhaField)
 
           if (!isValidPassword) {
             console.log("Senha inválida para usuário:", credentials.email)
-            throw new Error("Email ou senha incorretos")
+            return null
+          }
+
+          // Verificar se a verificação de email é necessária
+          const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === "true"
+
+          if (requireEmailVerification && !user.emailVerificado) {
+            throw new Error("EMAIL_VERIFICATION_REQUIRED")
+          }
+
+          // Verificar se 2FA está habilitado
+          if (user.twoFactorEnabled) {
+            // Se nenhum token for fornecido, exigir 2FA
+            if (!credentials.twoFactorToken) {
+              throw new Error("2FA_REQUIRED")
+            }
+
+            // Verificar qual método 2FA está sendo usado
+            if (user.twoFactorMethod === "app" && user.twoFactorSecret) {
+              // Verificar o token com o app autenticador
+              const verified = speakeasy.totp.verify({
+                secret: user.twoFactorSecret,
+                encoding: "base32",
+                token: credentials.twoFactorToken,
+                window: 1, // Permitir 1 passo antes/depois para desvio de tempo
+              })
+
+              if (!verified) {
+                throw new Error("2FA_INVALID")
+              }
+            } else if (user.twoFactorMethod === "email") {
+              // Verificar o token do email
+              const emailVerification = await db.collection("emailVerifications").findOne({
+                email: user.email,
+                otp: credentials.twoFactorToken,
+                purpose: "2fa",
+                expiresAt: { $gt: new Date() },
+              })
+
+              if (!emailVerification) {
+                throw new Error("2FA_INVALID")
+              }
+
+              // Excluir o OTP usado
+              await db.collection("emailVerifications").deleteOne({ _id: emailVerification._id })
+            }
           }
 
           console.log("Autenticação bem-sucedida para:", user.email)
@@ -177,15 +175,12 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             role: user.role || "user",
             nome: user.nome || "",
-            cargo: user.cargo || user.role || "user",
-            permissoes: user.permissoes || [],
-            plano: user.plano || "gratuito",
-            lojaId: user.lojaId,
-            emailVerificado: user.emailVerificado,
+            image: user.image || null,
+            lojaId: user.lojaId || null,
           }
         } catch (error) {
           console.error("Erro na autenticação:", error)
-          throw new Error(error instanceof Error ? error.message : "Erro na autenticação")
+          throw error
         }
       },
     }),
@@ -204,15 +199,14 @@ export const authOptions: NextAuthOptions = {
             const newUser = {
               email: user.email,
               nome: user.name,
-              role: user.email === "sidrimthiago@gmail.com" ? "admin" : "user",
-              cargo: user.email === "sidrimthiago@gmail.com" ? "admin" : "user",
-              plano: user.email === "sidrimthiago@gmail.com" ? "admin" : "gratuito",
-              permissoes: user.email === "sidrimthiago@gmail.com" ? ["admin"] : [],
+              role: "user",
+              permissoes: [],
               googleId: user.id,
               dataCriacao: new Date(),
               ultimoLogin: new Date(),
               imagemPerfil: user.image,
               emailVerificado: true,
+              plano: "gratuito"
             }
 
             await db.collection("usuarios").insertOne(newUser)
@@ -244,24 +238,14 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id || ""
         token.role = user.role || "user"
         token.nome = user.nome || user.name || ""
-        token.cargo = user.cargo || "user"
         token.permissoes = user.permissoes || []
         token.plano = user.plano || "gratuito"
         token.lojaId = user.lojaId
         token.emailVerificado = user.emailVerificado
       }
 
-      // Se for login do Google e o email for sidrimthiago@gmail.com, garantir permissões de admin
-      if (account?.provider === "google" && token.email === "sidrimthiago@gmail.com") {
-        token.role = "admin"
-        token.cargo = "admin"
-        token.permissoes = ["admin"]
-        token.plano = "admin"
-      }
-
       // Atualizar token quando a sessão for atualizada
       if (trigger === "update" && session) {
-        // Mesclar dados da sessão com o token
         token = { ...token, ...session }
       }
 
@@ -271,7 +255,6 @@ export const authOptions: NextAuthOptions = {
         if (updatedUser) {
           token.role = updatedUser.role
           token.nome = updatedUser.nome
-          token.cargo = updatedUser.cargo
           token.permissoes = updatedUser.permissoes
           token.plano = updatedUser.plano
           token.lojaId = updatedUser.lojaId
@@ -289,14 +272,12 @@ export const authOptions: NextAuthOptions = {
         user.id = token.id || ""
         user.role = token.role || "user"
         user.nome = token.nome || ""
-        user.cargo = token.cargo || "user"
         user.permissoes = token.permissoes || []
         user.plano = token.plano || "gratuito"
         user.lojaId = token.lojaId
         user.emailVerificado = token.emailVerificado
       }
 
-      // console.log("Session callback - session data:", session)
       return session
     },
   },
@@ -307,6 +288,36 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 dias
+  },
+  // Configuração de cookies para garantir que funcionem em produção
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,

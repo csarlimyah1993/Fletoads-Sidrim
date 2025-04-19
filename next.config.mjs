@@ -24,22 +24,21 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-  },
-  images: {
     domains: [
       "picsum.photos",
       "via.placeholder.com",
       'xaywsd0belf9yeug.public.blob.vercel-storage.com',
       'public.blob.vercel-storage.com',
       'vercel-storage.com',
-      'vercel-blob.com'],
+      'vercel-blob.com'
+    ],
   },
   experimental: {
-    serverExternalPackages: ['mongoose'],
+    serverComponentsExternalPackages: ['mongoose'],
+    // Removemos nodeMiddleware daqui
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Não incluir módulos do lado do servidor no bundle do cliente
       config.resolve.fallback = {
         ...config.resolve.fallback,
         net: false,
@@ -55,4 +54,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-
