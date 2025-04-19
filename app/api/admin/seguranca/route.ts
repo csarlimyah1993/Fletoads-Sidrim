@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import * as speakeasy from "speakeasy"
 import * as qrcode from "qrcode"
