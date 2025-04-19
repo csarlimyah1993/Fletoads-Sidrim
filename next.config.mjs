@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -49,6 +51,13 @@ const nextConfig = {
         aws4: false,
       };
     }
+    return config;
+  },
+  webpack: (config) => {
+    // Configuração explícita do alias
+    config.resolve.alias['@'] = path.resolve(__dirname);
+    
+    // Se você tiver outras configurações webpack, mantenha-as aqui
     return config;
   },
 };
