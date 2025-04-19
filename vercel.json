@@ -1,8 +1,7 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "rm -f tsconfig.json && npm run build",
+  "buildCommand": "next build",
+  "devCommand": "next dev",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "outputDirectory": ".next"
+  "framework": "nextjs"
 }
