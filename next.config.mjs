@@ -53,13 +53,6 @@ const nextConfig = {
     }
     return config;
   },
-  webpack: (config) => {
-    // Configuração explícita do alias
-    config.resolve.alias['@'] = path.resolve(__dirname);
-    
-    // Se você tiver outras configurações webpack, mantenha-as aqui
-    return config;
-  },
 };
 
 export default nextConfig;
