@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
 import { generateTogetherAIStream, isTogetherAIConfigured } from "@/lib/together-ai"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../lib/auth"
 
 export const maxDuration = 60 // Aumentar o tempo máximo para 60 segundos
 
