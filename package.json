@@ -47,6 +47,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",
+    "@types/uuid": "^10.0.0",
     "@vercel/analytics": "^1.5.0",
     "@vercel/blob": "^0.22.1",
     "@vercel/speed-insights": "^1.2.0",
@@ -95,6 +96,7 @@
     "tailwindcss-animate": "^1.0.7",
     "together-ai": "^0.13.0",
     "typescript": "^5.8.3",
+    "uuid": "^9.0.1",
     "vaul": "^0.9.6",
     "zod": "^3.24.1"
   },
@@ -102,7 +104,6 @@
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.30.1",
     "@typescript-eslint/parser": "^8.30.1",
     "postcss": "^8"
