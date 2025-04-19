@@ -5,7 +5,7 @@ import Panfleto from "@/lib/models/panfleto"
 import Produto from "@/lib/models/produto"
 import Promocao from "@/lib/models/promocao"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "../../../../../../lib/auth"
 import mongoose from "mongoose"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
