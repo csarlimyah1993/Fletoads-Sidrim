@@ -1,53 +1,43 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../lib/auth"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Notificacao from "@/lib/models/notificacao"
 
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
-
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const userId = session.user.id
     const searchParams = request.nextUrl.searchParams
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
     const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
     const skip = (page - 1) * limit
 
-    try {
-      await connectToDatabase()
+    // Conectar ao banco de dados antes de usar os modelos Mongoose
+    await connectToDatabase()
 
-      // Buscar notificações do usuário
-      const notificacoes = await Notificacao.find({ usuarioId: userId })
-        .sort({ dataCriacao: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
+    // Buscar notificações do usuário
+    const notificacoes = await Notificacao.find({ usuarioId: userId }).sort({ dataCriacao: -1 }).skip(skip).limit(limit)
 
-      // Contar notificações não lidas
-      const naoLidas = await Notificacao.countDocuments({
-        usuarioId: userId,
-        lida: false,
-      })
+    // Contar total de notificações para paginação
+    const total = await Notificacao.countDocuments({ usuarioId: userId })
 
-      return NextResponse.json({ notificacoes, naoLidas })
-    } catch (dbError) {
-      console.error("Erro ao conectar ao banco de dados:", dbError)
-
-      // Retornar dados fictícios quando o banco de dados está indisponível
-      return NextResponse.json({
-        notificacoes: [],
-        naoLidas: 0,
-        offline: true,
-      })
-    }
+    return NextResponse.json({
+      notificacoes,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
     console.error("Erro ao buscar notificações:", error)
     return NextResponse.json({ error: "Erro ao buscar notificações" }, { status: 500 })
   }
 }
-
