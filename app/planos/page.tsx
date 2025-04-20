@@ -4,20 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import {
-  Check,
-  X,
-  ArrowRight,
-  Star,
-  Phone,
-  ShoppingCart,
-  Zap,
-  BarChart4,
-  Users,
-  Layout,
-  Smartphone,
-  Gift,
-} from "lucide-react"
+import { Check, X, ArrowRight, Star, Phone, ShoppingCart, Zap, BarChart4, Users, Layout, Smartphone, Gift } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -307,8 +294,8 @@ export default function PlanosPage() {
   }
 
   const handleContactConsultant = () => {
-    const phoneNumber = "+92992210808"
-    const message = "Olá! Gostaria de falar com um consultor sobre o FletoAds."
+    const phoneNumber = "+55 92 9221-0808"
+    const message = "Olá, gostaria de saber mais sobre os planos do fletoAds, poderia me explicar melhor ?"
     const whatsappUrl = `https://wa.me/${phoneNumber.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
@@ -319,7 +306,7 @@ export default function PlanosPage() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <Logo className="h-8 w-8" />
+            <Image src="/assets/logoFleto.svg" alt="FletoAds Logo" width={32} height={32} />
             <span className="font-bold text-xl">FletoAds</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
@@ -342,7 +329,7 @@ export default function PlanosPage() {
                 Entrar
               </Button>
             </Link>
-            <Link href="/registro">
+            <Link href="/cadastro">
               <Button size="sm">Começar Grátis</Button>
             </Link>
           </div>
@@ -569,7 +556,7 @@ export default function PlanosPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" variant="secondary" asChild>
-                  <Link href="/registro">
+                  <Link href="/cadastro">
                     Começar Grátis <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -593,7 +580,7 @@ export default function PlanosPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Logo className="h-6 w-6" />
+                <Image src="/assets/logoFleto.svg" alt="FletoAds Logo" width={32} height={32} />
                 <span className="font-bold">FletoAds</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -682,4 +669,3 @@ export default function PlanosPage() {
     </div>
   )
 }
-

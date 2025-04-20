@@ -83,9 +83,15 @@ export function validatePasswordStrength(password: string): { valid: boolean; me
   return { valid: true, message: "Senha válida" }
 }
 
-// Get cookie domain from environment or derive it from NEXTAUTH_URL
+// Modifique a função getCookieDomain para verificar se estamos em ambiente local
 function getCookieDomain() {
-  // First check for explicit COOKIE_DOMAIN env var
+  // Em ambiente de desenvolvimento local, não defina domínio para o cookie
+  if (process.env.NODE_ENV === "development") {
+    console.log("Ambiente de desenvolvimento local: usando domínio de cookie undefined")
+    return undefined
+  }
+
+  // Para produção, use o domínio configurado ou derive do NEXTAUTH_URL
   if (process.env.COOKIE_DOMAIN) {
     console.log(`Using explicit COOKIE_DOMAIN: ${process.env.COOKIE_DOMAIN}`)
     return process.env.COOKIE_DOMAIN
@@ -307,12 +313,20 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
+    // Certifique-se de que o callback jwt está configurado corretamente para capturar o papel do usuário
     async jwt({ token, user, account, trigger, session }) {
       // When user signs in initially
       if (user) {
         token.id = user.id
         token.role = user.role || "user"
         if ("lojaId" in user) token.lojaId = user.lojaId
+
+        // Log para depuração
+        console.log("JWT callback - user data:", {
+          id: user.id,
+          role: user.role || "user",
+          email: user.email,
+        })
       }
 
       // Update token when session is updated

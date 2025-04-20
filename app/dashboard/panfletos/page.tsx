@@ -11,13 +11,20 @@ import { FileText, Plus, Search, Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import type { IPanfleto } from "@/lib/models/panfleto"
+
+// Define the Panfleto type to match the IPanfleto interface
+interface Panfleto extends Omit<IPanfleto, "_id" | "lojaId"> {
+  _id: string
+  lojaId?: string
+}
 
 export default function PanfletosPage() {
   const router = useRouter()
   const [busca, setBusca] = useState("")
   const [categoria, setCategoria] = useState("")
   const [status, setStatus] = useState("")
-  const [panfletos, setPanfletos] = useState<any[]>([])
+  const [panfletos, setPanfletos] = useState<Panfleto[]>([])
   const [categorias, setCategorias] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +82,7 @@ export default function PanfletosPage() {
       }
     } catch (error) {
       console.error("Erro ao buscar categorias:", error)
+      setCategorias([])
     }
   }
 
@@ -219,7 +227,10 @@ export default function PanfletosPage() {
                     </CardContent>
                     <CardFooter className="flex justify-between pt-0">
                       <div className="text-xs text-muted-foreground">
-                        Publicado em: {format(new Date(panfleto.dataPublicacao), "dd/MM/yyyy")}
+                        Publicado em:{" "}
+                        {panfleto.dataCriacao
+                          ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
+                          : "Data não disponível"}
                       </div>
                       <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
                     </CardFooter>
@@ -291,7 +302,10 @@ export default function PanfletosPage() {
                       </CardContent>
                       <CardFooter className="flex justify-between pt-0">
                         <div className="text-xs text-muted-foreground">
-                          Publicado em: {format(new Date(panfleto.dataPublicacao), "dd/MM/yyyy")}
+                          Publicado em:{" "}
+                          {panfleto.dataCriacao
+                            ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
+                            : "Data não disponível"}
                         </div>
                         <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
                       </CardFooter>
@@ -326,7 +340,10 @@ export default function PanfletosPage() {
                       </CardContent>
                       <CardFooter className="flex justify-between pt-0">
                         <div className="text-xs text-muted-foreground">
-                          Criado em: {format(new Date(panfleto.dataPublicacao), "dd/MM/yyyy")}
+                          Criado em:{" "}
+                          {panfleto.dataCriacao
+                            ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
+                            : "Data não disponível"}
                         </div>
                       </CardFooter>
                     </Card>
@@ -360,7 +377,10 @@ export default function PanfletosPage() {
                       </CardContent>
                       <CardFooter className="flex justify-between pt-0">
                         <div className="text-xs text-muted-foreground">
-                          Arquivado em: {format(new Date(panfleto.dataPublicacao), "dd/MM/yyyy")}
+                          Arquivado em:{" "}
+                          {panfleto.dataCriacao
+                            ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
+                            : "Data não disponível"}
                         </div>
                         <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
                       </CardFooter>

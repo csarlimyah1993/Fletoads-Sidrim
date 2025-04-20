@@ -1,56 +1,111 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { MongoClient } from "mongodb"
-import { authOptions } from "../../../../lib/auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-const MONGODB_URI = process.env.MONGODB_URI || ""
-
-// Connect to MongoDB
-async function connectToDatabase() {
+export async function GET(request: NextRequest) {
   try {
-    const client = await MongoClient.connect(MONGODB_URI)
-    const dbName = MONGODB_URI.split("/").pop()?.split("?")[0] || "prod-db"
-    const db = client.db(dbName)
-    return { client, db }
-  } catch (error) {
-    console.error("Error connecting to MongoDB:", error)
-    throw error
-  }
-}
-
-export async function GET(request: Request) {
-  try {
-    // Verificar autenticação
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id
-
     // Conectar ao banco de dados
-    const { client, db } = await connectToDatabase()
+    await connectToDatabase()
+    const { db } = await connectToDatabase()
 
-    try {
-      // Buscar produtos do usuário logado usando userId ou usuarioId
-      // Tentamos ambos os campos para garantir compatibilidade
-      const produtos = await db
-        .collection("produtos")
-        .find({
-          $or: [{ userId: userId }, { usuarioId: userId }],
-        })
-        .sort({ createdAt: -1 })
-        .toArray()
+    // Parâmetros de busca
+    const searchParams = request.nextUrl.searchParams
+    const search = searchParams.get("search")
+    const categoria = searchParams.get("categoria")
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "100") // Aumentando o limite para garantir que todos os produtos sejam retornados
+    const lojaId = searchParams.get("lojaId")
 
-      console.log(`Encontrados ${produtos.length} produtos para o usuário ${userId}`)
+    console.log("Buscando produtos para o usuário:", session.user.id)
 
-      return NextResponse.json({ produtos })
-    } finally {
-      await client.close()
+    // Buscar a loja do usuário
+    const loja = await db.collection("lojas").findOne({
+      $or: [
+        { proprietarioId: session.user.id },
+        { proprietarioId: new ObjectId(session.user.id) },
+        { usuarioId: session.user.id },
+        { usuarioId: new ObjectId(session.user.id) },
+        { userId: session.user.id },
+        { userId: new ObjectId(session.user.id) },
+      ],
+    })
+
+    console.log("Loja encontrada:", loja ? loja._id : "Nenhuma loja encontrada")
+
+    // Construir filtro
+    const filter: any = {}
+
+    // Se temos um lojaId específico, usamos ele
+    if (lojaId) {
+      filter.lojaId = lojaId
+    } else if (loja) {
+      // Caso contrário, buscamos produtos da loja do usuário
+      filter.lojaId = loja._id.toString()
+    } else {
+      // Se não encontrou loja, busca por userId
+      filter.$or = [{ userId: session.user.id }, { usuarioId: session.user.id }, { proprietarioId: session.user.id }]
     }
+
+    if (search) {
+      filter.$or = [{ nome: { $regex: search, $options: "i" } }, { descricao: { $regex: search, $options: "i" } }]
+    }
+
+    if (categoria && categoria !== "todos") {
+      filter.categoria = categoria
+    }
+
+    console.log("Filtro de busca:", JSON.stringify(filter))
+
+    // Buscar produtos com paginação
+    const skip = (page - 1) * limit
+
+    // Verificar se há produtos
+    const count = await db.collection("produtos").countDocuments(filter)
+    console.log("Total de produtos encontrados:", count)
+
+    if (count === 0) {
+      // Retornar array vazio se não houver produtos
+      return NextResponse.json({ produtos: [] })
+    }
+
+    const produtos = await db
+      .collection("produtos")
+      .find(filter)
+      .sort({ dataCriacao: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray()
+
+    console.log(`Retornando ${produtos.length} produtos`)
+
+    // Converter ObjectId para string para evitar problemas de serialização
+    const produtosSerializados = produtos.map((produto) => ({
+      ...produto,
+      _id: produto._id.toString(),
+      lojaId: produto.lojaId ? produto.lojaId.toString() : null,
+      dataCriacao: produto.dataCriacao ? produto.dataCriacao.toISOString() : null,
+      dataAtualizacao: produto.dataAtualizacao ? produto.dataAtualizacao.toISOString() : null,
+    }))
+
+    // Retornar objeto com produtos e informações de paginação
+    return NextResponse.json({
+      produtos: produtosSerializados,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        pages: Math.ceil(count / limit),
+      },
+    })
   } catch (error) {
     console.error("Erro ao buscar produtos:", error)
-    return NextResponse.json({ error: "Erro ao buscar produtos" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao buscar produtos", details: (error as Error).message }, { status: 500 })
   }
 }

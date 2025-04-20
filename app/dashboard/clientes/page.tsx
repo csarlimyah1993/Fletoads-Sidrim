@@ -70,11 +70,35 @@ export default function ClientesPage() {
     })
   }
 
+  // Função para lidar com a exclusão de cliente
+  const handleDeleteCliente = async (clienteId: string) => {
+    if (confirm("Tem certeza que deseja excluir este cliente?")) {
+      try {
+        const response = await fetch(`/api/clientes/${clienteId}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          throw new Error("Erro ao excluir cliente")
+        }
+
+        // Atualizar a lista de clientes após a exclusão
+        setClientes(clientes.filter((cliente) => cliente._id !== clienteId))
+
+        // Mostrar mensagem de sucesso
+        alert("Cliente excluído com sucesso")
+      } catch (error) {
+        console.error("Erro ao excluir cliente:", error)
+        alert("Erro ao excluir cliente")
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Meus Clientes</h1>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={() => router.push("/dashboard/clientes/novo")}>
           <Plus className="h-4 w-4" />
           Novo Cliente
         </Button>
@@ -167,11 +191,17 @@ export default function ClientesPage() {
                                 <Eye className="h-4 w-4" />
                                 <span>Ver detalhes</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
+                              <DropdownMenuItem
+                                className="flex items-center gap-2 cursor-pointer"
+                                onClick={() => router.push(`/dashboard/clientes/${cliente._id}/editar`)}
+                              >
                                 <Edit className="h-4 w-4" />
                                 <span>Editar</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="flex items-center gap-2 cursor-pointer text-destructive">
+                              <DropdownMenuItem
+                                className="flex items-center gap-2 cursor-pointer text-destructive"
+                                onClick={() => handleDeleteCliente(cliente._id)}
+                              >
                                 <Trash2 className="h-4 w-4" />
                                 <span>Excluir</span>
                               </DropdownMenuItem>
