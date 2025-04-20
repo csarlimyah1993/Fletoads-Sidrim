@@ -60,3 +60,4 @@ const PanfletoSchema: Schema = new Schema({
 
 // Verificar se o modelo já existe para evitar sobrescrita
 export const Panfleto = mongoose.models.Panfleto || mongoose.model<IPanfleto>("Panfleto", PanfletoSchema)
+export default Panfleto
