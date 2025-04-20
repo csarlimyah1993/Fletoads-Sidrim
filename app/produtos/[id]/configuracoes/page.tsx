@@ -7,15 +7,14 @@ import { ObjectId } from "mongodb"
 import type { Produto } from "@/types/loja"
 
 interface ProdutoConfiguracoesPageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
 }
 
 export async function generateMetadata({ params }: ProdutoConfiguracoesPageProps): Promise<Metadata> {
   try {
+    const { id } = await params // Adicionado await aqui
     const { db } = await connectToDatabase()
-    const produto = await db.collection("produtos").findOne({ _id: new ObjectId(params.id) })
+    const produto = await db.collection("produtos").findOne({ _id: new ObjectId(id) })
 
     if (!produto) {
       return {
@@ -36,8 +35,9 @@ export async function generateMetadata({ params }: ProdutoConfiguracoesPageProps
 
 export default async function ProdutoConfiguracoesPage({ params }: ProdutoConfiguracoesPageProps) {
   try {
+    const { id } = await params // Adicionado await aqui
     const { db } = await connectToDatabase()
-    const produtoDoc = await db.collection("produtos").findOne({ _id: new ObjectId(params.id) })
+    const produtoDoc = await db.collection("produtos").findOne({ _id: new ObjectId(id) })
 
     if (!produtoDoc) {
       notFound()
@@ -68,7 +68,7 @@ export default async function ProdutoConfiguracoesPage({ params }: ProdutoConfig
 
     return (
       <div className="flex min-h-screen flex-col">
-        <Header title={`Configurações: ${produto.nome}`} backUrl={`/produtos/${params.id}`} />
+        <Header title={`Configurações: ${produto.nome}`} backUrl={`/produtos/${id}`} />
         <main className="flex-1">
           <div className="container py-6">
             <ProdutoConfiguracoes produto={produto} />
