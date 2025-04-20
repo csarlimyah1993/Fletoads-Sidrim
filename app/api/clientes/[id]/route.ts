@@ -18,7 +18,17 @@ interface SessionUser {
   permissoes?: string[]
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Define the correct params type for Next.js App Router
+type RouteParams = {
+  params: {
+    id: string
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: RouteParams
+) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -55,7 +65,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: RouteParams
+) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -121,7 +134,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+) {
   try {
     const session = await getServerSession(authOptions)
 
