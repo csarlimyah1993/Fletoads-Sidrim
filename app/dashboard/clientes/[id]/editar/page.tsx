@@ -1,3 +1,5 @@
+"use client"
+
 import { ClienteForm } from "@/components/clientes/cliente-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
