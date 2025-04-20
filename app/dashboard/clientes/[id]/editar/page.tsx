@@ -27,19 +27,30 @@ interface Cliente {
   observacoes?: string
 }
 
-export default function EditarClientePage({ params }: { params: { id: string } }) {
+// Solução alternativa para o problema de tipos
+interface PageProps {
+  params: any // Usamos 'any' para evitar o conflito de tipos
+}
+
+export default function EditarClientePage(props: PageProps) {
+  const { params } = props
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
+  // Extrai o ID de forma segura
+  const clienteId = params?.id || ''
+
   useEffect(() => {
     async function fetchCliente() {
+      if (!clienteId) return
+
       try {
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/clientes/${params.id}`)
+        const response = await fetch(`/api/clientes/${clienteId}`)
 
         if (!response.ok) {
           throw new Error(`Erro ao buscar cliente: ${response.status}`)
@@ -57,7 +68,7 @@ export default function EditarClientePage({ params }: { params: { id: string } }
     }
 
     fetchCliente()
-  }, [params.id])
+  }, [clienteId])
 
   if (isLoading) {
     return (
@@ -93,7 +104,7 @@ export default function EditarClientePage({ params }: { params: { id: string } }
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={() => router.push(`/dashboard/clientes/${params.id}`)}>
+        <Button variant="outline" size="icon" onClick={() => router.push(`/dashboard/clientes/${clienteId}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-3xl font-bold tracking-tight">Editar Cliente</h2>

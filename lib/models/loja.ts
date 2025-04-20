@@ -146,3 +146,4 @@ const LojaSchema: Schema = new Schema({
 })
 
 export const Loja = mongoose.models.Loja || mongoose.model<ILoja>("Loja", LojaSchema)
+export default Loja

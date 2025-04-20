@@ -6,7 +6,7 @@ import { ObjectId } from "mongodb"
 import { Panfleto } from "@/lib/models/panfleto"
 import { Loja } from "@/lib/models/loja"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     await connectToDatabase()
 
-    const { id } = params
+    const { id } = await params // Adicionado await aqui
     // Convert the id to an ObjectId
     const panfleto = await Panfleto.findById(new ObjectId(id)).lean()
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     await connectToDatabase()
 
-    const { id } = params
+    const { id } = await params // Adicionado await aqui
     const data = await request.json()
 
     // Verificar campos obrigatórios
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -101,7 +101,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     await connectToDatabase()
 
-    const { id } = params
+    const { id } = await params // Adicionado await aqui
 
     // Buscar o panfleto para verificar se pertence ao usuário
     const panfleto = await Panfleto.findById(new ObjectId(id))

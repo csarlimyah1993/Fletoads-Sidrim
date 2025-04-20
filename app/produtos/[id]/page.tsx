@@ -6,16 +6,16 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import type { Produto } from "@/types/loja"
 
+// Interface modificada para tratar params como Promise
 interface ProdutoPageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
 }
 
 export async function generateMetadata({ params }: ProdutoPageProps): Promise<Metadata> {
   try {
+    const { id } = await params // Resolve a Promise aqui
     const { db } = await connectToDatabase()
-    const produto = await db.collection("produtos").findOne({ _id: new ObjectId(params.id) })
+    const produto = await db.collection("produtos").findOne({ _id: new ObjectId(id) })
 
     if (!produto) {
       return {
@@ -36,8 +36,9 @@ export async function generateMetadata({ params }: ProdutoPageProps): Promise<Me
 
 export default async function ProdutoPage({ params }: ProdutoPageProps) {
   try {
+    const { id } = await params // Resolve a Promise aqui
     const { db } = await connectToDatabase()
-    const produtoDoc = await db.collection("produtos").findOne({ _id: new ObjectId(params.id) })
+    const produtoDoc = await db.collection("produtos").findOne({ _id: new ObjectId(id) })
 
     if (!produtoDoc) {
       notFound()
