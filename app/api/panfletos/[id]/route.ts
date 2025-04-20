@@ -1,15 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../../lib/auth"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Panfleto from "@/lib/models/panfleto"
-import mongoose from "mongoose"
+import { ObjectId } from "mongodb"
+import { Panfleto } from "@/lib/models/panfleto"
+import { Loja } from "@/lib/models/loja"
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
-
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -17,12 +15,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectToDatabase()
 
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
-    }
-
-    const panfleto = await Panfleto.findById(id)
+    const { id } = params
+    // Convert the id to an ObjectId
+    const panfleto = await Panfleto.findById(new ObjectId(id)).lean()
 
     if (!panfleto) {
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
@@ -35,11 +30,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
-
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -47,18 +39,51 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectToDatabase()
 
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
-    }
-
+    const { id } = params
     const data = await request.json()
 
-    const panfletoAtualizado = await Panfleto.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true })
+    // Verificar campos obrigatórios
+    const requiredFields = ["titulo", "descricao", "categoria", "imagem", "conteudo"]
+    const missingFields = requiredFields.filter((field) => !data[field])
 
-    if (!panfletoAtualizado) {
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Campos obrigatórios ausentes: ${missingFields.join(", ")}`,
+        },
+        { status: 400 },
+      )
+    }
+
+    // Buscar o panfleto para verificar se pertence ao usuário
+    const panfleto = await Panfleto.findById(new ObjectId(id))
+    if (!panfleto) {
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
     }
+
+    // Verificar si el usuario tiene permiso para editar este panfleto
+    const loja = await Loja.findOne({
+      $or: [
+        { usuarioId: session.user.id },
+        { usuarioId: new ObjectId(session.user.id) },
+        { userId: session.user.id },
+        { userId: new ObjectId(session.user.id) },
+      ],
+    })
+
+    if (!loja || panfleto.lojaId.toString() !== loja._id.toString()) {
+      return NextResponse.json({ error: "Não autorizado a editar este panfleto" }, { status: 403 })
+    }
+
+    // Atualizar o panfleto
+    const panfletoAtualizado = await Panfleto.findByIdAndUpdate(
+      new ObjectId(id),
+      {
+        ...data,
+        dataAtualizacao: new Date(),
+      },
+      { new: true, runValidators: true },
+    ).lean()
 
     return NextResponse.json(panfletoAtualizado)
   } catch (error) {
@@ -67,11 +92,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const resolvedParams = await params
-    const id = resolvedParams.id
-
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -79,16 +101,30 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectToDatabase()
 
-    // Validate ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
-    }
+    const { id } = params
 
-    const panfletoDeletado = await Panfleto.findByIdAndDelete(id)
-
-    if (!panfletoDeletado) {
+    // Buscar o panfleto para verificar se pertence ao usuário
+    const panfleto = await Panfleto.findById(new ObjectId(id))
+    if (!panfleto) {
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
     }
+
+    // Verificar si el usuario tiene permiso para excluir este panfleto
+    const loja = await Loja.findOne({
+      $or: [
+        { usuarioId: session.user.id },
+        { usuarioId: new ObjectId(session.user.id) },
+        { userId: session.user.id },
+        { userId: new ObjectId(session.user.id) },
+      ],
+    })
+
+    if (!loja || panfleto.lojaId.toString() !== loja._id.toString()) {
+      return NextResponse.json({ error: "Não autorizado a excluir este panfleto" }, { status: 403 })
+    }
+
+    // Excluir o panfleto
+    await Panfleto.findByIdAndDelete(new ObjectId(id))
 
     return NextResponse.json({ success: true, message: "Panfleto excluído com sucesso" })
   } catch (error) {
