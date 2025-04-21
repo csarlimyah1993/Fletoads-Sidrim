@@ -4,11 +4,10 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, User, Mail, Eye, EyeOff, Phone, Briefcase } from "lucide-react"
+import { ArrowLeft, User, Mail, Eye, EyeOff, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
@@ -18,7 +17,6 @@ interface FormData {
   senha: string
   confirmarSenha: string
   telefone: string
-  tipoUsuario: string
   aceitaTermos: boolean
 }
 
@@ -28,7 +26,6 @@ interface FormErrors {
   senha: string
   confirmarSenha: string
   telefone: string
-  tipoUsuario: string
   aceitaTermos: string
 }
 
@@ -51,7 +48,6 @@ export function CadastroContent() {
     senha: "",
     confirmarSenha: "",
     telefone: "",
-    tipoUsuario: "lojista", // Valor padrão
     aceitaTermos: false,
   })
 
@@ -61,7 +57,6 @@ export function CadastroContent() {
     senha: "",
     confirmarSenha: "",
     telefone: "",
-    tipoUsuario: "",
     aceitaTermos: "",
   })
 
@@ -155,20 +150,6 @@ export function CadastroContent() {
     return () => clearTimeout(timer)
   }, [formData.email])
 
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tipoUsuario: value,
-    }))
-
-    if (errors.tipoUsuario) {
-      setErrors((prev) => ({
-        ...prev,
-        tipoUsuario: "",
-      }))
-    }
-  }
-
   const handleCheckboxChange = (checked: boolean) => {
     setFormData((prev) => ({
       ...prev,
@@ -221,12 +202,6 @@ export function CadastroContent() {
     // Validar confirmação de senha
     if (formData.senha !== formData.confirmarSenha) {
       newErrors.confirmarSenha = "As senhas não coincidem"
-      isValid = false
-    }
-
-    // Validar tipo de usuário
-    if (!formData.tipoUsuario) {
-      newErrors.tipoUsuario = "Selecione o tipo de usuário"
       isValid = false
     }
 
@@ -299,7 +274,7 @@ export function CadastroContent() {
           email: formData.email.toLowerCase().trim(), // Normalizar o email
           password: formData.senha,
           telefone: formData.telefone,
-          tipoUsuario: formData.tipoUsuario,
+          // tipoUsuario é sempre "lojista" no backend
         }),
       })
 
@@ -449,26 +424,6 @@ export function CadastroContent() {
                 </div>
                 {errors.telefone && <p className="text-red-500 text-sm mt-1">{errors.telefone}</p>}
                 <p className="text-xs text-gray-500 mt-1">Formato: (99) 99999-9999 ou (99) 9999-9999</p>
-              </div>
-
-              <div>
-                <label htmlFor="tipoUsuario" className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Usuário
-                </label>
-                <div className="relative">
-                  <Select value={formData.tipoUsuario} onValueChange={handleSelectChange}>
-                    <SelectTrigger className={`${errors.tipoUsuario ? "border-red-500" : ""}`}>
-                      <Briefcase className="h-5 w-5 mr-2 text-gray-400" />
-                      <SelectValue placeholder="Selecione o tipo de usuário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lojista">Lojista</SelectItem>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="afiliado">Afiliado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {errors.tipoUsuario && <p className="text-red-500 text-sm mt-1">{errors.tipoUsuario}</p>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
