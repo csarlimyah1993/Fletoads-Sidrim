@@ -72,7 +72,7 @@ function VitrineCard({ vitrine }: { vitrine: VitrineData }) {
             alt={`Banner da loja ${vitrine.nome}`}
             fill
             className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-primary/20 to-primary/5">
@@ -161,19 +161,19 @@ export default function VitrinesPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
           <Link href="/" className="flex items-center">
             <span className="text-2xl font-bold text-primary">
               fleto<span className="text-foreground">Ads</span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="hidden sm:inline-flex">
               <Link href="/login">Entrar</Link>
             </Button>
-            <Button asChild>
+            <Button asChild size="sm" className="text-sm">
               <Link href="/registro">Criar Conta</Link>
             </Button>
           </div>
@@ -181,16 +181,16 @@ export default function VitrinesPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-primary/10 to-background py-12">
+      <section className="bg-gradient-to-b from-primary/10 to-background py-8 sm:py-12">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">Encontre as melhores lojas e serviços para você</h1>
-            <p className="text-muted-foreground mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Encontre as melhores lojas e serviços para você</h1>
+            <p className="text-muted-foreground mb-6 sm:mb-8 text-sm sm:text-base">
               Descubra negócios locais, produtos exclusivos e serviços de qualidade em um só lugar.
             </p>
 
-            <div className="flex flex-col md:flex-row gap-4 max-w-2xl mx-auto">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-3 sm:gap-4 max-w-2xl mx-auto">
+              <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar lojas, produtos ou serviços..." 
@@ -199,64 +199,92 @@ export default function VitrinesPage() {
                   onChange={(e) => setSearchParams({...searchParams, busca: e.target.value})}
                 />
               </div>
-              <Select 
-                value={searchParams.estado}
-                onValueChange={(value) => setSearchParams({...searchParams, estado: value})}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todos os estados</SelectItem>
-                  {/* Adicione os estados aqui */}
-                </SelectContent>
-              </Select>
-              <Select 
-                value={searchParams.cidade}
-                onValueChange={(value) => setSearchParams({...searchParams, cidade: value})}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Cidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as cidades</SelectItem>
-                  {/* Adicione as cidades aqui */}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <Select 
+                  value={searchParams.estado}
+                  onValueChange={(value) => setSearchParams({...searchParams, estado: value})}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todos os estados</SelectItem>
+                    {/* Adicione os estados aqui */}
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={searchParams.cidade}
+                  onValueChange={(value) => setSearchParams({...searchParams, cidade: value})}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Cidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as cidades</SelectItem>
+                    {/* Adicione as cidades aqui */}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar com categorias */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <h2 className="text-xl font-bold mb-4">Categorias</h2>
-              <div className="space-y-1">
-                {categorias.map((categoria) => (
-                  <Button
-                    key={categoria.id}
-                    variant={categoria.id === searchParams.categoria ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setSearchParams({...searchParams, categoria: categoria.id})}
-                  >
-                    <span className="mr-2">{categoria.icon}</span>
-                    {categoria.nome}
-                  </Button>
-                ))}
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar com categorias - Mobile como accordion/dropdown */}
+          <div className="lg:w-64 lg:shrink-0">
+            <div className="lg:sticky lg:top-24">
+              {/* Mobile categories dropdown */}
+              <div className="lg:hidden mb-4">
+                <Select
+                  value={searchParams.categoria}
+                  onValueChange={(value) => setSearchParams({...searchParams, categoria: value})}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria.id} value={categoria.id}>
+                        <div className="flex items-center">
+                          <span className="mr-2">{categoria.icon}</span>
+                          {categoria.nome}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="mt-4">
+              
+              {/* Desktop categories list */}
+              <div className="hidden lg:block">
+                <h2 className="text-xl font-bold mb-4">Categorias</h2>
+                <div className="space-y-1">
+                  {categorias.map((categoria) => (
+                    <Button
+                      key={categoria.id}
+                      variant={categoria.id === searchParams.categoria ? "default" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => setSearchParams({...searchParams, categoria: categoria.id})}
+                    >
+                      <span className="mr-2">{categoria.icon}</span>
+                      {categoria.nome}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mt-4 hidden sm:block">
                 <LojasProximas />
               </div>
             </div>
           </div>
 
           {/* Lista de vitrines */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Vitrines</h2>
+          <div className="flex-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
+              <h2 className="text-xl sm:text-2xl font-bold">Vitrines</h2>
               <p className="text-sm text-muted-foreground">
                 {vitrines.length} {vitrines.length === 1 ? "resultado" : "resultados"} encontrados
               </p>
@@ -265,10 +293,10 @@ export default function VitrinesPage() {
             {loading ? (
               <VitrinesSkeleton />
             ) : error ? (
-              <div className="text-center py-12">
-                <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Erro ao carregar vitrines</h3>
-                <p className="text-muted-foreground mb-6">{error}</p>
+              <div className="text-center py-8 sm:py-12">
+                <Store className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg font-medium mb-2">Erro ao carregar vitrines</h3>
+                <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">{error}</p>
                 <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
               </div>
             ) : vitrines.length > 0 ? (
@@ -278,13 +306,13 @@ export default function VitrinesPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhuma vitrine encontrada</h3>
-                <p className="text-muted-foreground mb-6">
+              <div className="text-center py-8 sm:py-12">
+                <Store className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg font-medium mb-2">Nenhuma vitrine encontrada</h3>
+                <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
                   Não encontramos nenhuma vitrine com os filtros selecionados.
                 </p>
-                <Button asChild>
+                <Button asChild size="sm" className="text-sm">
                   <Link href="/dashboard/perfil-da-loja/criar">Criar minha vitrine</Link>
                 </Button>
               </div>

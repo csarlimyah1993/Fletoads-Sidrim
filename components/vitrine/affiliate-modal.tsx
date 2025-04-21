@@ -4,9 +4,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 import {
   Dialog,
@@ -19,10 +17,8 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { DatePicker } from "@/components/ui/date-picker"
 
 const formSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -46,6 +42,7 @@ interface AffiliateModalProps {
 
 export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: AffiliateModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const currentYear = new Date().getFullYear()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -61,6 +58,11 @@ export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: A
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true)
     try {
+      // Validate the date
+      if (isNaN(data.birthDate?.getTime() || 0)) {
+        throw new Error("Data de nascimento inválida")
+      }
+
       const response = await fetch("/api/affiliates/create", {
         method: "POST",
         headers: {
@@ -86,6 +88,32 @@ export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: A
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Format CPF as user types
+  const formatCPF = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "")
+
+    // Apply the mask xxx.xxx.xxx-xx
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`
+  }
+
+  // Format phone as user types
+  const formatPhone = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "")
+
+    // Apply the mask +xx (xx)xxxxx-xxxx
+    if (digits.length <= 2) return `+${digits}`
+    if (digits.length <= 4) return `+${digits.slice(0, 2)} (${digits.slice(2)}`
+    if (digits.length <= 9) return `+${digits.slice(0, 2)} (${digits.slice(2, 4)})${digits.slice(4)}`
+    if (digits.length <= 14)
+      return `+${digits.slice(0, 2)} (${digits.slice(2, 4)})${digits.slice(4, 9)}-${digits.slice(9)}`
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)})${digits.slice(4, 9)}-${digits.slice(9, 13)}`
   }
 
   return (
@@ -136,7 +164,15 @@ export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: A
                   <FormItem>
                     <FormLabel>CPF</FormLabel>
                     <FormControl>
-                      <Input placeholder="000.000.000-00" {...field} />
+                      <Input
+                        placeholder="000.000.000-00"
+                        {...field}
+                        onChange={(e) => {
+                          const formatted = formatCPF(e.target.value)
+                          field.onChange(formatted)
+                        }}
+                        maxLength={14}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -150,7 +186,15 @@ export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: A
                   <FormItem>
                     <FormLabel>Telefone</FormLabel>
                     <FormControl>
-                      <Input placeholder="(00) 00000-0000" {...field} />
+                      <Input
+                        placeholder="+55 (00)00000-0000"
+                        {...field}
+                        onChange={(e) => {
+                          const formatted = formatPhone(e.target.value)
+                          field.onChange(formatted)
+                        }}
+                        maxLength={19}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -164,28 +208,9 @@ export function AffiliateModal({ vitrineId, vitrineName, onClose, onSuccess }: A
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Data de nascimento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                        >
-                          {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <DatePicker date={field.value} onSelect={field.onChange} id="birthDate" />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

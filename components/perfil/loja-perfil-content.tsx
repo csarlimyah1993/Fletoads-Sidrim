@@ -1,590 +1,656 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, MapPin, Phone, Mail, Globe, ShoppingBag, Clock, ChevronRight, Star } from "lucide-react"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import type { LojaPerfilContentProps } from "@/types/loja"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { GoogleMap } from "@/components/ui/google-map"
+import { toast } from "sonner"
+import { Loader2, MapPin } from "lucide-react"
 
-export function LojaPerfilContent({ loja, produtos = [], isLoading = false, planoInfo }: LojaPerfilContentProps) {
+const lojaFormSchema = z.object({
+  nome: z.string().min(2, {
+    message: "O nome da loja deve ter pelo menos 2 caracteres.",
+  }),
+  descricao: z.string().optional(),
+  endereco: z.object({
+    rua: z.string().min(1, { message: "A rua é obrigatória." }),
+    numero: z.string().min(1, { message: "O número é obrigatório." }),
+    complemento: z.string().optional(),
+    bairro: z.string().min(1, { message: "O bairro é obrigatório." }),
+    cidade: z.string().min(1, { message: "A cidade é obrigatória." }),
+    estado: z.string().min(1, { message: "O estado é obrigatório." }),
+    cep: z.string().min(1, { message: "O CEP é obrigatório." }),
+    latitude: z.string().optional(),
+    longitude: z.string().optional(),
+  }),
+  contato: z.object({
+    telefone: z.string().min(1, { message: "O telefone é obrigatório." }),
+    email: z.string().email({ message: "Email inválido." }),
+    whatsapp: z.string().optional(),
+    site: z.string().optional(),
+  }),
+  redesSociais: z.object({
+    instagram: z.string().optional(),
+    facebook: z.string().optional(),
+    twitter: z.string().optional(),
+    youtube: z.string().optional(),
+    linkedin: z.string().optional(),
+  }),
+  logo: z.string().optional(),
+  banner: z.string().optional(),
+})
+
+type LojaFormValues = z.infer<typeof lojaFormSchema>
+
+interface LojaPerfilFormWrapperProps {
+  lojaId: string
+  initialValues?: {
+    nomeLoja?: string
+    descricao?: string
+    logoUrl?: string
+    bannerUrl?: string
+  }
+}
+
+export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilFormWrapperProps) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("info")
 
-  if (!loja) {
-    return (
-      <div className="text-center py-10">
-        <h2 className="text-2xl font-bold mb-2">Nenhuma loja encontrada</h2>
-        <p className="text-muted-foreground mb-4">Você ainda não possui uma loja cadastrada.</p>
-        <Button asChild>
-          <Link href="/dashboard/perfil-da-loja/criar">Criar Loja</Link>
-        </Button>
-      </div>
-    )
-  }
+  const form = useForm<LojaFormValues>({
+    resolver: zodResolver(lojaFormSchema),
+    defaultValues: {
+      nome: initialValues?.nomeLoja || "",
+      descricao: initialValues?.descricao || "",
+      logo: initialValues?.logoUrl || "",
+      banner: initialValues?.bannerUrl || "",
+      endereco: {
+        rua: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+        cep: "",
+        latitude: "",
+        longitude: "",
+      },
+      contato: {
+        telefone: "",
+        email: "",
+        whatsapp: "",
+        site: "",
+      },
+      redesSociais: {
+        instagram: "",
+        facebook: "",
+        twitter: "",
+        youtube: "",
+        linkedin: "",
+      },
+    },
+  })
 
-  const endereco = loja.endereco
-    ? `${loja.endereco.logradouro || loja.endereco.rua || ""}, ${loja.endereco.numero || ""}, ${
-        loja.endereco.bairro || ""
-      }, ${loja.endereco.cidade || ""} - ${loja.endereco.estado || ""}`
-    : "Endereço não cadastrado"
+  // Buscar dados completos da loja
+  useEffect(() => {
+    const fetchLojaData = async () => {
+      try {
+        setIsLoading(true)
+        console.log(`Buscando dados da loja com ID: ${lojaId}`)
+        const response = await fetch(`/api/lojas/${lojaId}`)
 
-  const vitrineUrl = loja._id ? `/vitrines/${loja._id}` : "#"
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar dados da loja: ${response.status}`)
+        }
 
-  const handleEditarPerfil = () => {
-    router.push("/dashboard/perfil-da-loja/editar")
-  }
+        const data = await response.json()
+        console.log("Dados da loja recebidos:", data)
 
-  const handleVerProdutos = () => {
-    router.push("/dashboard/produtos")
-  }
+        if (data.loja) {
+          // Garantir que todos os objetos aninhados existam
+          const loja = {
+            ...data.loja,
+            endereco: data.loja.endereco || {},
+            contato: data.loja.contato || {},
+            redesSociais: data.loja.redesSociais || {},
+          }
 
-  const handleVerVitrine = () => {
-    if (loja.vitrineId) {
-      console.log(`Redirecionando para vitrine com ID: ${loja.vitrineId}`)
-      window.open(`/vitrines/${loja.vitrineId}`, "_blank")
-    } else if (loja._id) {
-      console.log(`Nenhuma vitrineId encontrada, usando _id: ${loja._id}`)
-      window.open(`/vitrines/${loja._id}`, "_blank")
-    } else {
-      console.log("Nenhum ID encontrado, redirecionando para configuração")
-      router.push("/dashboard/vitrine")
+          console.log("Preenchendo formulário com dados:", loja)
+
+          // Preencher o formulário com os dados da loja
+          form.reset({
+            nome: loja.nome || initialValues?.nomeLoja || "",
+            descricao: loja.descricao || initialValues?.descricao || "",
+            logo: loja.logo || initialValues?.logoUrl || "",
+            banner: loja.banner || initialValues?.bannerUrl || "",
+            endereco: {
+              rua: loja.endereco.rua || "",
+              numero: loja.endereco.numero || "",
+              complemento: loja.endereco.complemento || "",
+              bairro: loja.endereco.bairro || "",
+              cidade: loja.endereco.cidade || "",
+              estado: loja.endereco.estado || "",
+              cep: loja.endereco.cep || "",
+              latitude: loja.endereco.latitude || "",
+              longitude: loja.endereco.longitude || "",
+            },
+            contato: {
+              telefone: loja.contato.telefone || "",
+              email: loja.contato.email || "",
+              whatsapp: loja.contato.whatsapp || "",
+              site: loja.contato.site || "",
+            },
+            redesSociais: {
+              instagram: loja.redesSociais.instagram || "",
+              facebook: loja.redesSociais.facebook || "",
+              twitter: loja.redesSociais.twitter || "",
+              youtube: loja.redesSociais.youtube || "",
+              linkedin: loja.redesSociais.linkedin || "",
+            },
+          })
+
+          console.log("Formulário preenchido com sucesso")
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados da loja:", error)
+        toast.error("Não foi possível carregar os dados da loja. Tente novamente mais tarde.")
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
 
-  const formatarEndereco = () => {
-    if (!loja.endereco) return "Endereço não cadastrado"
-
-    const { rua, numero, bairro, cidade, estado, logradouro } = loja.endereco
-    const partes = []
-
-    if (logradouro || rua) partes.push((logradouro || rua) + (numero ? `, ${numero}` : ""))
-    if (bairro) partes.push(bairro)
-    if (cidade) partes.push(cidade + (estado ? ` - ${estado}` : ""))
-
-    return partes.join(", ") || "Endereço não cadastrado"
-  }
-
-  const formatarHorario = (horario?: string | { open?: boolean; abertura?: string; fechamento?: string }) => {
-    if (!horario) return "Fechado"
-
-    // Se for uma string, retorna diretamente
-    if (typeof horario === "string") {
-      return horario
+    if (lojaId) {
+      fetchLojaData()
     }
+  }, [lojaId, form, initialValues])
 
-    // Se for um objeto, formata adequadamente
-    if (typeof horario === "object") {
-      if (!horario.open) return "Fechado"
-      return `${horario.abertura || "00:00"} - ${horario.fechamento || "00:00"}`
-    }
-
-    return "Horário não disponível"
+  // Função para atualizar as coordenadas no formulário
+  const handleLocationChange = (lat: number, lng: number) => {
+    form.setValue("endereco.latitude", lat.toString())
+    form.setValue("endereco.longitude", lng.toString())
   }
 
-  const renderHorariosFuncionamento = () => {
-    if (!loja.horarioFuncionamento) {
-      return <p className="text-muted-foreground">Horários não cadastrados</p>
+  // Função para formatar o endereço completo
+  const getFormattedAddress = () => {
+    const endereco = form.watch("endereco")
+    if (!endereco) return ""
+
+    const parts = []
+
+    if (endereco.rua) parts.push(endereco.rua)
+    if (endereco.numero) parts.push(endereco.numero)
+    if (endereco.bairro) parts.push(endereco.bairro)
+    if (endereco.cidade) {
+      if (endereco.estado) {
+        parts.push(`${endereco.cidade} - ${endereco.estado}`)
+      } else {
+        parts.push(endereco.cidade)
+      }
     }
+    if (endereco.cep) parts.push(endereco.cep)
 
-    const diasSemana = [
-      { dia: "Segunda", valor: loja.horarioFuncionamento.segunda },
-      { dia: "Terça", valor: loja.horarioFuncionamento.terca },
-      { dia: "Quarta", valor: loja.horarioFuncionamento.quarta },
-      { dia: "Quinta", valor: loja.horarioFuncionamento.quinta },
-      { dia: "Sexta", valor: loja.horarioFuncionamento.sexta },
-      { dia: "Sábado", valor: loja.horarioFuncionamento.sabado },
-      { dia: "Domingo", valor: loja.horarioFuncionamento.domingo },
-    ]
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {diasSemana.map((item) => (
-          <div key={item.dia} className="flex justify-between">
-            <span className="font-medium">{item.dia}:</span>
-            <span className="text-muted-foreground">{formatarHorario(item.valor)}</span>
-          </div>
-        ))}
-      </div>
-    )
+    return parts.join(", ")
   }
 
-  const renderProdutos = () => {
-    if (isLoading) {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <div className="aspect-square relative bg-gray-100 dark:bg-gray-800">
-                <Skeleton className="h-full w-full" />
-              </div>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+  // Função para lidar com o envio do formulário
+  const onSubmit = async (values: LojaFormValues) => {
+    try {
+      setIsSubmitting(true)
+      console.log("Enviando dados da loja:", values)
+
+      const response = await fetch(`/api/lojas/${lojaId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Erro ao salvar dados da loja")
+      }
+
+      toast.success("Dados da loja salvos com sucesso!")
+      console.log("Loja atualizada com sucesso")
+
+      // Redirecionar para a página de perfil
+      router.push("/dashboard/perfil-da-loja")
+      router.refresh()
+    } catch (error) {
+      console.error("Erro ao salvar dados da loja:", error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os dados da loja. Tente novamente mais tarde.",
       )
+    } finally {
+      setIsSubmitting(false)
     }
-
-    if (!produtos || produtos.length === 0) {
-      return (
-        <div className="text-center py-8">
-          <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">Nenhum produto cadastrado</h3>
-          <p className="text-muted-foreground mb-4">
-            Você ainda não tem produtos cadastrados. Comece a adicionar produtos para exibi-los em sua vitrine.
-          </p>
-          <Button onClick={() => router.push("/dashboard/produtos/novo")}>Adicionar Produto</Button>
-        </div>
-      )
-    }
-
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {produtos.map((produto, index) => (
-          <motion.div
-            key={produto._id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-          >
-            <Card className="overflow-hidden h-full border hover:shadow-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-              <Link href={`/dashboard/produtos/${produto._id}`}>
-                <div className="aspect-square relative bg-gray-100 dark:bg-gray-800">
-                  {produto.imagens && produto.imagens.length > 0 ? (
-                    <div className="w-full h-full relative">
-                      <Image
-                        src={produto.imagens[0] || "/placeholder.svg"}
-                        alt={produto.nome}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <ShoppingBag className="h-12 w-12 text-gray-400" />
-                    </div>
-                  )}
-                  {produto.destaque && (
-                    <Badge className="absolute top-2 right-2 bg-amber-500 hover:bg-amber-600">
-                      <Star className="h-3 w-3 mr-1" />
-                      Destaque
-                    </Badge>
-                  )}
-                  {produto.precoPromocional && produto.precoPromocional < produto.preco && (
-                    <Badge className="absolute top-2 left-2 bg-red-500 hover:bg-red-600">Promoção</Badge>
-                  )}
-                  {produto.ativo === false && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <Badge variant="outline" className="bg-black/80 text-white border-white">
-                        Inativo
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium line-clamp-1">{produto.nome}</h3>
-                  {produto.descricaoCurta && (
-                    <p className="text-muted-foreground text-sm line-clamp-2 mt-1">{produto.descricaoCurta}</p>
-                  )}
-                  <div className="mt-2 flex items-baseline gap-2">
-                    {produto.precoPromocional ? (
-                      <>
-                        <span className="font-bold text-green-600 dark:text-green-500">
-                          R$ {produto.precoPromocional.toFixed(2)}
-                        </span>
-                        <span className="text-muted-foreground text-sm line-through">
-                          R$ {produto.preco.toFixed(2)}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="font-bold">R$ {produto.preco.toFixed(2)}</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Link>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-    )
   }
 
-  // Componente para o Google Map (simplificado)
-  const GoogleMap = ({ latitude, longitude, address, storeName }: any) => {
-    if (!latitude || !longitude) {
-      return (
-        <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-          <div className="text-center p-4">
-            <MapPin className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-muted-foreground">Localização não disponível</p>
-          </div>
-        </div>
-      )
-    }
-
-    // Aqui você pode implementar a integração real com o Google Maps
+  if (isLoading) {
     return (
-      <div className="h-full w-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <MapPin className="h-8 w-8 mx-auto text-blue-500 mb-2" />
-          <p className="font-medium">{storeName}</p>
-          <p className="text-sm text-muted-foreground">{address}</p>
-        </div>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Carregando dados da loja...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="relative">
-        {/* Banner com imagem real */}
-        <div
-          className="w-full h-48 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 overflow-hidden"
-          style={{
-            backgroundImage: loja.banner ? `url(${loja.banner})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Perfil da Loja</CardTitle>
+            <CardDescription>Configure as informações da sua loja que serão exibidas para os clientes.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="informacoes">
+              <TabsList className="mb-6">
+                <TabsTrigger value="informacoes">Informações Básicas</TabsTrigger>
+                <TabsTrigger value="endereco">Endereço</TabsTrigger>
+                <TabsTrigger value="contato">Contato</TabsTrigger>
+                <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
+              </TabsList>
 
-        {/* Logo */}
-        <div className="absolute -bottom-12 left-8">
-          <div className="rounded-full border-4 border-background w-24 h-24 overflow-hidden bg-gray-200">
-            {loja.logo ? (
-              <img
-                src={loja.logo || "/placeholder.svg"}
-                alt={`Logo ${loja.nome}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">Logo</div>
-            )}
-          </div>
-        </div>
-      </div>
+              <TabsContent value="informacoes" className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="nome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Loja</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome da sua loja" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-      {/* Informações da loja */}
-      <div className="pt-20">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">{loja.nome}</h1>
-            {loja.descricao && <p className="text-muted-foreground mt-1">{loja.descricao}</p>}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={handleEditarPerfil}>
-              <Edit className="h-4 w-4 mr-2" />
-              Editar Perfil
-            </Button>
-            <Button variant="outline" onClick={handleVerVitrine}>
-              <Globe className="h-4 w-4 mr-2" />
-              Ver Vitrine
-            </Button>
-          </div>
-        </div>
+                <FormField
+                  control={form.control}
+                  name="descricao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Descreva sua loja em poucas palavras..." {...field} />
+                      </FormControl>
+                      <FormDescription>Esta descrição será exibida na página principal da sua loja.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="info">Informações</TabsTrigger>
-            <TabsTrigger value="produtos">Produtos</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="info">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Endereço */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-blue-500" />
-                    Endereço
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p>{formatarEndereco()}</p>
-
-                  {/* Google Maps */}
-                  <div className="h-64 w-full rounded-md overflow-hidden">
-                    <GoogleMap
-                      latitude={loja.endereco?.latitude || null}
-                      longitude={loja.endereco?.longitude || null}
-                      address={formatarEndereco()}
-                      storeName={loja.nome}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Logo</h3>
+                    <FormField
+                      control={form.control}
+                      name="logo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </CardContent>
-              </Card>
 
-              {/* Contato */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Phone className="h-5 w-5 text-green-500" />
-                    Contato
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {loja.contato?.telefone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span>{loja.contato.telefone}</span>
-                    </div>
-                  )}
-                  {loja.contato?.whatsapp && (
-                    <div className="flex items-center gap-2">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-green-500"
-                      >
-                        <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
-                        <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
-                        <path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
-                        <path d="M9.5 13.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 0-1h-4a.5.5 0 0 0-.5.5Z" />
-                      </svg>
-                      <span>{loja.contato.whatsapp}</span>
-                    </div>
-                  )}
-                  {loja.contato?.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span>{loja.contato.email}</span>
-                    </div>
-                  )}
-                  {loja.contato?.site && (
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                      <a
-                        href={loja.contato.site.startsWith("http") ? loja.contato.site : `https://${loja.contato.site}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        {loja.contato.site}
-                      </a>
-                    </div>
-                  )}
-                  {!loja.contato?.telefone &&
-                    !loja.contato?.whatsapp &&
-                    !loja.contato?.email &&
-                    !loja.contato?.site && <p className="text-muted-foreground">Nenhum contato cadastrado</p>}
-                </CardContent>
-              </Card>
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Banner</h3>
+                    <FormField
+                      control={form.control}
+                      name="banner"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Recomendamos uma imagem de pelo menos 1200x400 pixels.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
 
-              {/* Horário de Funcionamento */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-amber-500" />
-                    Horário de Funcionamento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>{renderHorariosFuncionamento()}</CardContent>
-              </Card>
+              <TabsContent value="endereco" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="endereco.rua"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rua/Logradouro</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Rua/Avenida" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              {/* Plano */}
-              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-blue-200 dark:border-blue-800">
-                <CardHeader className="pb-2">
+                  <FormField
+                    control={form.control}
+                    name="endereco.numero"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número</FormLabel>
+                        <FormControl>
+                          <Input placeholder="123" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endereco.complemento"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Complemento</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Apto, Sala, etc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endereco.bairro"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bairro</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bairro" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endereco.cidade"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cidade</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Cidade" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endereco.estado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Estado" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endereco.cep"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>CEP</FormLabel>
+                        <FormControl>
+                          <Input placeholder="00000-000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-purple-500"
-                      >
-                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      Seu Plano
-                    </CardTitle>
-                    <Badge
+                    <h3 className="text-lg font-medium">Localização no Mapa</h3>
+                    <Button
+                      type="button"
                       variant="outline"
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0"
+                      size="sm"
+                      onClick={() => {
+                        // Buscar localização pelo endereço
+                        // O componente GoogleMap fará isso automaticamente
+                      }}
                     >
-                      {planoInfo?.nome || "Plano Básico"}
-                    </Badge>
-                  </div>
-                  <CardDescription>Acompanhe o uso dos recursos do seu plano</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-blue-500"
-                        >
-                          <path d="M21 8v12H3V8" />
-                          <path d="M1 3h22v5H1z" />
-                          <path d="M10 12h4" />
-                        </svg>
-                        <span>Panfletos</span>
-                      </div>
-                      <div className="text-sm font-medium">
-                        {planoInfo?.panfletos?.usado || 0} de {planoInfo?.panfletos?.limite || "∞"}
-                      </div>
-                    </div>
-                    {planoInfo?.panfletos?.limite && (
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-                          style={{
-                            width: `${Math.min(
-                              ((planoInfo?.panfletos?.usado || 0) / (planoInfo?.panfletos?.limite || 1)) * 100,
-                              100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    )}
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Buscar no Mapa
+                    </Button>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <ShoppingBag className="h-4 w-4 text-green-500" />
-                        <span>Produtos</span>
-                      </div>
-                      <div className="text-sm font-medium">
-                        {planoInfo?.produtos?.usado || 0} de {planoInfo?.produtos?.limite || "∞"}
-                      </div>
-                    </div>
-                    {planoInfo?.produtos?.limite && (
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"
-                          style={{
-                            width: `${Math.min(
-                              ((planoInfo?.produtos?.usado || 0) / (planoInfo?.produtos?.limite || 1)) * 100,
-                              100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-amber-500"
-                        >
-                          <path d="M16 16h6" />
-                          <path d="M19 13v6" />
-                          <path d="M12 15V3a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v18" />
-                          <path d="M9 21h1a2 2 0 0 0 2-2v-4" />
-                          <path d="M4 15h2" />
-                          <path d="M4 11h2" />
-                          <path d="M4 7h2" />
-                          <path d="M4 3h2" />
-                        </svg>
-                        <span>Integrações</span>
-                      </div>
-                      <div className="text-sm font-medium">
-                        {planoInfo?.integracoes?.usado || 0} de {planoInfo?.integracoes?.limite || "∞"}
-                      </div>
-                    </div>
-                    {planoInfo?.integracoes?.limite && (
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                          style={{
-                            width: `${Math.min(
-                              ((planoInfo?.integracoes?.usado || 0) / (planoInfo?.integracoes?.limite || 1)) * 100,
-                              100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="default" className="w-full" onClick={() => router.push("/planos")}>
-                    <span>Ver planos</span>
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              {/* Vitrine Web */}
-              <Card className="md:col-span-2 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-blue-200 dark:border-blue-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Globe className="h-5 w-5 text-purple-500" />
-                    Vitrine Web
-                  </CardTitle>
-                  <CardDescription>Sua loja online para vender produtos e serviços</CardDescription>
-                </CardHeader>
-                <CardContent className="pb-2">
-                  <p className="text-sm">
-                    Configure sua vitrine web para que seus clientes possam ver seus produtos e serviços online.
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Arraste o marcador para ajustar a localização exata da sua loja.
                   </p>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="default" className="w-full" onClick={handleVerVitrine}>
-                    <span>Configurar Vitrine</span>
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="produtos">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Produtos da Loja</h2>
-                <Button onClick={handleVerProdutos}>
-                  <ShoppingBag className="h-4 w-4 mr-2" />
-                  Ver Todos
-                </Button>
-              </div>
-              {renderProdutos()}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+                  <div className="h-[400px] w-full rounded-md overflow-hidden border">
+                    <GoogleMap
+                      address={getFormattedAddress()}
+                      latitude={form.watch("endereco.latitude")}
+                      longitude={form.watch("endereco.longitude")}
+                      storeName={form.watch("nome")}
+                      height="400px"
+                      zoom={15}
+                      onLocationChange={handleLocationChange}
+                      interactive={true}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="endereco.latitude"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Latitude</FormLabel>
+                          <FormControl>
+                            <Input {...field} readOnly />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="endereco.longitude"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Longitude</FormLabel>
+                          <FormControl>
+                            <Input {...field} readOnly />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="contato" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contato.telefone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 0000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contato.whatsapp"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>WhatsApp</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 00000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contato.email"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="contato@sualoja.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contato.site"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Site</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://www.sualoja.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="redes" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="redesSociais.instagram"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instagram</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://instagram.com/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="redesSociais.facebook"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Facebook</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://facebook.com/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="redesSociais.twitter"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Twitter</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://twitter.com/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="redesSociais.youtube"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>YouTube</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://youtube.com/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="redesSociais.linkedin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>LinkedIn</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://linkedin.com/company/sualoja" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/perfil-da-loja")}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </Form>
   )
 }

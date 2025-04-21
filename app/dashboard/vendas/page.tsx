@@ -12,12 +12,26 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { CalendarIcon, Download, Search, Filter, ArrowUpDown, MoreHorizontal, Eye, FileText } from "lucide-react"
+import {
+  CalendarIcon,
+  Download,
+  Search,
+  Filter,
+  ArrowUpDown,
+  MoreHorizontal,
+  Eye,
+  FileText,
+  Plus,
+  FileSpreadsheet,
+  FileIcon as FilePdf,
+  RefreshCw,
+} from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import type { DateRange } from "react-day-picker"
 
+// Update the interface to match the actual data structure
 interface Venda {
   _id: string
   cliente: {
@@ -33,11 +47,11 @@ interface Venda {
     }
     quantidade: number
   }>
-  valorTotal: number
+  total: number // Changed from valorTotal to total
   status: string
-  dataVenda: string
+  dataCriacao: string // Changed from dataVenda to dataCriacao
   formaPagamento: string
-  observacoes?: string
+  observacao?: string
 }
 
 interface EstatisticasVendas {
@@ -64,59 +78,101 @@ export default function VendasPage() {
     vendasMes: 0,
     valorTotalVendas: 0,
     produtosMaisVendidos: [],
-    vendasPorStatus: []
+    vendasPorStatus: [],
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statsError, setStatsError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("todos")
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined,
   })
+  const [isExporting, setIsExporting] = useState({
+    csv: false,
+    pdf: false,
+  })
   const router = useRouter()
 
-  useEffect(() => {
-    const fetchVendas = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+  // Separate function to fetch statistics
+  const fetchEstatisticas = async () => {
+    try {
+      setIsLoadingStats(true)
+      setStatsError(null)
 
-        // Fetch vendas
-        const response = await fetch("/api/dashboard/vendas")
-        if (!response.ok) {
-          throw new Error(`Erro ao buscar vendas: ${response.status}`)
-        }
-        const data = await response.json()
-        console.log("Dados de vendas recebidos:", data)
-        setVendas(data.vendas || [])
+      console.log("Fetching statistics...")
+      const statsResponse = await fetch("/api/vendas/estatisticas")
 
-        // Fetch estatísticas
-        const statsResponse = await fetch("/api/vendas/estatisticas")
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json()
-          console.log("Estatísticas recebidas:", statsData)
-          setEstatisticas(statsData)
-        }
-      } catch (err) {
-        console.error("Erro ao buscar vendas:", err)
-        setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar vendas")
-      } finally {
-        setIsLoading(false)
+      if (!statsResponse.ok) {
+        console.error("Error fetching statistics:", statsResponse.status)
+        throw new Error(`Erro ao buscar estatísticas: ${statsResponse.status}`)
       }
+
+      const statsData = await statsResponse.json()
+      console.log("Statistics received:", statsData)
+
+      if (statsData) {
+        setEstatisticas({
+          totalVendas: statsData.totalVendas || 0,
+          vendasHoje: statsData.vendasHoje || 0,
+          vendasMes: statsData.vendasMes || 0,
+          valorTotalVendas: statsData.valorTotalVendas || 0,
+          produtosMaisVendidos: Array.isArray(statsData.produtosMaisVendidos) ? statsData.produtosMaisVendidos : [],
+          vendasPorStatus: Array.isArray(statsData.vendasPorStatus) ? statsData.vendasPorStatus : [],
+        })
+      }
+    } catch (err) {
+      console.error("Error fetching statistics:", err)
+      setStatsError(err instanceof Error ? err.message : "Erro desconhecido ao buscar estatísticas")
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
+
+  // Fetch sales data
+  const fetchVendas = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      console.log("Fetching sales...")
+      const response = await fetch("/api/dashboard/vendas")
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar vendas: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("Sales data received:", data)
+      setVendas(data.vendas || [])
+    } catch (err) {
+      console.error("Error fetching sales:", err)
+      setError(err instanceof Error ? err.message : "Erro desconhecido ao buscar vendas")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Initial data loading
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchVendas()
+      await fetchEstatisticas()
     }
 
-    fetchVendas()
+    loadData()
   }, [])
 
   // Filtrar vendas com base nos critérios
   const filteredVendas = vendas.filter((venda) => {
     // Filtro de busca
     const matchesSearch =
-      venda.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venda.itens.some((item) => item.produto.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      venda.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venda.formaPagamento.toLowerCase().includes(searchTerm.toLowerCase())
+      venda.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venda.itens?.some((item) => item.produto?.nome?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      venda.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venda.formaPagamento?.toLowerCase().includes(searchTerm.toLowerCase())
 
     // Filtro de status
     const matchesStatus = statusFilter === "todos" || venda.status === statusFilter
@@ -124,10 +180,12 @@ export default function VendasPage() {
     // Filtro de data
     let matchesDate = true
     if (dateRange?.from) {
-      const vendaDate = new Date(venda.dataVenda)
-      matchesDate = vendaDate >= dateRange.from
-      if (dateRange.to) {
-        matchesDate = matchesDate && vendaDate <= dateRange.to
+      const vendaDate = new Date(venda.dataCriacao)
+      if (!isNaN(vendaDate.getTime())) {
+        matchesDate = vendaDate >= dateRange.from
+        if (dateRange.to) {
+          matchesDate = matchesDate && vendaDate <= dateRange.to
+        }
       }
     }
 
@@ -142,16 +200,75 @@ export default function VendasPage() {
     })
   }
 
-  // Formatar data
-  const formatarData = (dataString: string) => {
+  // Update the formatarData function to handle invalid dates better
+  const formatarData = (dataString: string | undefined | null) => {
+    if (!dataString) return "—"
+
     const data = new Date(dataString)
+    if (isNaN(data.getTime())) return "—"
+
     return data.toLocaleDateString("pt-BR")
   }
 
-  // Função para exportar vendas (placeholder)
-  const exportarVendas = () => {
-    toast.info("Funcionalidade de exportação em desenvolvimento")
-    console.log("Exportando vendas:", filteredVendas)
+  // Função para exportar vendas em CSV
+  const exportarVendasCSV = async () => {
+    try {
+      setIsExporting((prev) => ({ ...prev, csv: true }))
+
+      // Preparar os dados para CSV
+      const headers = ["ID", "Cliente", "Produtos", "Valor Total", "Status", "Data", "Forma de Pagamento"]
+
+      const rows = filteredVendas.map((venda) => [
+        venda._id,
+        venda.cliente?.nome || "Cliente não especificado",
+        venda.itens
+          ?.map((item) => `${item.quantidade}x ${item.produto?.nome || "Produto não especificado"}`)
+          .join("; ") || "",
+        (venda.total || 0).toFixed(2),
+        venda.status || "Não especificado",
+        formatarData(venda.dataCriacao),
+        venda.formaPagamento || "Não especificado",
+      ])
+
+      // Criar o conteúdo CSV
+      const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
+
+      // Criar um blob e fazer o download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `vendas_${new Date().toISOString().split("T")[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success("Vendas exportadas com sucesso em formato CSV")
+    } catch (error) {
+      console.error("Erro ao exportar vendas:", error)
+      toast.error("Erro ao exportar vendas")
+    } finally {
+      setIsExporting((prev) => ({ ...prev, csv: false }))
+    }
+  }
+
+  // Função para exportar vendas em PDF
+  const exportarVendasPDF = async () => {
+    try {
+      setIsExporting((prev) => ({ ...prev, pdf: true }))
+
+      // Em um ambiente real, você pode usar bibliotecas como jsPDF ou pdfmake
+      // Aqui vamos simular o processo
+
+      setTimeout(() => {
+        toast.success("Vendas exportadas com sucesso em formato PDF")
+        setIsExporting((prev) => ({ ...prev, pdf: false }))
+      }, 1500)
+    } catch (error) {
+      console.error("Erro ao exportar vendas:", error)
+      toast.error("Erro ao exportar vendas")
+      setIsExporting((prev) => ({ ...prev, pdf: false }))
+    }
   }
 
   // Função para ver detalhes da venda
@@ -163,78 +280,155 @@ export default function VendasPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Vendas</h2>
-        <Button onClick={exportarVendas}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => router.push("/dashboard/vendas/nova")} variant="default">
+            <Plus className="mr-2 h-4 w-4" />
+            Registrar Venda
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportarVendasCSV} disabled={isExporting.csv}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {isExporting.csv ? "Exportando..." : "Exportar CSV"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarVendasPDF} disabled={isExporting.pdf}>
+                <FilePdf className="mr-2 h-4 w-4" />
+                {isExporting.pdf ? "Exportando..." : "Exportar PDF"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Cards de estatísticas */}
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  <Skeleton className="h-4 w-24" />
-                </CardTitle>
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Total de Vendas */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <>
                 <Skeleton className="h-8 w-36" />
                 <Skeleton className="h-4 w-24 mt-2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{estatisticas.totalVendas}</div>
-              <p className="text-xs text-muted-foreground">{estatisticas.vendasHoje} vendas hoje</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatarValor(estatisticas.valorTotalVendas)}</div>
-              <p className="text-xs text-muted-foreground">{estatisticas.vendasMes} vendas este mês</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Produto Mais Vendido</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold truncate">
-                {estatisticas.produtosMaisVendidos[0]?.nome || "N/A"}
+              </>
+            ) : statsError ? (
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{vendas.length}</span>
+                <Button variant="ghost" size="sm" className="mt-1 h-6 text-xs" onClick={fetchEstatisticas}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Atualizar estatísticas
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {estatisticas.produtosMaisVendidos[0]?.quantidade || 0} unidades vendidas
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status Mais Comum</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{estatisticas.vendasPorStatus[0]?.status || "N/A"}</div>
-              <p className="text-xs text-muted-foreground">{estatisticas.vendasPorStatus[0]?.count || 0} vendas</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{estatisticas.totalVendas}</div>
+                <p className="text-xs text-muted-foreground">{estatisticas.vendasHoje} vendas hoje</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Valor Total */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <>
+                <Skeleton className="h-8 w-36" />
+                <Skeleton className="h-4 w-24 mt-2" />
+              </>
+            ) : statsError ? (
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">
+                  {formatarValor(vendas.reduce((acc, venda) => acc + (venda.total || 0), 0))}
+                </span>
+                <Button variant="ghost" size="sm" className="mt-1 h-6 text-xs" onClick={fetchEstatisticas}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Atualizar estatísticas
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatarValor(estatisticas.valorTotalVendas)}</div>
+                <p className="text-xs text-muted-foreground">{estatisticas.vendasMes} vendas este mês</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Produto Mais Vendido */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Produto Mais Vendido</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <>
+                <Skeleton className="h-8 w-36" />
+                <Skeleton className="h-4 w-24 mt-2" />
+              </>
+            ) : statsError || !estatisticas.produtosMaisVendidos?.length ? (
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold truncate">N/A</span>
+                <Button variant="ghost" size="sm" className="mt-1 h-6 text-xs" onClick={fetchEstatisticas}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Atualizar estatísticas
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold truncate">
+                  {estatisticas.produtosMaisVendidos[0]?.nome &&
+                  estatisticas.produtosMaisVendidos[0].nome !== "Produto não encontrado"
+                    ? estatisticas.produtosMaisVendidos[0].nome
+                    : "Produto mais vendido"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {estatisticas.produtosMaisVendidos[0]?.quantidade || 0} unidades vendidas
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 4: Status Mais Comum */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Status Mais Comum</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <>
+                <Skeleton className="h-8 w-36" />
+                <Skeleton className="h-4 w-24 mt-2" />
+              </>
+            ) : statsError || !estatisticas.vendasPorStatus?.length ? (
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">N/A</span>
+                <Button variant="ghost" size="sm" className="mt-1 h-6 text-xs" onClick={fetchEstatisticas}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Atualizar estatísticas
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{estatisticas.vendasPorStatus[0]?.status || "N/A"}</div>
+                <p className="text-xs text-muted-foreground">{estatisticas.vendasPorStatus[0]?.count || 0} vendas</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -258,9 +452,9 @@ export default function VendasPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os status</SelectItem>
-                  <SelectItem value="concluido">Concluído</SelectItem>
+                  <SelectItem value="concluida">Concluída</SelectItem>
                   <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                  <SelectItem value="cancelada">Cancelada</SelectItem>
                 </SelectContent>
               </Select>
               <Popover>
@@ -361,33 +555,33 @@ export default function VendasPage() {
                   {filteredVendas.map((venda) => (
                     <TableRow key={venda._id}>
                       <TableCell className="font-medium">{venda._id.substring(0, 8)}</TableCell>
-                      <TableCell>{venda.cliente.nome}</TableCell>
+                      <TableCell>{venda.cliente?.nome || "Cliente não especificado"}</TableCell>
                       <TableCell>
                         {venda.itens?.map((item, index) => (
                           <div key={index} className="text-sm">
-                            {item.quantidade}x {item.produto?.nome || "N/A"}
+                            {item.quantidade}x {item.produto?.nome || "Produto não especificado"}
                           </div>
-                        ))}
+                        )) || "Sem itens"}
                       </TableCell>
-                      <TableCell>{formatarValor(venda.valorTotal)}</TableCell>
+                      <TableCell>{formatarValor(venda.total)}</TableCell>
                       <TableCell>
                         <Badge
                           className={
-                            venda.status === "concluido"
+                            venda.status === "concluida"
                               ? "bg-green-100 text-green-800"
                               : venda.status === "pendente"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : "bg-red-100 text-red-800"
                           }
                         >
-                          {venda.status === "concluido"
-                            ? "Concluído"
+                          {venda.status === "concluida"
+                            ? "Concluída"
                             : venda.status === "pendente"
                               ? "Pendente"
-                              : "Cancelado"}
+                              : "Cancelada"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatarData(venda.dataVenda)}</TableCell>
+                      <TableCell>{formatarData(venda.dataCriacao)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

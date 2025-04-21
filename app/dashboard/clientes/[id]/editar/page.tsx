@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,22 +11,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 
-interface Endereco {
-  rua?: string
-  numero?: string
-  complemento?: string
-  bairro?: string
-  cidade?: string
-  estado?: string
-  cep?: string
-}
-
 interface Cliente {
   _id: string
   nome: string
-  email: string
-  telefone: string
-  documento: string
+  email: string | null
+  telefone: string | null
+  documento: string | null
   status: string
   totalGasto: number
   numeroPedidos: number
@@ -34,38 +25,37 @@ interface Cliente {
   dataAtualizacao: string
   cidade?: string
   estado?: string
-  endereco?: Endereco
+  cep?: string
+  endereco?: string
   categoriasPreferidasArray?: string[]
   observacoes?: string
 }
 
-// Solução 1: Adicione isto no topo do arquivo para desativar a verificação de tipos
-// @ts-nocheck
+// Usando a tipagem correta para Next.js 15
+export default function ClienteEditarPage({ params }: { params: Promise<{ id: string }> }) {
+  // Resolver a Promise params usando React.use()
+  const resolvedParams = React.use(params)
+  const id = resolvedParams.id
 
-// Solução 2: Ou use esta abordagem tipada corretamente
-export default function ClienteEditarPage(props: { params: Promise<{ id: string }> }) {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const [id, setId] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function resolveParams() {
-      const { id } = await props.params
-      setId(id)
-    }
-    resolveParams()
-  }, [props.params])
 
   useEffect(() => {
     async function fetchCliente() {
       if (!id) return
 
       try {
+        console.log("Buscando cliente com ID:", id)
         const response = await fetch(`/api/clientes/${id}`)
-        if (!response.ok) throw new Error("Erro ao buscar cliente")
+
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar cliente: ${response.status}`)
+        }
+
         const data = await response.json()
+        console.log("Dados recebidos:", data)
         setCliente(data.cliente)
       } catch (err) {
         console.error(err)
@@ -88,7 +78,12 @@ export default function ClienteEditarPage(props: { params: Promise<{ id: string 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cliente),
       })
-      if (!response.ok) throw new Error("Erro ao atualizar cliente")
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Erro ao atualizar cliente")
+      }
+
       router.push(`/dashboard/clientes/${id}`)
     } catch (err) {
       console.error(err)
@@ -100,22 +95,28 @@ export default function ClienteEditarPage(props: { params: Promise<{ id: string 
     setCliente((prev) => (prev ? { ...prev, [field]: value } : prev))
   }
 
-  const handleEnderecoChange = <K extends keyof Endereco>(field: K, value: Endereco[K]) => {
-    setCliente((prev) => {
-      if (!prev) return prev
-      
-      return {
-        ...prev,
-        endereco: {
-          ...prev.endereco,
-          [field]: value
-        } as Endereco
-      }
-    })
-  }
+  if (isLoading)
+    return (
+      <div className="flex-1 p-4 md:p-8 pt-6">
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    )
 
-  if (isLoading || !id) return <p className="p-6">Carregando...</p>
-  if (error || !cliente) return <p className="p-6">{error || "Cliente não encontrado."}</p>
+  if (error || !cliente)
+    return (
+      <div className="flex-1 p-4 md:p-8 pt-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-64">
+            <p className="text-lg font-medium text-center">{error || "Cliente não encontrado"}</p>
+            <Button onClick={() => router.push("/dashboard/clientes")} className="mt-4">
+              Voltar para a lista de clientes
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
 
   return (
     <div className="flex-1 p-4 md:p-8 pt-6 space-y-6">
@@ -125,9 +126,7 @@ export default function ClienteEditarPage(props: { params: Promise<{ id: string 
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Editar Cliente</h2>
-          <Badge variant={cliente.status === "ativo" ? "default" : "secondary"}>
-            {cliente.status === "ativo" ? "Ativo" : "Inativo"}
-          </Badge>
+          <Badge variant={cliente.status === "ativo" ? "default" : "secondary"}>{cliente.status || "Sem status"}</Badge>
         </div>
       </div>
 
@@ -139,19 +138,29 @@ export default function ClienteEditarPage(props: { params: Promise<{ id: string 
           <form className="grid gap-4" onSubmit={handleSubmit}>
             <div>
               <Label>Nome</Label>
-              <Input value={cliente.nome} onChange={(e) => handleChange("nome", e.target.value)} />
+              <Input value={cliente.nome} onChange={(e) => handleChange("nome", e.target.value)} required />
             </div>
             <div>
               <Label>Email</Label>
-              <Input type="email" value={cliente.email} onChange={(e) => handleChange("email", e.target.value)} />
+              <Input
+                type="email"
+                value={cliente.email || ""}
+                onChange={(e) => handleChange("email", e.target.value || null)}
+              />
             </div>
             <div>
               <Label>Telefone</Label>
-              <Input value={cliente.telefone} onChange={(e) => handleChange("telefone", e.target.value)} />
+              <Input
+                value={cliente.telefone || ""}
+                onChange={(e) => handleChange("telefone", e.target.value || null)}
+              />
             </div>
             <div>
               <Label>Documento</Label>
-              <Input value={cliente.documento} onChange={(e) => handleChange("documento", e.target.value)} />
+              <Input
+                value={cliente.documento || ""}
+                onChange={(e) => handleChange("documento", e.target.value || null)}
+              />
             </div>
             <div>
               <Label>Observações</Label>
@@ -163,46 +172,20 @@ export default function ClienteEditarPage(props: { params: Promise<{ id: string 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Rua</Label>
-                <Input
-                  value={cliente.endereco?.rua || ""}
-                  onChange={(e) => handleEnderecoChange("rua", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Número</Label>
-                <Input
-                  value={cliente.endereco?.numero || ""}
-                  onChange={(e) => handleEnderecoChange("numero", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Bairro</Label>
-                <Input
-                  value={cliente.endereco?.bairro || ""}
-                  onChange={(e) => handleEnderecoChange("bairro", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Cidade</Label>
-                <Input
-                  value={cliente.endereco?.cidade || ""}
-                  onChange={(e) => handleEnderecoChange("cidade", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <Input
-                  value={cliente.endereco?.estado || ""}
-                  onChange={(e) => handleEnderecoChange("estado", e.target.value)}
-                />
+                <Label>Endereço</Label>
+                <Input value={cliente.endereco || ""} onChange={(e) => handleChange("endereco", e.target.value)} />
               </div>
               <div>
                 <Label>CEP</Label>
-                <Input
-                  value={cliente.endereco?.cep || ""}
-                  onChange={(e) => handleEnderecoChange("cep", e.target.value)}
-                />
+                <Input value={cliente.cep || ""} onChange={(e) => handleChange("cep", e.target.value)} />
+              </div>
+              <div>
+                <Label>Cidade</Label>
+                <Input value={cliente.cidade || ""} onChange={(e) => handleChange("cidade", e.target.value)} />
+              </div>
+              <div>
+                <Label>Estado</Label>
+                <Input value={cliente.estado || ""} onChange={(e) => handleChange("estado", e.target.value)} />
               </div>
             </div>
 

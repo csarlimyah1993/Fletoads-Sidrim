@@ -1,81 +1,112 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-// Remove the Loja import since it's just a type
-import Venda from "@/lib/models/venda"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
     const { db } = await connectToDatabase()
 
-    // Use the MongoDB collection directly instead of the Loja model
-    const loja = await db.collection("lojas").findOne({
-      $or: [
-        { usuarioId: session.user.id },
-        { usuarioId: new ObjectId(session.user.id) },
-        { userId: session.user.id },
-        { userId: new ObjectId(session.user.id) },
-      ],
-    })
+    // Obter o ID do usuário ativo
+    const userId = session.user.id
+    console.log("User ID:", userId)
 
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    const lojaId = loja._id.toString()
-
-    // Estatísticas de vendas
-    const totalVendas = await Venda.countDocuments({ lojaId })
-    const vendasHoje = await Venda.countDocuments({
-      lojaId,
-      dataVenda: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-    })
-
-    // Valor total de vendas
-    const resultado = await Venda.aggregate([
-      { $match: { lojaId } },
-      { $group: { _id: null, total: { $sum: "$valorTotal" } } },
-    ])
-
-    const valorTotalVendas = resultado.length > 0 ? resultado[0].total : 0
-
-    // Produtos mais vendidos
-    const produtosMaisVendidos = await Venda.aggregate([
-      { $match: { lojaId } },
-      { $unwind: "$itens" },
-      {
-        $group: {
-          _id: "$itens.produto.nome",
-          quantidade: { $sum: "$itens.quantidade" },
-          valor: { $sum: "$itens.produto.preco" },
-        },
-      },
-      { $sort: { quantidade: -1 } },
-      { $limit: 5 },
-      { $project: { _id: 0, nome: "$_id", quantidade: 1, valor: 1 } },
-    ])
-
-    // Vendas por período
+    // Data atual
     const hoje = new Date()
+    const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+
+    // Início do mês atual
     const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-    const vendasMes = await Venda.countDocuments({
-      lojaId,
-      dataVenda: { $gte: inicioMes },
+
+    // Consultas para estatísticas usando $or para comparar tanto string quanto ObjectId
+    const totalVendas = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
     })
+
+    console.log(`Vendas encontradas para usuarioId ${userId}: ${totalVendas}`)
+
+    const vendasHoje = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+      dataCriacao: { $gte: inicioHoje },
+    })
+
+    const vendasMes = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+      dataCriacao: { $gte: inicioMes },
+    })
+
+    // Calcular valor total das vendas
+    const resultadoValorTotal = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$total" } } },
+      ])
+      .toArray()
+
+    const valorTotalVendas = resultadoValorTotal.length > 0 ? resultadoValorTotal[0].total : 0
+
+    // Produtos mais vendidos - Simplificado para evitar erros
+    const produtosMaisVendidos = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
+        },
+        { $unwind: "$itens" },
+        {
+          $group: {
+            _id: "$itens.produtoId",
+            quantidade: { $sum: "$itens.quantidade" },
+            nomeProduto: { $first: "$itens.nome" },
+            valor: { $sum: { $multiply: ["$itens.preco", "$itens.quantidade"] } },
+          },
+        },
+        { $sort: { quantidade: -1 } },
+        { $limit: 5 },
+        {
+          $project: {
+            _id: 1,
+            nome: { $ifNull: ["$nomeProduto", "Produto não encontrado"] },
+            quantidade: 1,
+            valor: 1,
+          },
+        },
+      ])
+      .toArray()
 
     // Vendas por status
-    const vendasPorStatus = await Venda.aggregate([
-      { $match: { lojaId } },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-      { $project: { _id: 0, status: "$_id", count: 1 } },
-    ])
+    const vendasPorStatus = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
+        },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+        { $project: { status: "$_id", count: 1, _id: 0 } },
+        { $sort: { count: -1 } },
+      ])
+      .toArray()
+
+    console.log("Estatísticas calculadas:", {
+      totalVendas,
+      vendasHoje,
+      vendasMes,
+      valorTotalVendas,
+      produtosMaisVendidos: produtosMaisVendidos.length,
+      vendasPorStatus: vendasPorStatus.length,
+    })
 
     return NextResponse.json({
       totalVendas,

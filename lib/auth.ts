@@ -87,7 +87,7 @@ export function validatePasswordStrength(password: string): { valid: boolean; me
 function getCookieDomain() {
   // Em ambiente de desenvolvimento local, não defina domínio para o cookie
   if (process.env.NODE_ENV === "development") {
-    console.log("Ambiente de desenvolvimento local: usando domínio de cookie undefined")
+    // console.log("Ambiente de desenvolvimento local: usando domínio de cookie undefined")
     return undefined
   }
 
@@ -344,14 +344,6 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (userData) {
-            // Log para depuração
-            console.log(`Atualizando token para usuário: ${userData.email}`, {
-              role: userData.role,
-              nome: userData.nome || userData.name,
-              plano: userData.plano,
-              lojaId: userData.lojaId,
-            })
-
             token.role = userData.role || "user"
             token.nome = userData.nome || userData.name || ""
             token.emailVerificado = userData.emailVerificado || false

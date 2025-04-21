@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Edit, MapPin, Phone, Mail, Globe, ShoppingBag, Clock, ChevronRight, Star } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { GoogleMap } from "@/components/ui/google-map"
 import type { LojaPerfilContentProps } from "@/types/loja"
 
 export function LojaPerfilContent({ loja, produtos = [], isLoading = false, planoInfo }: LojaPerfilContentProps) {
@@ -29,30 +30,6 @@ export function LojaPerfilContent({ loja, produtos = [], isLoading = false, plan
     )
   }
 
-  const endereco = loja.endereco
-    ? `${loja.endereco.logradouro || loja.endereco.rua || ""}, ${loja.endereco.numero || ""}, ${
-        loja.endereco.bairro || ""
-      }, ${loja.endereco.cidade || ""} - ${loja.endereco.estado || ""}`
-    : "Endereço não cadastrado"
-
-  const vitrineUrl = loja._id ? `/vitrines/${loja._id}` : "#"
-
-  const handleEditarPerfil = () => {
-    router.push("/dashboard/perfil-da-loja/editar")
-  }
-
-  const handleVerProdutos = () => {
-    router.push("/dashboard/produtos")
-  }
-
-  const handleVerVitrine = () => {
-    if (loja.vitrineId) {
-      window.open(`/vitrines/${loja.vitrineId}`, "_blank")
-    } else {
-      router.push("/dashboard/vitrine")
-    }
-  }
-
   const formatarEndereco = () => {
     if (!loja.endereco) return "Endereço não cadastrado"
 
@@ -64,6 +41,27 @@ export function LojaPerfilContent({ loja, produtos = [], isLoading = false, plan
     if (cidade) partes.push(cidade + (estado ? ` - ${estado}` : ""))
 
     return partes.join(", ") || "Endereço não cadastrado"
+  }
+
+  const handleEditarPerfil = () => {
+    router.push("/dashboard/perfil-da-loja/editar")
+  }
+
+  const handleVerProdutos = () => {
+    router.push("/dashboard/produtos")
+  }
+
+  const handleVerVitrine = () => {
+    if (loja.vitrineId) {
+      console.log(`Redirecionando para vitrine com ID: ${loja.vitrineId}`)
+      window.open(`/vitrines/${loja.vitrineId}`, "_blank")
+    } else if (loja._id) {
+      console.log(`Nenhuma vitrineId encontrada, usando _id: ${loja._id}`)
+      window.open(`/vitrines/${loja._id}`, "_blank")
+    } else {
+      console.log("Nenhum ID encontrado, redirecionando para configuração")
+      router.push("/dashboard/vitrine")
+    }
   }
 
   const formatarHorario = (horario?: string | { open?: boolean; abertura?: string; fechamento?: string }) => {
@@ -214,31 +212,6 @@ export function LojaPerfilContent({ loja, produtos = [], isLoading = false, plan
     )
   }
 
-  // Componente para o Google Map (simplificado)
-  const GoogleMap = ({ latitude, longitude, address, storeName }: any) => {
-    if (!latitude || !longitude) {
-      return (
-        <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-          <div className="text-center p-4">
-            <MapPin className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-muted-foreground">Localização não disponível</p>
-          </div>
-        </div>
-      )
-    }
-
-    // Aqui você pode implementar a integração real com o Google Maps
-    return (
-      <div className="h-full w-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <MapPin className="h-8 w-8 mx-auto text-blue-500 mb-2" />
-          <p className="font-medium">{storeName}</p>
-          <p className="text-sm text-muted-foreground">{address}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="relative">
@@ -309,10 +282,12 @@ export function LojaPerfilContent({ loja, produtos = [], isLoading = false, plan
                   {/* Google Maps */}
                   <div className="h-64 w-full rounded-md overflow-hidden">
                     <GoogleMap
-                      latitude={loja.endereco?.latitude || null}
-                      longitude={loja.endereco?.longitude || null}
                       address={formatarEndereco()}
+                      latitude={loja.endereco?.latitude}
+                      longitude={loja.endereco?.longitude}
                       storeName={loja.nome}
+                      height="100%"
+                      zoom={15}
                     />
                   </div>
                 </CardContent>

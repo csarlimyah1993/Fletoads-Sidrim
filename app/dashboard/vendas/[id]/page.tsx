@@ -109,18 +109,29 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
     }).format(valor)
   }
 
+  // Função para formatar data
+  const formatarData = (dataString: string | undefined | null) => {
+    if (!dataString) return "—"
+
+    const data = new Date(dataString)
+    if (isNaN(data.getTime())) return "—"
+
+    return format(data, "dd/MM/yyyy", { locale: ptBR })
+  }
+
   // Função para obter o ícone do status
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "pendente":
         return <Calendar className="h-5 w-5" />
       case "pago":
-        return <DollarSign className="h-5 w-5" />
+      case "concluida":
+        return <CheckCircle className="h-5 w-5" />
       case "enviado":
         return <Truck className="h-5 w-5" />
       case "entregue":
         return <CheckCircle className="h-5 w-5" />
-      case "cancelado":
+      case "cancelada":
         return <XCircle className="h-5 w-5" />
       default:
         return <Calendar className="h-5 w-5" />
@@ -133,12 +144,13 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
       case "pendente":
         return "bg-yellow-500"
       case "pago":
-        return "bg-blue-500"
+      case "concluida":
+        return "bg-green-500"
       case "enviado":
         return "bg-purple-500"
       case "entregue":
         return "bg-green-500"
-      case "cancelado":
+      case "cancelada":
         return "bg-red-500"
       default:
         return "bg-gray-500"
@@ -149,8 +161,10 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
   const formatPaymentMethod = (method: string) => {
     switch (method) {
       case "cartao_credito":
+      case "credito":
         return "Cartão de Crédito"
       case "cartao_debito":
+      case "debito":
         return "Cartão de Débito"
       case "dinheiro":
         return "Dinheiro"
@@ -170,6 +184,8 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
     switch (method) {
       case "cartao_credito":
       case "cartao_debito":
+      case "credito":
+      case "debito":
         return <CreditCard className="h-5 w-5" />
       case "dinheiro":
       case "pix":
@@ -221,6 +237,25 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
     )
   }
 
+  // Adaptar os dados da venda para o formato esperado pelo componente
+  const vendaData = {
+    codigo: venda._id?.substring(0, 8) || "N/A",
+    dataVenda: venda.dataCriacao || new Date().toISOString(),
+    status: venda.status || "pendente",
+    valorTotal: venda.total || 0,
+    metodoPagamento: venda.formaPagamento || "N/A",
+    observacoes: venda.observacao || "",
+    dataAtualizacao: venda.dataAtualizacao || venda.dataCriacao,
+    produtos:
+      venda.itens?.map((item: any) => ({
+        nome: item.produto?.nome || "Produto não especificado",
+        quantidade: item.quantidade || 0,
+        precoUnitario: item.produto?.preco || 0,
+        subtotal: (item.quantidade || 0) * (item.produto?.preco || 0),
+      })) || [],
+    cliente: venda.cliente || null,
+  }
+
   return (
     <div className="flex-1 p-4 md:p-8 pt-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
@@ -230,10 +265,8 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
             Voltar
           </Button>
           <div>
-            <h2 className="text-2xl font-bold">{venda.codigo}</h2>
-            <p className="text-gray-500">
-              Venda realizada em {format(new Date(venda.dataVenda), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </p>
+            <h2 className="text-2xl font-bold">{vendaData.codigo}</h2>
+            <p className="text-gray-500">Venda realizada em {formatarData(vendaData.dataVenda)}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -247,7 +280,7 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={venda.status === "cancelado" || isCanceling}>
+              <Button variant="destructive" disabled={vendaData.status === "cancelada" || isCanceling}>
                 {isCanceling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Cancelar Venda
               </Button>
@@ -274,10 +307,10 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Detalhes da Venda</CardTitle>
-                <Badge className={getStatusColor(venda.status)}>
+                <Badge className={getStatusColor(vendaData.status)}>
                   <div className="flex items-center gap-1">
-                    {getStatusIcon(venda.status)}
-                    <span>{venda.status.charAt(0).toUpperCase() + venda.status.slice(1)}</span>
+                    {getStatusIcon(vendaData.status)}
+                    <span>{vendaData.status.charAt(0).toUpperCase() + vendaData.status.slice(1)}</span>
                   </div>
                 </Badge>
               </div>
@@ -301,7 +334,7 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                           </tr>
                         </thead>
                         <tbody>
-                          {venda.produtos.map((produto: any, index: number) => (
+                          {vendaData.produtos.map((produto: any, index: number) => (
                             <tr key={index} className="border-b">
                               <td className="p-2">{produto.nome}</td>
                               <td className="p-2 text-center">{produto.quantidade}</td>
@@ -315,16 +348,16 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                             <td colSpan={3} className="p-2 text-right font-medium">
                               Total
                             </td>
-                            <td className="p-2 text-right font-bold">{formatarValor(venda.valorTotal)}</td>
+                            <td className="p-2 text-right font-bold">{formatarValor(vendaData.valorTotal)}</td>
                           </tr>
                         </tfoot>
                       </table>
                     </div>
 
-                    {venda.observacoes && (
+                    {vendaData.observacoes && (
                       <div className="mt-4">
                         <h3 className="font-medium mb-2">Observações</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{venda.observacoes}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{vendaData.observacoes}</p>
                       </div>
                     )}
                   </div>
@@ -332,10 +365,10 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                 <TabsContent value="pagamento" className="mt-4">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 p-4 border rounded-md">
-                      {getPaymentIcon(venda.metodoPagamento)}
+                      {getPaymentIcon(vendaData.metodoPagamento)}
                       <div>
                         <p className="font-medium">Método de Pagamento</p>
-                        <p>{formatPaymentMethod(venda.metodoPagamento)}</p>
+                        <p>{formatPaymentMethod(vendaData.metodoPagamento)}</p>
                       </div>
                     </div>
 
@@ -344,7 +377,7 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span>Subtotal</span>
-                          <span>{formatarValor(venda.valorTotal)}</span>
+                          <span>{formatarValor(vendaData.valorTotal)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Frete</span>
@@ -353,7 +386,7 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                         <Separator className="my-2" />
                         <div className="flex justify-between font-bold">
                           <span>Total</span>
-                          <span>{formatarValor(venda.valorTotal)}</span>
+                          <span>{formatarValor(vendaData.valorTotal)}</span>
                         </div>
                       </div>
                     </div>
@@ -370,42 +403,42 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
               <CardTitle>Cliente</CardTitle>
             </CardHeader>
             <CardContent>
-              {venda.cliente ? (
+              {vendaData.cliente ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <User className="h-5 w-5 text-gray-500" />
                     <div>
                       <p className="font-medium">Nome</p>
-                      <p>{venda.cliente.nome}</p>
+                      <p>{vendaData.cliente.nome}</p>
                     </div>
                   </div>
 
-                  {venda.cliente.email && (
+                  {vendaData.cliente.email && (
                     <div className="flex items-center gap-3">
                       <Mail className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Email</p>
-                        <p>{venda.cliente.email}</p>
+                        <p>{vendaData.cliente.email}</p>
                       </div>
                     </div>
                   )}
 
-                  {venda.cliente.telefone && (
+                  {vendaData.cliente.telefone && (
                     <div className="flex items-center gap-3">
                       <Phone className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Telefone</p>
-                        <p>{venda.cliente.telefone}</p>
+                        <p>{vendaData.cliente.telefone}</p>
                       </div>
                     </div>
                   )}
 
-                  {venda.cliente.empresa && (
+                  {vendaData.cliente.empresa && (
                     <div className="flex items-center gap-3">
                       <Building2 className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Empresa</p>
-                        <p>{venda.cliente.empresa}</p>
+                        <p>{vendaData.cliente.empresa}</p>
                       </div>
                     </div>
                   )}
@@ -415,11 +448,11 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
               )}
             </CardContent>
             <CardFooter>
-              {venda.cliente && (
+              {vendaData.cliente && vendaData.cliente._id && (
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => router.push(`/dashboard/clientes/${venda.cliente._id}`)}
+                  onClick={() => router.push(`/dashboard/clientes/${vendaData.cliente._id}`)}
                 >
                   Ver Detalhes do Cliente
                 </Button>
@@ -439,36 +472,30 @@ export default function VendaDetalhesPage({ params }: { params: Promise<{ id: st
                   </div>
                   <div>
                     <p className="font-medium">Venda Criada</p>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(venda.dataVenda), "dd/MM/yyyy 'às' HH:mm")}
-                    </p>
+                    <p className="text-sm text-gray-500">{formatarData(vendaData.dataVenda)}</p>
                   </div>
                 </div>
 
-                {venda.dataAtualizacao && venda.dataAtualizacao !== venda.dataVenda && (
+                {vendaData.dataAtualizacao && vendaData.dataAtualizacao !== vendaData.dataVenda && (
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center">
                       <Edit className="h-4 w-4 text-yellow-600" />
                     </div>
                     <div>
                       <p className="font-medium">Última Atualização</p>
-                      <p className="text-sm text-gray-500">
-                        {format(new Date(venda.dataAtualizacao), "dd/MM/yyyy 'às' HH:mm")}
-                      </p>
+                      <p className="text-sm text-gray-500">{formatarData(vendaData.dataAtualizacao)}</p>
                     </div>
                   </div>
                 )}
 
-                {venda.status === "cancelado" && (
+                {vendaData.status === "cancelada" && (
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
                       <XCircle className="h-4 w-4 text-red-600" />
                     </div>
                     <div>
                       <p className="font-medium">Venda Cancelada</p>
-                      <p className="text-sm text-gray-500">
-                        {format(new Date(venda.dataAtualizacao), "dd/MM/yyyy 'às' HH:mm")}
-                      </p>
+                      <p className="text-sm text-gray-500">{formatarData(vendaData.dataAtualizacao)}</p>
                     </div>
                   </div>
                 )}
