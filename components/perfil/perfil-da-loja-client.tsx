@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { LojaPerfilContent } from "./loja-perfil-content"
+import LojaPerfilContent from "./loja-perfil-content"
 import { CriarLojaForm } from "../loja/criar-loja-form"
 import type { Loja, Produto } from "@/types/loja"
 
@@ -59,5 +59,11 @@ export function PerfilDaLojaClient({ userId, loja, produtos = [], planoInfo = nu
   }
 
   console.log("PerfilDaLojaClient - Renderizando LojaPerfilContent")
-  return <LojaPerfilContent loja={loja} produtos={produtos} planoInfo={planoInfo} />
+  return <LojaPerfilContent  lojaId={loja._id} 
+  initialValues={{
+    nomeLoja: loja.nome,
+    descricao: loja.descricao,
+    logoUrl: loja.logo,
+    bannerUrl: loja.banner
+  }}  />
 }

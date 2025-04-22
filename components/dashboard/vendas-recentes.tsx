@@ -2,58 +2,58 @@
 
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { CheckCircle, Clock, AlertCircle, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
 
 interface Venda {
-  id: string
-  cliente: string
-  valor: number
-  data: string
+  _id: string
+  cliente: {
+    nome: string
+  }
+  total: number
+  dataCriacao: string
   status: "concluida" | "pendente" | "cancelada"
 }
 
 export function VendasRecentes() {
   const [vendas, setVendas] = useState<Venda[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  const fetchVendas = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/dashboard/vendas?limit=5")
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar vendas: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("Vendas recentes:", data.vendas)
+
+      // Ordenar por data de criação (mais recentes primeiro)
+      const vendasOrdenadas = data.vendas
+        ? [...data.vendas]
+            .sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
+            .slice(0, 5)
+        : []
+
+      setVendas(vendasOrdenadas)
+    } catch (err) {
+      console.error("Erro ao buscar vendas recentes:", err)
+      setError(err instanceof Error ? err.message : "Erro ao carregar vendas recentes")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Simulação de carregamento de dados
-    const timer = setTimeout(() => {
-      // Dados simulados
-      setVendas([
-        {
-          id: "1",
-          cliente: "João Silva",
-          valor: 299.99,
-          data: "2025-04-10",
-          status: "concluida",
-        },
-        {
-          id: "2",
-          cliente: "Maria Oliveira",
-          valor: 1250.5,
-          data: "2025-04-09",
-          status: "concluida",
-        },
-        {
-          id: "3",
-          cliente: "Carlos Santos",
-          valor: 499.99,
-          data: "2025-04-08",
-          status: "pendente",
-        },
-        {
-          id: "4",
-          cliente: "Ana Pereira",
-          valor: 89.9,
-          data: "2025-04-07",
-          status: "cancelada",
-        },
-      ])
-      setLoading(false)
-    }, 1500)
-
-    return () => clearTimeout(timer)
+    fetchVendas()
   }, [])
 
   const getStatusIcon = (status: string) => {
@@ -82,6 +82,22 @@ export function VendasRecentes() {
     }
   }
 
+  const formatarData = (dataString: string) => {
+    try {
+      const data = new Date(dataString)
+      return data.toLocaleDateString("pt-BR")
+    } catch (error) {
+      return "Data inválida"
+    }
+  }
+
+  const formatarValor = (valor: number) => {
+    return valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -98,14 +114,41 @@ export function VendasRecentes() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 text-center">
+        <p className="text-sm text-muted-foreground mb-2">{error}</p>
+        <Button variant="outline" size="sm" onClick={fetchVendas} className="gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Tentar novamente
+        </Button>
+      </div>
+    )
+  }
+
+  if (vendas.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 text-center">
+        <p className="text-sm text-muted-foreground mb-2">Nenhuma venda recente encontrada</p>
+        <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/vendas/nova")} className="gap-1">
+          Registrar venda
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {vendas.map((venda) => (
-        <div key={venda.id} className="flex items-center justify-between border-b pb-3 last:border-0">
+        <div
+          key={venda._id}
+          className="flex items-center justify-between border-b pb-3 last:border-0 cursor-pointer hover:bg-muted/50 px-2 py-1 rounded-md transition-colors"
+          onClick={() => router.push(`/dashboard/vendas/${venda._id}`)}
+        >
           <div>
-            <p className="font-medium">{venda.cliente}</p>
+            <p className="font-medium">{venda.cliente?.nome || "Cliente não especificado"}</p>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <span>{new Date(venda.data).toLocaleDateString("pt-BR")}</span>
+              <span>{formatarData(venda.dataCriacao)}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 {getStatusIcon(venda.status)}
@@ -114,7 +157,7 @@ export function VendasRecentes() {
             </div>
           </div>
           <div className="text-right">
-            <p className="font-medium">R$ {venda.valor.toFixed(2)}</p>
+            <p className="font-medium">{formatarValor(venda.total)}</p>
           </div>
         </div>
       ))}

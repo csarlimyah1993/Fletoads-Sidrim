@@ -1,96 +1,149 @@
-import mongoose, { Schema, type Document } from "mongoose"
+import mongoose, { Schema, type Document, type Types } from "mongoose"
 
 export interface ILoja extends Document {
+  _id: Types.ObjectId
   nome: string
-  descricao: string
-  logo: string
-  banner: string
-  endereco: {
-    rua: string
-    numero: string
+  descricao?: string
+  logo?: string
+  banner?: string
+  capa?: string
+  endereco?: {
+    rua?: string
+    numero?: string
     complemento?: string
-    bairro: string
-    cidade: string
-    estado: string
-    cep: string
+    bairro?: string
+    cidade?: string
+    estado?: string
+    cep?: string
+    latitude?: number
+    longitude?: number
+    logradouro?: string
   }
-  contato: {
-    telefone: string
-    email: string
+  contato?: {
+    telefone?: string
     whatsapp?: string
+    email?: string
+    site?: string
   }
+  horarioFuncionamento?: {
+    segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    quarta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    quinta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    sexta?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    sabado?: string | { open?: boolean; abertura?: string; fechamento?: string }
+    domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  }
+  vitrineId?: string
+  proprietarioId?: string | Types.ObjectId
+  usuarioId?: string | Types.ObjectId
+  userId?: string | Types.ObjectId
+  categorias?: string[]
+  status?: string
+  ativo?: boolean
+  plano?: string
+  planoId?: string
+  proprietarioPlano?: string
+  vitrine?: any
+  telefone?: string
+  email?: string
+  website?: string
+  site?: string
+  instagram?: string
+  facebook?: string
   redesSociais?: {
-    facebook?: string
     instagram?: string
+    facebook?: string
     twitter?: string
-    youtube?: string
     linkedin?: string
+    youtube?: string
   }
-  horarioFuncionamento: {
-    segunda?: { abertura: string; fechamento: string }
-    terca?: { abertura: string; fechamento: string }
-    quarta?: { abertura: string; fechamento: string }
-    quinta?: { abertura: string; fechamento: string }
-    sexta?: { abertura: string; fechamento: string }
-    sabado?: { abertura: string; fechamento: string }
-    domingo?: { abertura: string; fechamento: string }
+  cores?: {
+    primaria?: string
+    secundaria?: string
+    texto?: string
+    fundo?: string
+    destaque?: string
   }
-  categorias: string[]
-  ativo: boolean
-  destaque: boolean
-  dataCriacao: Date
-  dataAtualizacao: Date
-  proprietarioId: mongoose.Schema.Types.ObjectId
+  widgets?: string[]
+  layout?: string
+  fonte?: string
+  animacoes?: boolean
+  dataCriacao?: Date
+  dataAtualizacao?: Date
 }
 
-const LojaSchema: Schema = new Schema(
-  {
-    nome: { type: String, required: true },
-    descricao: { type: String, required: true },
-    logo: { type: String, required: true },
-    banner: { type: String },
-    endereco: {
-      rua: { type: String, required: true },
-      numero: { type: String, required: true },
-      complemento: { type: String },
-      bairro: { type: String, required: true },
-      cidade: { type: String, required: true },
-      estado: { type: String, required: true },
-      cep: { type: String, required: true },
-    },
-    contato: {
-      telefone: { type: String, required: true },
-      email: { type: String, required: true },
-      whatsapp: { type: String },
-    },
-    redesSociais: {
-      facebook: { type: String },
-      instagram: { type: String },
-      twitter: { type: String },
-      youtube: { type: String },
-      linkedin: { type: String },
-    },
-    horarioFuncionamento: {
-      segunda: { abertura: String, fechamento: String },
-      terca: { abertura: String, fechamento: String },
-      quarta: { abertura: String, fechamento: String },
-      quinta: { abertura: String, fechamento: String },
-      sexta: { abertura: String, fechamento: String },
-      sabado: { abertura: String, fechamento: String },
-      domingo: { abertura: String, fechamento: String },
-    },
-    categorias: [{ type: String }],
-    ativo: { type: Boolean, default: true },
-    destaque: { type: Boolean, default: false },
-    dataCriacao: { type: Date, default: Date.now },
-    dataAtualizacao: { type: Date, default: Date.now },
-    proprietarioId: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: true },
+const LojaSchema: Schema = new Schema({
+  nome: { type: String, required: true },
+  descricao: { type: String },
+  logo: { type: String },
+  banner: { type: String },
+  capa: { type: String },
+  endereco: {
+    rua: { type: String },
+    numero: { type: String },
+    complemento: { type: String },
+    bairro: { type: String },
+    cidade: { type: String },
+    estado: { type: String },
+    cep: { type: String },
+    latitude: { type: Number },
+    longitude: { type: Number },
+    logradouro: { type: String },
   },
-  {
-    timestamps: true,
+  contato: {
+    telefone: { type: String },
+    whatsapp: { type: String },
+    email: { type: String },
+    site: { type: String },
   },
-)
+  horarioFuncionamento: {
+    segunda: { type: Schema.Types.Mixed },
+    terca: { type: Schema.Types.Mixed },
+    quarta: { type: Schema.Types.Mixed },
+    quinta: { type: Schema.Types.Mixed },
+    sexta: { type: Schema.Types.Mixed },
+    sabado: { type: Schema.Types.Mixed },
+    domingo: { type: Schema.Types.Mixed },
+  },
+  vitrineId: { type: String },
+  proprietarioId: { type: Schema.Types.Mixed },
+  usuarioId: { type: Schema.Types.Mixed },
+  userId: { type: Schema.Types.Mixed },
+  categorias: [{ type: String }],
+  status: { type: String },
+  ativo: { type: Boolean, default: true },
+  plano: { type: String },
+  planoId: { type: String },
+  proprietarioPlano: { type: String },
+  vitrine: { type: Schema.Types.Mixed },
+  telefone: { type: String },
+  email: { type: String },
+  website: { type: String },
+  site: { type: String },
+  instagram: { type: String },
+  facebook: { type: String },
+  redesSociais: {
+    instagram: { type: String },
+    facebook: { type: String },
+    twitter: { type: String },
+    linkedin: { type: String },
+    youtube: { type: String },
+  },
+  cores: {
+    primaria: { type: String },
+    secundaria: { type: String },
+    texto: { type: String },
+    fundo: { type: String },
+    destaque: { type: String },
+  },
+  widgets: [{ type: String }],
+  layout: { type: String },
+  fonte: { type: String },
+  animacoes: { type: Boolean },
+  dataCriacao: { type: Date, default: Date.now },
+  dataAtualizacao: { type: Date, default: Date.now },
+})
 
-const LojaModel = mongoose.models.Loja || mongoose.model<ILoja>("Loja", LojaSchema)
-export default LojaModel
-
+export const Loja = mongoose.models.Loja || mongoose.model<ILoja>("Loja", LojaSchema)
+export default Loja

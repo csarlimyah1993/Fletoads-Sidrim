@@ -35,14 +35,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { db } = await connectToDatabase()
 
-    // Use type assertion to access lojaId
-    const user = session.user as SessionUser
+    // Log para debug
+    console.log("Buscando cliente com ID:", id)
 
-    // Buscar cliente
-    const cliente = await db.collection("clientes").findOne({
-      _id: new ObjectId(id),
-      lojaId: user.lojaId,
-    })
+    let cliente = null
+    let objectId: ObjectId | null = null
+
+    // Tente converter o ID para ObjectId
+    try {
+      objectId = new ObjectId(id)
+      console.log("ID convertido para ObjectId com sucesso")
+    } catch (err) {
+      console.log("Erro ao converter ID para ObjectId:", err)
+      objectId = null
+    }
+
+    // Buscar cliente apenas pelo ID, sem verificar lojaId
+    if (objectId) {
+      cliente = await db.collection("clientes").findOne({
+        _id: objectId,
+      })
+    }
 
     if (!cliente) {
       return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
@@ -79,13 +92,23 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { db } = await connectToDatabase()
 
-    // Use type assertion to access lojaId
-    const user = session.user as SessionUser
+    // Log para debug
+    console.log("Atualizando cliente com ID:", id)
 
-    // Verificar se o cliente existe e pertence à loja do usuário
+    let objectId: ObjectId | null = null
+
+    // Tente converter o ID para ObjectId
+    try {
+      objectId = new ObjectId(id)
+      console.log("ID convertido para ObjectId com sucesso")
+    } catch (err) {
+      console.log("Erro ao converter ID para ObjectId:", err)
+      return NextResponse.json({ error: "ID de cliente inválido" }, { status: 400 })
+    }
+
+    // Verificar se o cliente existe
     const clienteExistente = await db.collection("clientes").findOne({
-      _id: new ObjectId(id),
-      lojaId: user.lojaId,
+      _id: objectId,
     })
 
     if (!clienteExistente) {
@@ -112,7 +135,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     delete clienteData.categoriasPreferidasString
 
     // Atualizar no banco de dados
-    await db.collection("clientes").updateOne({ _id: new ObjectId(id) }, { $set: clienteData })
+    const updateResult = await db.collection("clientes").updateOne({ _id: objectId }, { $set: clienteData })
+
+    console.log("Resultado da atualização:", updateResult)
 
     return NextResponse.json({ message: "Cliente atualizado com sucesso" })
   } catch (error) {
@@ -138,13 +163,23 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const { db } = await connectToDatabase()
 
-    // Use type assertion to access lojaId
-    const user = session.user as SessionUser
+    // Log para debug
+    console.log("Excluindo cliente com ID:", id)
 
-    // Verificar se o cliente existe e pertence à loja do usuário
+    let objectId: ObjectId | null = null
+
+    // Tente converter o ID para ObjectId
+    try {
+      objectId = new ObjectId(id)
+      console.log("ID convertido para ObjectId com sucesso")
+    } catch (err) {
+      console.log("Erro ao converter ID para ObjectId:", err)
+      return NextResponse.json({ error: "ID de cliente inválido" }, { status: 400 })
+    }
+
+    // Verificar se o cliente existe
     const clienteExistente = await db.collection("clientes").findOne({
-      _id: new ObjectId(id),
-      lojaId: user.lojaId,
+      _id: objectId,
     })
 
     if (!clienteExistente) {
@@ -152,7 +187,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     // Excluir cliente
-    await db.collection("clientes").deleteOne({ _id: new ObjectId(id) })
+    const deleteResult = await db.collection("clientes").deleteOne({ _id: objectId })
+
+    console.log("Resultado da exclusão:", deleteResult)
 
     return NextResponse.json({ message: "Cliente excluído com sucesso" })
   } catch (error) {

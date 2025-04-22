@@ -1,13 +1,11 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MapPin, Search, Store } from "lucide-react"
+import { MapPin, Search, Store, ChevronRight } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -28,28 +26,27 @@ interface LojasProximasProps {
   defaultLatitude?: number
   defaultLongitude?: number
   defaultRaio?: number
+  compact?: boolean
 }
 
 export function LojasProximas({
-  defaultLatitude = -25.4963406, // Valor padrão para Curitiba
-  defaultLongitude = -49.1842516, // Valor padrão para Curitiba
+  defaultLatitude = -25.4963406,
+  defaultLongitude = -49.1842516,
   defaultRaio = 20,
+  compact = false,
 }: LojasProximasProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lojas, setLojas] = useState<Loja[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredLojas, setFilteredLojas] = useState<Loja[]>([])
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number
-    longitude: number
-  }>({
+  const [userLocation, setUserLocation] = useState({
     latitude: defaultLatitude,
     longitude: defaultLongitude,
   })
   const [raio, setRaio] = useState(defaultRaio)
+  const [showFilters, setShowFilters] = useState(false)
 
-  // Efeito para buscar a localização do usuário
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -61,20 +58,17 @@ export function LojasProximas({
         },
         (error) => {
           console.error("Erro ao obter localização:", error)
-          // Mantém a localização padrão
         },
       )
     }
   }, [])
 
-  // Efeito para buscar lojas quando a localização mudar
   useEffect(() => {
     if (userLocation.latitude && userLocation.longitude) {
       buscarLojasProximas()
     }
   }, [userLocation, raio])
 
-  // Efeito para filtrar lojas com base no termo de busca
   useEffect(() => {
     if (!lojas) return
 
@@ -98,11 +92,8 @@ export function LojasProximas({
       setLoading(true)
       setError(null)
 
-      // Garantir que temos latitude e longitude
       if (!userLocation.latitude || !userLocation.longitude) {
-        throw new Error(
-          "Localização não disponível. Por favor, permita o acesso à sua localização ou insira manualmente.",
-        )
+        throw new Error("Localização não disponível. Por favor, permita o acesso à sua localização.")
       }
 
       const response = await fetch(
@@ -134,100 +125,171 @@ export function LojasProximas({
     }
   }
 
+  // Versão compacta para mobile
+  if (compact) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            Lojas próximas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            size="sm"
+            onClick={buscarLojasProximas}
+            disabled={loading}
+          >
+            {loading ? "Buscando..." : "Ver lojas próximas"}
+          </Button>
+          {error && (
+            <p className="text-sm text-destructive mt-2">{error}</p>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Versão completa para desktop
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-        <div className="flex-1 w-full">
-          <Label htmlFor="search" className="sr-only">
-            Buscar lojas
-          </Label>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              id="search"
-              type="search"
-              placeholder="Buscar por nome, categoria ou descrição..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* Barra de busca e filtros */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <div className="flex-1 w-full">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar lojas..."
+                className="pl-9 h-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          {/* Botão para mostrar/ocultar filtros em mobile */}
+          <Button 
+            variant="outline" 
+            className="md:hidden w-full" 
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+          </Button>
+        </div>
+
+        {/* Filtros - sempre visível em desktop, condicional em mobile */}
+        <div className={`${showFilters ? 'block' : 'hidden'} md:block`}>
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Label htmlFor="raio" className="text-sm whitespace-nowrap">
+                Raio:
+              </Label>
+              <Input
+                id="raio"
+                type="number"
+                min="1"
+                max="100"
+                className="w-20 h-9"
+                value={raio}
+                onChange={handleRaioChange}
+              />
+              <span className="text-sm text-muted-foreground">km</span>
+            </div>
+            <Button 
+              onClick={buscarLojasProximas} 
+              size="sm" 
+              className="h-9 w-full md:w-auto" 
+              disabled={loading}
+            >
+              {loading ? "Buscando..." : "Atualizar"}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="raio" className="whitespace-nowrap">
-            Raio (km):
-          </Label>
-          <Input id="raio" type="number" min="1" max="100" className="w-20" value={raio} onChange={handleRaioChange} />
-        </div>
-        <Button onClick={buscarLojasProximas} disabled={loading}>
-          {loading ? "Buscando..." : "Atualizar"}
-        </Button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+        <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md">
           <p>{error}</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* Grid de lojas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {loading ? (
-          // Esqueletos de carregamento
           Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <div className="h-40 bg-gray-200 animate-pulse" />
-              <CardContent className="p-4">
-                <div className="h-5 bg-gray-200 rounded animate-pulse mb-2" />
-                <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3" />
+            <Card key={i} className="overflow-hidden h-full">
+              <div className="aspect-square bg-muted/50 animate-pulse" />
+              <CardContent className="p-4 space-y-2">
+                <div className="h-5 bg-muted/50 rounded animate-pulse" />
+                <div className="h-4 bg-muted/50 rounded animate-pulse w-3/4" />
               </CardContent>
             </Card>
           ))
         ) : filteredLojas.length > 0 ? (
           filteredLojas.map((loja) => (
-            <Link href={`/vitrines/${loja._id}`} key={loja._id}>
-              <Card className="overflow-hidden h-full hover:shadow-md transition-shadow cursor-pointer">
-                <div className="h-40 relative bg-gray-100">
+            <Link href={`/vitrines/${loja._id}`} key={loja._id} className="group">
+              <Card className="overflow-hidden h-full flex flex-col transition-all hover:shadow-lg group-hover:border-primary">
+                <div className="aspect-square relative bg-muted/50">
                   {loja.logo ? (
                     <Image
-                      src={loja.logo || "/placeholder.svg"}
+                      src={loja.logo}
                       alt={loja.nome}
                       fill
                       className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   ) : (
                     <div className="h-full flex items-center justify-center">
-                      <Store className="h-12 w-12 text-gray-400" />
+                      <Store className="h-12 w-12 text-muted-foreground" />
                     </div>
                   )}
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-lg mb-1">{loja.nome}</h3>
-                  {loja.endereco && (
-                    <div className="flex items-center text-sm text-gray-500 mb-2">
-                      <MapPin className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
-                      <span className="truncate">
-                        {loja.endereco.cidade}
-                        {loja.endereco.cidade && loja.endereco.estado ? ", " : ""}
-                        {loja.endereco.estado}
-                      </span>
-                    </div>
+                <CardContent className="p-4 flex-1 flex flex-col">
+                  <CardTitle className="text-lg line-clamp-1">{loja.nome}</CardTitle>
+                  {loja.descricao && (
+                    <CardDescription className="line-clamp-2 mt-1 text-sm">
+                      {loja.descricao}
+                    </CardDescription>
                   )}
-                  {loja.distancia !== undefined && (
-                    <div className="text-sm font-medium text-blue-600">{loja.distancia.toFixed(1)} km de distância</div>
-                  )}
+                  <div className="mt-4 space-y-2">
+                    {loja.endereco && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                        <span className="line-clamp-1">
+                          {loja.endereco.cidade}
+                          {loja.endereco.estado && `, ${loja.endereco.estado}`}
+                        </span>
+                      </div>
+                    )}
+                    {loja.distancia !== undefined && (
+                      <div className="flex items-center text-sm font-medium text-primary">
+                        <span>{loja.distancia.toFixed(1)} km de distância</span>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
+                <CardFooter className="p-4 border-t">
+                  <Button variant="link" size="sm" className="ml-auto gap-1">
+                    Ver loja
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </CardFooter>
               </Card>
             </Link>
           ))
         ) : (
           <div className="col-span-full text-center py-12">
-            <Store className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <Store className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhuma loja encontrada</h3>
-            <p className="text-gray-500 mb-4">
+            <p className="text-muted-foreground mb-4">
               {searchTerm
-                ? "Tente ajustar seus termos de busca ou aumentar o raio de pesquisa."
-                : "Não encontramos lojas próximas à sua localização atual."}
+                ? "Tente ajustar sua busca ou aumentar o raio de pesquisa."
+                : "Não encontramos lojas próximas à sua localização."}
             </p>
             <Button onClick={buscarLojasProximas}>Tentar novamente</Button>
           </div>

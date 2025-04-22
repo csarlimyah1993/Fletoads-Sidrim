@@ -1,30 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase, ObjectId } from "@/lib/mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "../../../../../lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Aguardar os parâmetros antes de usá-los
+    // Await the params object before accessing its properties
     const { id } = await params
 
     if (!id) {
-      return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
+      return NextResponse.json({ error: "ID da vitrine não fornecido" }, { status: 400 })
     }
 
     const { db } = await connectToDatabase()
 
-    // Buscar avaliações para a vitrine específica
-    const avaliacoes = await db.collection("avaliacoes").find({ vitrineId: id }).sort({ createdAt: -1 }).toArray()
+    // Buscar avaliações
+    const avaliacoes = await db.collection("avaliacoes").find({ vitrineId: id }).sort({ dataCriacao: -1 }).toArray()
 
-    // Transformar os ObjectIds em strings para serialização JSON
+    // Formatar as avaliações para o cliente
     const avaliacoesFormatadas = avaliacoes.map((avaliacao) => ({
-      ...avaliacao,
-      _id: avaliacao._id.toString(),
-      userId: avaliacao.userId?.toString(),
+      id: avaliacao._id.toString(),
+      nome: avaliacao.nome,
+      email: avaliacao.email,
+      nota: avaliacao.nota,
+      comentario: avaliacao.comentario,
+      data: avaliacao.dataCriacao,
+      avatar: avaliacao.avatar || null,
     }))
 
-    return NextResponse.json(avaliacoesFormatadas)
+    return NextResponse.json({ avaliacoes: avaliacoesFormatadas })
   } catch (error) {
     console.error("Erro ao buscar avaliações:", error)
     return NextResponse.json({ error: "Erro ao buscar avaliações" }, { status: 500 })
@@ -33,90 +38,73 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Aguardar os parâmetros antes de usá-los
+    // Await the params object before accessing its properties
     const { id } = await params
 
     if (!id) {
-      return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
+      return NextResponse.json({ error: "ID da vitrine não fornecido" }, { status: 400 })
     }
 
     const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
     const body = await request.json()
-    const { rating, comment } = body
 
-    if (!rating || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "Avaliação inválida" }, { status: 400 })
+    // Validar dados
+    if (!body.nome || !body.comentario || !body.nota) {
+      return NextResponse.json({ error: "Nome, comentário e nota são obrigatórios" }, { status: 400 })
     }
 
     const { db } = await connectToDatabase()
 
     // Verificar se a vitrine existe
+    const vitrineId: string = id
+    let lojaId: string | ObjectId | undefined = body.lojaId
+
+    try {
+      // Tentar converter para ObjectId se for um ID válido
+      if (body.lojaId && ObjectId.isValid(body.lojaId)) {
+        lojaId = new ObjectId(body.lojaId)
+      }
+    } catch (error) {
+      console.error("Erro ao converter ID:", error)
+    }
+
+    // Verificar se a vitrine existe usando string ou ObjectId
     const vitrine = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
+      $or: [{ "vitrine.slug": id }, ...(ObjectId.isValid(id) ? [{ _id: new ObjectId(id) }] : [])],
     })
 
     if (!vitrine) {
       return NextResponse.json({ error: "Vitrine não encontrada" }, { status: 404 })
     }
 
-    // Verificar se o usuário já avaliou esta vitrine
-    const existingRating = await db.collection("avaliacoes").findOne({
+    // Criar avaliação
+    const avaliacao = {
       vitrineId: id,
-      userId: new ObjectId(session.user.id),
-    })
-
-    if (existingRating) {
-      // Atualizar avaliação existente
-      await db.collection("avaliacoes").updateOne(
-        { _id: existingRating._id },
-        {
-          $set: {
-            rating,
-            comment,
-            updatedAt: new Date(),
-          },
-        },
-      )
-
-      return NextResponse.json({
-        success: true,
-        message: "Avaliação atualizada com sucesso",
-        rating: {
-          ...existingRating,
-          rating,
-          comment,
-          updatedAt: new Date(),
-        },
-      })
-    } else {
-      // Criar nova avaliação
-      const newRating = {
-        vitrineId: id,
-        userId: new ObjectId(session.user.id),
-        userName: session.user.name || "Usuário",
-        userImage: session.user.image || null,
-        rating,
-        comment,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      const result = await db.collection("avaliacoes").insertOne(newRating)
-
-      return NextResponse.json({
-        success: true,
-        message: "Avaliação enviada com sucesso",
-        rating: {
-          ...newRating,
-          _id: result.insertedId,
-        },
-      })
+      lojaId: vitrine._id,
+      nome: body.nome,
+      email: body.email || null,
+      nota: Number.parseInt(body.nota) || 5,
+      comentario: body.comentario,
+      dataCriacao: new Date(),
+      usuarioId: session?.user?.id || null,
+      avatar: null, // Pode ser implementado posteriormente
     }
+
+    const resultado = await db.collection("avaliacoes").insertOne(avaliacao)
+
+    // Atualizar média de avaliações da loja
+    const todasAvaliacoes = await db.collection("avaliacoes").find({ lojaId: vitrine._id }).toArray()
+    const mediaAvaliacoes = todasAvaliacoes.reduce((acc, curr) => acc + curr.nota, 0) / todasAvaliacoes.length
+
+    await db
+      .collection("lojas")
+      .updateOne({ _id: vitrine._id }, { $set: { "vitrine.mediaAvaliacoes": mediaAvaliacoes } })
+
+    return NextResponse.json({
+      success: true,
+      id: resultado.insertedId.toString(),
+      message: "Avaliação enviada com sucesso",
+    })
   } catch (error) {
     console.error("Erro ao enviar avaliação:", error)
     return NextResponse.json({ error: "Erro ao enviar avaliação" }, { status: 500 })

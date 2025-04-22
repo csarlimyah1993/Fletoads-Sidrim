@@ -1,145 +1,123 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Venda from "@/lib/models/venda"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Loja from "@/lib/models/loja"
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Garantir que estamos conectados ao banco de dados
-    await connectToDatabase()
-
     const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
+    const { db } = await connectToDatabase()
 
-    // Buscar a loja do usuário
-    const loja = await Loja.findOne({ proprietarioId: session.user.id })
+    // Obter o ID do usuário ativo
+    const userId = session.user.id
+    console.log("User ID:", userId)
 
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada para este usuário" }, { status: 404 })
-    }
+    // Data atual
+    const hoje = new Date()
+    const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
 
-    const url = new URL(req.url)
-    const periodo = url.searchParams.get("periodo") || "mes"
+    // Início do mês atual
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
-    // Definir datas de início e fim com base no período
-    const dataAtual = new Date()
-    const dataInicio = new Date()
-
-    switch (periodo) {
-      case "dia":
-        dataInicio.setHours(0, 0, 0, 0)
-        break
-      case "semana":
-        dataInicio.setDate(dataInicio.getDate() - 7)
-        break
-      case "mes":
-        dataInicio.setMonth(dataInicio.getMonth() - 1)
-        break
-      case "ano":
-        dataInicio.setFullYear(dataInicio.getFullYear() - 1)
-        break
-      default:
-        dataInicio.setMonth(dataInicio.getMonth() - 1)
-    }
-
-    // Total de vendas no período
-    const totalVendas = await Venda.countDocuments({
-      lojaId: loja._id,
-      dataVenda: { $gte: dataInicio, $lte: dataAtual },
-      status: { $ne: "cancelado" },
+    // Consultas para estatísticas usando $or para comparar tanto string quanto ObjectId
+    const totalVendas = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
     })
 
-    // Valor total das vendas no período
-    const valorAgregado = await Venda.aggregate([
-      {
-        $match: {
-          lojaId: loja._id,
-          dataVenda: { $gte: dataInicio, $lte: dataAtual },
-          status: { $ne: "cancelado" },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          valorTotal: { $sum: "$valorTotal" },
-        },
-      },
-    ])
+    console.log(`Vendas encontradas para usuarioId ${userId}: ${totalVendas}`)
 
-    const valorTotal = valorAgregado.length > 0 ? valorAgregado[0].valorTotal : 0
+    const vendasHoje = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+      dataCriacao: { $gte: inicioHoje },
+    })
+
+    const vendasMes = await db.collection("vendas").countDocuments({
+      $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+      dataCriacao: { $gte: inicioMes },
+    })
+
+    // Calcular valor total das vendas
+    const resultadoValorTotal = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$total" } } },
+      ])
+      .toArray()
+
+    const valorTotalVendas = resultadoValorTotal.length > 0 ? resultadoValorTotal[0].total : 0
+
+    // Produtos mais vendidos - Simplificado para evitar erros
+    const produtosMaisVendidos = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
+        },
+        { $unwind: "$itens" },
+        {
+          $group: {
+            _id: "$itens.produtoId",
+            quantidade: { $sum: "$itens.quantidade" },
+            nomeProduto: { $first: "$itens.nome" },
+            valor: { $sum: { $multiply: ["$itens.preco", "$itens.quantidade"] } },
+          },
+        },
+        { $sort: { quantidade: -1 } },
+        { $limit: 5 },
+        {
+          $project: {
+            _id: 1,
+            nome: { $ifNull: ["$nomeProduto", "Produto não encontrado"] },
+            quantidade: 1,
+            valor: 1,
+          },
+        },
+      ])
+      .toArray()
 
     // Vendas por status
-    const vendasPorStatus = await Venda.aggregate([
-      {
-        $match: {
-          lojaId: loja._id,
-          dataVenda: { $gte: dataInicio, $lte: dataAtual },
+    const vendasPorStatus = await db
+      .collection("vendas")
+      .aggregate([
+        {
+          $match: {
+            $or: [{ usuarioId: userId }, { usuarioId: userId.toString() }],
+          },
         },
-      },
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-          valor: { $sum: "$valorTotal" },
-        },
-      },
-    ])
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+        { $project: { status: "$_id", count: 1, _id: 0 } },
+        { $sort: { count: -1 } },
+      ])
+      .toArray()
 
-    // Vendas por método de pagamento
-    const vendasPorMetodoPagamento = await Venda.aggregate([
-      {
-        $match: {
-          lojaId: loja._id,
-          dataVenda: { $gte: dataInicio, $lte: dataAtual },
-          status: { $ne: "cancelado" },
-        },
-      },
-      {
-        $group: {
-          _id: "$metodoPagamento",
-          count: { $sum: 1 },
-          valor: { $sum: "$valorTotal" },
-        },
-      },
-    ])
-
-    // Vendas por dia (para gráfico)
-    const vendasPorDia = await Venda.aggregate([
-      {
-        $match: {
-          lojaId: loja._id,
-          dataVenda: { $gte: dataInicio, $lte: dataAtual },
-          status: { $ne: "cancelado" },
-        },
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$dataVenda" } },
-          count: { $sum: 1 },
-          valor: { $sum: "$valorTotal" },
-        },
-      },
-      {
-        $sort: { _id: 1 },
-      },
-    ])
+    console.log("Estatísticas calculadas:", {
+      totalVendas,
+      vendasHoje,
+      vendasMes,
+      valorTotalVendas,
+      produtosMaisVendidos: produtosMaisVendidos.length,
+      vendasPorStatus: vendasPorStatus.length,
+    })
 
     return NextResponse.json({
-      periodo,
       totalVendas,
-      valorTotal,
+      vendasHoje,
+      vendasMes,
+      valorTotalVendas,
+      produtosMaisVendidos,
       vendasPorStatus,
-      vendasPorMetodoPagamento,
-      vendasPorDia,
     })
   } catch (error) {
     console.error("Erro ao buscar estatísticas de vendas:", error)
     return NextResponse.json({ error: "Erro ao buscar estatísticas de vendas" }, { status: 500 })
   }
 }
-

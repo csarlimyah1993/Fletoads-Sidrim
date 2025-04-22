@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { LojaPerfilContent } from "@/components/perfil/loja-perfil-content"
+import  LojaPerfilContent  from "@/components/perfil/loja-perfil-content"
 import { useSessionRefresh } from "@/lib/refresh-session"
 
 export function PerfilDaLojaClient() {
@@ -113,11 +113,13 @@ export function PerfilDaLojaClient() {
 
   return (
     <LojaPerfilContent
-      loja={loja}
-      vitrine={vitrine}
-      produtos={Array.isArray(produtos) ? produtos : []}
-      plano={plano}
-      limites={limites === null ? undefined : limites}
+      lojaId={loja._id}
+      initialValues={{
+        nomeLoja: loja.nome,
+        descricao: loja.descricao,
+        logoUrl: loja.logo,
+        bannerUrl: loja.banner,
+      }}
     />
   )
 }

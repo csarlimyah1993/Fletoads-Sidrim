@@ -2,29 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import { Package, Plus, Search, Loader2, AlertCircle, Tag, DollarSign } from "lucide-react"
+import { Package, Plus, Search, Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-
-interface Produto {
-  _id: string
-  nome: string
-  descricao: string
-  categoria: string
-  preco: number
-  precoPromocional?: number
-  estoque: number
-  sku: string
-  ativo: boolean
-  destaque?: boolean
-  visualizacoes?: number
-}
+import type { Produto } from "@/types/loja"
 
 export default function ProdutosPage() {
   const router = useRouter()
@@ -72,11 +59,12 @@ export default function ProdutosPage() {
       // Tentar criar uma loja padrão primeiro
       await criarLojaPadrao()
 
-      let url = `/api/produtos?page=${page}&limit=${pagination.limit}`
+      let url = `/api/dashboard/produtos?page=${page}&limit=${pagination.limit}`
       if (ativoFilter) url += `&ativo=${ativoFilter}`
       if (categoriaFilter) url += `&categoria=${categoriaFilter}`
       if (searchTerm) url += `&busca=${encodeURIComponent(searchTerm)}`
 
+      console.log("Buscando produtos na URL:", url)
       const response = await fetch(url)
       const data = await response.json()
 
@@ -88,8 +76,12 @@ export default function ProdutosPage() {
         return
       }
 
+      console.log("Resposta da API:", data)
+
       // Garantir que produtos seja sempre um array
-      const produtosArray = Array.isArray(data.produtos) ? data.produtos : []
+      const produtosArray = Array.isArray(data.produtos) ? data.produtos : data && Array.isArray(data) ? data : []
+
+      console.log("Produtos encontrados:", produtosArray.length)
       setProdutos(produtosArray)
 
       // Calcular categorias a partir dos produtos
@@ -108,7 +100,7 @@ export default function ProdutosPage() {
 
       setPagination(
         data.pagination || {
-          total: 0,
+          total: produtosArray.length,
           page: 1,
           limit: 10,
           pages: 1,
@@ -173,9 +165,12 @@ export default function ProdutosPage() {
   const filteredProdutos = Array.isArray(produtos)
     ? produtos.filter((produto) => {
         const matchBusca = searchTerm
-          ? produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            produto.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            produto.sku.toLowerCase().includes(searchTerm.toLowerCase())
+          ? produto.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            false ||
+            produto.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            false ||
+            produto.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            false
           : true
 
         return matchBusca
@@ -271,41 +266,76 @@ export default function ProdutosPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredProdutos.map((produto) => (
                 <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <Badge variant={produto.ativo ? "default" : "secondary"}>
-                          {produto.ativo ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </div>
-                      <CardDescription>{produto.descricao}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center">
-                            <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                            <span>{produto.categoria}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">
-                              {formatarValor(produto.precoPromocional || produto.preco)}
-                            </span>
-                          </div>
+                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden h-full flex flex-col">
+                    {/* Imagem do produto */}
+                    <div className="relative aspect-square w-full bg-gray-100">
+                      {produto.imagens && produto.imagens.length > 0 ? (
+                        <img
+                          src={produto.imagens[0] || "/placeholder.svg"}
+                          alt={produto.nome}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <Package className="h-12 w-12 text-gray-400" />
                         </div>
-                        {produto.precoPromocional && (
-                          <div className="text-xs text-right">
-                            <span className="line-through text-muted-foreground">{formatarValor(produto.preco)}</span>
-                          </div>
+                      )}
+
+                      {/* Badges de status */}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1">
+                        {produto.ativo && (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            Ativo
+                          </Badge>
+                        )}
+                        {!produto.ativo && (
+                          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">
+                            Inativo
+                          </Badge>
+                        )}
+                        {produto.destaque && (
+                          <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                            Destaque
+                          </Badge>
                         )}
                       </div>
+                    </div>
+
+                    <CardContent className="flex-1 flex flex-col p-4">
+                      <h3 className="font-medium text-lg line-clamp-1 mb-1">{produto.nome}</h3>
+
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3 flex-grow">
+                        {produto.descricaoCurta || produto.descricao || "Sem descrição"}
+                      </p>
+
+                      <div className="mt-auto">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-lg font-bold text-primary">
+                              {formatarValor(produto.precoPromocional || produto.preco)}
+                            </p>
+                            {produto.precoPromocional && (
+                              <p className="text-xs text-muted-foreground line-through">
+                                {formatarValor(produto.preco)}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-muted-foreground">
+                            {produto.categoria && (
+                              <Badge variant="outline" className="text-xs">
+                                {produto.categoria}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-3 text-xs text-muted-foreground">
+                          <span>SKU: {produto.sku || "N/A"}</span>
+                          <span>Estoque: {produto.estoque || 0}</span>
+                        </div>
+                      </div>
                     </CardContent>
-                    <CardFooter className="flex justify-between pt-0">
-                      <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                      <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                    </CardFooter>
                   </Card>
                 </Link>
               ))}
@@ -361,31 +391,69 @@ export default function ProdutosPage() {
                 .filter((p) => p.ativo)
                 .map((produto) => (
                   <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden h-full flex flex-col">
+                      {/* Imagem do produto */}
+                      <div className="relative aspect-square w-full bg-gray-100">
+                        {produto.imagens && produto.imagens.length > 0 ? (
+                          <img
+                            src={produto.imagens[0] || "/placeholder.svg"}
+                            alt={produto.nome}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <Package className="h-12 w-12 text-gray-400" />
+                          </div>
+                        )}
+
+                        {/* Badges de status */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            Ativo
+                          </Badge>
+                          {produto.destaque && (
+                            <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                              Destaque
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <CardContent className="flex-1 flex flex-col p-4">
+                        <h3 className="font-medium text-lg line-clamp-1 mb-1">{produto.nome}</h3>
+
+                        <p className="text-muted-foreground text-sm line-clamp-2 mb-3 flex-grow">
+                          {produto.descricaoCurta || produto.descricao || "Sem descrição"}
+                        </p>
+
+                        <div className="mt-auto">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-lg font-bold text-primary">
                                 {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
+                              </p>
+                              {produto.precoPromocional && (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatarValor(produto.preco)}
+                                </p>
+                              )}
                             </div>
+
+                            <div className="text-xs text-muted-foreground">
+                              {produto.categoria && (
+                                <Badge variant="outline" className="text-xs">
+                                  {produto.categoria}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mt-3 text-xs text-muted-foreground">
+                            <span>SKU: {produto.sku || "N/A"}</span>
+                            <span>Estoque: {produto.estoque || 0}</span>
                           </div>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
                     </Card>
                   </Link>
                 ))}
@@ -404,31 +472,69 @@ export default function ProdutosPage() {
                 .filter((p) => !p.ativo)
                 .map((produto) => (
                   <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden h-full flex flex-col opacity-70">
+                      {/* Imagem do produto */}
+                      <div className="relative aspect-square w-full bg-gray-100">
+                        {produto.imagens && produto.imagens.length > 0 ? (
+                          <img
+                            src={produto.imagens[0] || "/placeholder.svg"}
+                            alt={produto.nome}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <Package className="h-12 w-12 text-gray-400" />
+                          </div>
+                        )}
+
+                        {/* Badges de status */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">
+                            Inativo
+                          </Badge>
+                          {produto.destaque && (
+                            <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                              Destaque
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <CardContent className="flex-1 flex flex-col p-4">
+                        <h3 className="font-medium text-lg line-clamp-1 mb-1">{produto.nome}</h3>
+
+                        <p className="text-muted-foreground text-sm line-clamp-2 mb-3 flex-grow">
+                          {produto.descricaoCurta || produto.descricao || "Sem descrição"}
+                        </p>
+
+                        <div className="mt-auto">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-lg font-bold text-primary">
                                 {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
+                              </p>
+                              {produto.precoPromocional && (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatarValor(produto.preco)}
+                                </p>
+                              )}
                             </div>
+
+                            <div className="text-xs text-muted-foreground">
+                              {produto.categoria && (
+                                <Badge variant="outline" className="text-xs">
+                                  {produto.categoria}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mt-3 text-xs text-muted-foreground">
+                            <span>SKU: {produto.sku || "N/A"}</span>
+                            <span>Estoque: {produto.estoque || 0}</span>
                           </div>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
                     </Card>
                   </Link>
                 ))}
@@ -447,31 +553,73 @@ export default function ProdutosPage() {
                 .filter((p) => p.destaque)
                 .map((produto) => (
                   <Link href={`/dashboard/produtos/${produto._id}`} key={produto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{produto.nome}</CardTitle>
-                        <CardDescription>{produto.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center">
-                              <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span>{produto.categoria}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden h-full flex flex-col">
+                      {/* Imagem do produto */}
+                      <div className="relative aspect-square w-full bg-gray-100">
+                        {produto.imagens && produto.imagens.length > 0 ? (
+                          <img
+                            src={produto.imagens[0] || "/placeholder.svg"}
+                            alt={produto.nome}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <Package className="h-12 w-12 text-gray-400" />
+                          </div>
+                        )}
+
+                        {/* Badges de status */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                          <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                            Destaque
+                          </Badge>
+                          {produto.ativo ? (
+                            <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">
+                              Inativo
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <CardContent className="flex-1 flex flex-col p-4">
+                        <h3 className="font-medium text-lg line-clamp-1 mb-1">{produto.nome}</h3>
+
+                        <p className="text-muted-foreground text-sm line-clamp-2 mb-3 flex-grow">
+                          {produto.descricaoCurta || produto.descricao || "Sem descrição"}
+                        </p>
+
+                        <div className="mt-auto">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-lg font-bold text-primary">
                                 {formatarValor(produto.precoPromocional || produto.preco)}
-                              </span>
+                              </p>
+                              {produto.precoPromocional && (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatarValor(produto.preco)}
+                                </p>
+                              )}
                             </div>
+
+                            <div className="text-xs text-muted-foreground">
+                              {produto.categoria && (
+                                <Badge variant="outline" className="text-xs">
+                                  {produto.categoria}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mt-3 text-xs text-muted-foreground">
+                            <span>SKU: {produto.sku || "N/A"}</span>
+                            <span>Estoque: {produto.estoque || 0}</span>
                           </div>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">SKU: {produto.sku}</div>
-                        <div className="text-xs text-muted-foreground">Estoque: {produto.estoque} unidades</div>
-                      </CardFooter>
                     </Card>
                   </Link>
                 ))}

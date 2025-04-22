@@ -87,16 +87,45 @@ export interface Produto {
   nome: string
   descricaoCurta?: string
   descricao?: string
+  descricaoCompleta?: string // Adicionado
   preco: number
   precoPromocional?: number
   imagens?: string[]
-  destaque?: boolean
-  ativo?: boolean
+  videoUrl?: string // Adicionado
+  categoria?: string // Adicionado para compatibilidade
   categorias?: string[]
+  subcategoria?: string // Adicionado
+  tags?: string[] // Adicionado
+  marca?: string // Adicionado
+  modelo?: string // Adicionado
   estoque?: number
+  sku?: string // Adicionado
+  codigoBarras?: string // Adicionado
+  peso?: number // Adicionado
+  altura?: number // Adicionado
+  largura?: number // Adicionado
+  comprimento?: number // Adicionado
+  tipoFrete?: string // Adicionado
+  ativo?: boolean
+  destaque?: boolean
+  tipoProduto?: string // Adicionado
+  variacoes?: Array<{
+    // Adicionado
+    nome: string
+    opcoes: Array<{
+      nome: string
+      preco?: number
+      estoque?: number
+    }>
+  }>
   dataCriacao?: string | Date
   dataAtualizacao?: string | Date
+  createdAt?: string | Date // Adicionado
+  updatedAt?: string | Date // Adicionado
   lojaId?: string
+  userId?: string // Adicionado
+  metaTitle?: string // Adicionado
+  metaDescription?: string // Adicionado
 }
 
 export interface LojaPerfilContentProps {
