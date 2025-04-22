@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -22,255 +21,180 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, QrCode, RefreshCw, Trash2, LogOut } from 'lucide-react'
+import { Loader2, QrCode, RefreshCw, Play, StopCircle } from 'lucide-react'
 import Image from "next/image"
-import { Badge } from "@/components/ui/badge"
-
-type WhatsappIntegracao = {
-  _id: string
-  nomeInstancia: string
-  status: "pendente" | "conectado" | "desconectado" | "erro"
-  evolutionApiUrl: string
-  apiKey: string
-  telefone?: string
-  ultimaConexao?: string
-  createdAt: string
-  updatedAt: string
-}
 
 export function WhatsappIntegracao() {
-  const [integracoes, setIntegracoes] = useState<WhatsappIntegracao[]>([])
-  const [loading, setLoading] = useState(true)
-  const [novaIntegracao, setNovaIntegracao] = useState({
-    nomeInstancia: "",
-    evolutionApiUrl: "http://localhost:8080",
-    apiKey: "",
-  })
+  // Removed states and effects related to fetching and displaying persistent integrations
   const [qrCodeData, setQrCodeData] = useState<string | null>(null)
   const [qrCodeLoading, setQrCodeLoading] = useState(false)
-  const [selectedIntegracao, setSelectedIntegracao] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [statusCheckInterval, setStatusCheckInterval] = useState<NodeJS.Timeout | null>(null)
+  const [qrName, setQrName] = useState("")
+  const [qrPhone, setQrPhone] = useState("")
+  const [qrTimer, setQrTimer] = useState(40)
+  const [isQrActive, setIsQrActive] = useState(false)
+  const [isStartEndLoading, setIsStartEndLoading] = useState(false);
 
-  // Carregar integrações
-  const carregarIntegracoes = async () => {
+  const requestNewQrCode = async () => {
     try {
-      setLoading(true)
-      const response = await fetch("/api/integracoes/whatsapp")
-      if (!response.ok) {
-        throw new Error("Erro ao carregar integrações")
-      }
-      const data = await response.json()
-      setIntegracoes(data)
-    } catch (error) {
-      console.error("Erro ao carregar integrações:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as integrações do WhatsApp",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+      setQrCodeLoading(true);
+      setQrCodeData(null);
+      setQrTimer(40);
+      setIsQrActive(true);
 
-  useEffect(() => {
-    carregarIntegracoes()
-  }, [])
-
-  // Criar nova integração
-  const criarIntegracao = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const response = await fetch("/api/integracoes/whatsapp", {
+      const response = await fetch("/api/integracoes/whatsapp/qr", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(novaIntegracao),
-      })
+        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao criar integração")
+         const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao gerar QR Code" }))
+        throw new Error(errorData.error || "Erro ao gerar QR Code");
       }
 
-      const data = await response.json()
-      setIntegracoes([...integracoes, data])
-      setNovaIntegracao({
-        nomeInstancia: "",
-        evolutionApiUrl: "http://localhost:8080",
-        apiKey: "",
-      })
-      toast({
-        title: "Sucesso",
-        description: "Integração criada com sucesso",
-      })
-    } catch (error: any) {
-      console.error("Erro ao criar integração:", error)
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a integração",
-        variant: "destructive",
-      })
-    }
-  }
+      const data = await response.json();
 
-  // Gerar QR Code
-  const gerarQRCode = async (id: string) => {
-    try {
-      setQrCodeLoading(true)
-      setSelectedIntegracao(id)
-      setDialogOpen(true)
-      
-      const response = await fetch(`/api/integracoes/whatsapp/${id}/qrcode`)
-      if (!response.ok) {
-        throw new Error("Erro ao gerar QR Code")
-      }
-      
-      const data = await response.json()
-      
-      if (data.qrcode) {
-        setQrCodeData(data.qrcode)
-        
-        // Iniciar verificação de status
-        if (statusCheckInterval) {
-          clearInterval(statusCheckInterval)
-        }
-        
-        const interval = setInterval(() => verificarStatus(id), 3000)
-        setStatusCheckInterval(interval)
-      } else {
-        throw new Error("QR Code não disponível")
-      }
-    } catch (error) {
-      console.error("Erro ao gerar QR Code:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível gerar o QR Code",
-        variant: "destructive",
-      })
-    } finally {
-      setQrCodeLoading(false)
-    }
-  }
-
-  // Verificar status da conexão
-  const verificarStatus = async (id: string) => {
-    try {
-      const response = await fetch(`/api/integracoes/whatsapp/${id}/status`)
-      if (!response.ok) {
-        throw new Error("Erro ao verificar status")
-      }
-      
-      const data = await response.json()
-      
-      // Atualizar a lista de integrações com o novo status
-      setIntegracoes(prevIntegracoes => 
-        prevIntegracoes.map(integracao => 
-          integracao._id === id 
-            ? { ...integracao, status: data.status } 
-            : integracao
-        )
-      )
-      
-      // Se conectado, limpar o intervalo e fechar o diálogo
-      if (data.status === "conectado") {
-        if (statusCheckInterval) {
-          clearInterval(statusCheckInterval)
-          setStatusCheckInterval(null)
-        }
-        
+      if (data.base64) {
+        setQrCodeData(data.base64);
         toast({
-          title: "Sucesso!",
-          description: `Seu WhatsApp foi conectado à instância ${integracoes.find(i => i._id === id)?.nomeInstancia}`,
-        })
-        
-        setQrCodeData(null)
-        setDialogOpen(false)
-        carregarIntegracoes() // Recarregar para obter informações atualizadas
+          title: "QR Code gerado!",
+          description: "Escaneie em 40 segundos.",
+        });
+      } else {
+        throw new Error("Resposta da API inesperada");
       }
-    } catch (error) {
-      console.error("Erro ao verificar status:", error)
+    } catch (error: any) {
+      console.error("Erro ao gerar QR Code:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao gerar QR Code.",
+        variant: "destructive",
+      });
+      setQrCodeData(null);
+      setIsQrActive(false);
+    } finally {
+      setQrCodeLoading(false);
     }
-  }
+  };
 
-  // Desconectar WhatsApp
-  const desconectarWhatsapp = async (id: string) => {
+  const handleStartConnection = async () => {
+    if (!qrName || !qrPhone) {
+      toast({
+        title: "Erro",
+        description: "Nome e Telefone são necessários para iniciar a conexão.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsStartEndLoading(true);
     try {
-      const response = await fetch(`/api/integracoes/whatsapp/${id}/desconectar`, {
+      const response = await fetch("/api/integracoes/whatsapp/start", {
         method: "POST",
-      })
-      
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+      });
       if (!response.ok) {
-        throw new Error("Erro ao desconectar WhatsApp")
+        const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao iniciar conexão" }));
+        throw new Error(errorData.error || "Erro ao iniciar conexão");
       }
-      
       toast({
         title: "Sucesso",
-        description: "WhatsApp desconectado com sucesso",
-      })
-      
-      carregarIntegracoes()
-    } catch (error) {
-      console.error("Erro ao desconectar WhatsApp:", error)
+        description: "Comando para iniciar conexão enviado.",
+      });
+    } catch (error: any) {
+      console.error("Erro ao iniciar conexão:", error);
+      toast({
+        title: "Erro ao Iniciar",
+        description: error.message || "Não foi possível iniciar a conexão.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStartEndLoading(false);
+    }
+  };
+
+  const handleEndConnection = async () => {
+    if (!qrName || !qrPhone) {
       toast({
         title: "Erro",
-        description: "Não foi possível desconectar o WhatsApp",
+        description: "Nome e Telefone são necessários para finalizar a conexão.",
         variant: "destructive",
-      })
+      });
+      return;
     }
-  }
-
-  // Excluir integração
-  const excluirIntegracao = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta integração?")) {
-      return
-    }
-    
+    setIsStartEndLoading(true);
     try {
-      const response = await fetch(`/api/integracoes/whatsapp/${id}`, {
-        method: "DELETE",
-      })
-      
+      const response = await fetch("/api/integracoes/whatsapp/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+      });
       if (!response.ok) {
-        throw new Error("Erro ao excluir integração")
+         const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao finalizar conexão" }));
+        throw new Error(errorData.error || "Erro ao finalizar conexão");
       }
-      
-      setIntegracoes(integracoes.filter(integracao => integracao._id !== id))
-      
       toast({
         title: "Sucesso",
-        description: "Integração excluída com sucesso",
-      })
-    } catch (error) {
-      console.error("Erro ao excluir integração:", error)
+        description: "Comando para finalizar conexão enviado.",
+      });
+    } catch (error: any) {
+      console.error("Erro ao finalizar conexão:", error);
       toast({
-        title: "Erro",
-        description: "Não foi possível excluir a integração",
+        title: "Erro ao Finalizar",
+        description: error.message || "Não foi possível finalizar a conexão.",
         variant: "destructive",
-      })
+      });
+    } finally {
+      setIsStartEndLoading(false);
     }
-  }
+  };
 
-  // Limpar intervalo ao desmontar o componente
   useEffect(() => {
-    return () => {
-      if (statusCheckInterval) {
-        clearInterval(statusCheckInterval)
+    let timerInterval: NodeJS.Timeout | null = null;
+    if (isQrActive && qrTimer > 0) {
+      timerInterval = setInterval(() => {
+        setQrTimer((prevTimer) => prevTimer - 1);
+      }, 1000);
+    } else if (qrTimer === 0) {
+      setIsQrActive(false);
+      if (timerInterval) {
+        clearInterval(timerInterval);
       }
     }
-  }, [statusCheckInterval])
 
-  // Fechar diálogo
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [isQrActive, qrTimer]);
+
   const handleCloseDialog = () => {
-    if (statusCheckInterval) {
-      clearInterval(statusCheckInterval)
-      setStatusCheckInterval(null)
-    }
     setQrCodeData(null)
+    setQrCodeLoading(false)
+    setIsQrActive(false)
+    setQrTimer(40)
+    setQrName("")
+    setQrPhone("")
     setDialogOpen(false)
   }
+
+   const handleOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      handleCloseDialog();
+    } else {
+       setQrCodeData(null);
+       setIsQrActive(false);
+       setQrCodeLoading(false);
+       setQrTimer(40);
+       setQrName("");
+       setQrPhone("");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -278,178 +202,29 @@ export function WhatsappIntegracao() {
         <CardHeader>
           <CardTitle>Integração com WhatsApp</CardTitle>
           <CardDescription>
-            Conecte seu WhatsApp para enviar mensagens através da Evolution API
+            Gere um QR Code avulso para conectar um número de WhatsApp.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={criarIntegracao} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="nomeInstancia">Nome da Instância</Label>
-                <Input
-                  id="nomeInstancia"
-                  placeholder="minha-instancia"
-                  value={novaIntegracao.nomeInstancia}
-                  onChange={(e) =>
-                    setNovaIntegracao({
-                      ...novaIntegracao,
-                      nomeInstancia: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apiKey">API Key</Label>
-                <Input
-                  id="apiKey"
-                  placeholder="Chave de API da Evolution API"
-                  value={novaIntegracao.apiKey}
-                  onChange={(e) =>
-                    setNovaIntegracao({
-                      ...novaIntegracao,
-                      apiKey: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="evolutionApiUrl">URL da Evolution API</Label>
-                <Input
-                  id="evolutionApiUrl"
-                  placeholder="http://localhost:8080"
-                  value={novaIntegracao.evolutionApiUrl}
-                  onChange={(e) =>
-                    setNovaIntegracao({
-                      ...novaIntegracao,
-                      evolutionApiUrl: e.target.value,
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Deixe o padrão se estiver usando localmente
-                </p>
-              </div>
-            </div>
-            <Button type="submit" className="w-full">
-              Adicionar Integração
-            </Button>
-          </form>
+           <div className="mt-4">
+             <DialogTrigger asChild>
+                <Button variant="outline" className="w-full">
+                    <QrCode className="mr-2 h-4 w-4" /> Gerar QR Code Avulso
+                </Button>
+             </DialogTrigger>
+           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {loading ? (
-          <Card className="col-span-full flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </Card>
-        ) : integracoes.length === 0 ? (
-          <Card className="col-span-full p-8">
-            <div className="text-center text-muted-foreground">
-              <p>Nenhuma integração configurada</p>
-            </div>
-          </Card>
-        ) : (
-          integracoes.map((integracao) => (
-            <Card key={integracao._id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{integracao.nomeInstancia}</CardTitle>
-                  <Badge
-                    variant={
-                      integracao.status === "conectado"
-                        ? "success"
-                        : integracao.status === "pendente"
-                        ? "outline"
-                        : "destructive"
-                    }
-                    className={
-                      integracao.status === "conectado"
-                        ? "bg-green-500 hover:bg-green-600"
-                        : integracao.status === "pendente"
-                        ? ""
-                        : "bg-red-500 hover:bg-red-600"
-                    }
-                  >
-                    {integracao.status === "conectado"
-                      ? "Conectado"
-                      : integracao.status === "pendente"
-                      ? "Pendente"
-                      : "Desconectado"}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {integracao.telefone
-                    ? `Conectado ao número ${integracao.telefone}`
-                    : "Nenhum telefone conectado"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">URL da API:</span>{" "}
-                    {integracao.evolutionApiUrl}
-                  </div>
-                  {integracao.ultimaConexao && (
-                    <div className="text-sm">
-                      <span className="font-medium">Última conexão:</span>{" "}
-                      {new Date(integracao.ultimaConexao).toLocaleString()}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => gerarQRCode(integracao._id)}
-                  disabled={qrCodeLoading && selectedIntegracao === integracao._id}
-                >
-                  {qrCodeLoading && selectedIntegracao === integracao._id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <QrCode className="mr-2 h-4 w-4" />
-                  )}
-                  {integracao.status === "conectado"
-                    ? "Reconectar"
-                    : "Conectar"}
-                </Button>
-                <div className="flex space-x-2">
-                  {integracao.status === "conectado" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => desconectarWhatsapp(integracao._id)}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Desconectar
-                    </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => excluirIntegracao(integracao._id)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))
-        )}
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Conectar WhatsApp</DialogTitle>
+            <DialogTitle>Conectar WhatsApp / Gerar QR Code</DialogTitle>
             <DialogDescription>
-              Escaneie o QR Code com seu WhatsApp para conectar
+              Preencha os dados para gerar um QR Code avulso.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-4">
+          <div className="flex flex-col items-center justify-center p-4 min-h-[300px]">
             {qrCodeLoading ? (
               <div className="flex flex-col items-center justify-center p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -457,7 +232,7 @@ export function WhatsappIntegracao() {
                   Gerando QR Code...
                 </p>
               </div>
-            ) : qrCodeData ? (
+            ) : qrCodeData && isQrActive ? (
               <div className="flex flex-col items-center">
                 <div className="relative h-64 w-64">
                   <Image
@@ -467,23 +242,93 @@ export function WhatsappIntegracao() {
                     className="object-contain"
                   />
                 </div>
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Abra o WhatsApp no seu celular, vá em Configurações &gt; Aparelhos conectados &gt; Conectar um aparelho
+                <p className="mt-4 text-sm text-muted-foreground text-center">
+                  Abra o WhatsApp no seu celular, vá em Configurações > Aparelhos conectados > Conectar um aparelho
+                </p>
+                <p className="mt-2 text-sm font-medium text-center">
+                Tempo restante: {qrTimer} segundos
                 </p>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8">
+            ) : qrCodeData && !isQrActive ? (
+               <div className="flex flex-col items-center justify-center p-8">
                 <p className="text-sm text-muted-foreground">
-                  Não foi possível gerar o QR Code
+                  QR Code expirado.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="mt-4"
-                  onClick={() => selectedIntegracao && gerarQRCode(selectedIntegracao)}
+                  onClick={requestNewQrCode}
+                  disabled={qrCodeLoading}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Tentar novamente
+                  Gerar novo QR Code
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 space-y-4 w-full">
+                <div className="space-y-2 w-full">
+                  <Label htmlFor="qrName">Nome</Label>
+                  <Input
+                    id="qrName"
+                    placeholder="Nome para identificação"
+                    value={qrName}
+                    onChange={(e) => setQrName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2 w-full">
+                  <Label htmlFor="qrPhone">Telefone</Label>
+                  <Input
+                    id="qrPhone"
+                    placeholder="Número de telefone (com código do país)"
+                    value={qrPhone}
+                    onChange={(e) => setQrPhone(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={requestNewQrCode}
+                  disabled={!qrName || !qrPhone || qrCodeLoading}
+                >
+                  {qrCodeLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <QrCode className="mr-2 h-4 w-4" />
+                  )}
+                  Gerar QR Code
+                </Button>
+              </div>
+            )}
+
+            {(qrCodeData || (qrName && qrPhone)) && (
+              <div className="mt-4 flex w-full justify-center space-x-2 border-t pt-4">
+                <Button
+                  size="sm"
+                  onClick={handleStartConnection}
+                  disabled={isStartEndLoading || !qrName || !qrPhone}
+                  className="bg-green-500 hover:bg-green-600"
+                >
+                  {isStartEndLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="mr-2 h-4 w-4" />
+                  )}
+                  Iniciar Conexão
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleEndConnection}
+                  disabled={isStartEndLoading || !qrName || !qrPhone}
+                >
+                  {isStartEndLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <StopCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Finalizar Conexão
                 </Button>
               </div>
             )}

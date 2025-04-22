@@ -24,8 +24,6 @@ type WhatsappIntegracao = {
   _id: string
   nomeInstancia: string
   status: "pendente" | "conectado" | "desconectado" | "erro"
-  evolutionApiUrl: string
-  apiKey: string
   telefone?: string
   ultimaConexao?: string
   createdAt: string
@@ -37,8 +35,7 @@ export function WhatsappIntegracao() {
   const [loading, setLoading] = useState(true)
   const [novaIntegracao, setNovaIntegracao] = useState({
     nomeInstancia: "",
-    evolutionApiUrl: "http://localhost:8080",
-    apiKey: "",
+    telefone: "",
   })
   const [qrCodeData, setQrCodeData] = useState<string | null>(null)
   const [qrCodeLoading, setQrCodeLoading] = useState(false)
@@ -93,8 +90,7 @@ export function WhatsappIntegracao() {
       setIntegracoes([...integracoes, data])
       setNovaIntegracao({
         nomeInstancia: "",
-        evolutionApiUrl: "http://localhost:8080",
-        apiKey: "",
+        telefone: "",
       })
       toast({
         title: "Sucesso",
@@ -289,36 +285,24 @@ export function WhatsappIntegracao() {
                   required
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="apiKey">API Key</Label>
+                <Label htmlFor="telefone">Número do WhatsApp</Label>
                 <Input
-                  id="apiKey"
-                  placeholder="Chave de API da Evolution API"
-                  value={novaIntegracao.apiKey}
+                  id="telefone"
+                  placeholder="5511999999999"
+                  value={novaIntegracao.telefone}
                   onChange={(e) =>
                     setNovaIntegracao({
                       ...novaIntegracao,
-                      apiKey: e.target.value,
+                      telefone: e.target.value,
                     })
                   }
                   required
                 />
+                <p className="text-xs text-muted-foreground">Digite o número com código do país e DDD (ex: 5511999999999)</p>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="evolutionApiUrl">URL da Evolution API</Label>
-                <Input
-                  id="evolutionApiUrl"
-                  placeholder="http://localhost:8080"
-                  value={novaIntegracao.evolutionApiUrl}
-                  onChange={(e) =>
-                    setNovaIntegracao({
-                      ...novaIntegracao,
-                      evolutionApiUrl: e.target.value,
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">Deixe o padrão se estiver usando localmente</p>
-              </div>
+
             </div>
             <Button type="submit" className="w-full">
               Adicionar Integração
@@ -373,9 +357,7 @@ export function WhatsappIntegracao() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">URL da API:</span> {integracao.evolutionApiUrl}
-                  </div>
+
                   {integracao.ultimaConexao && (
                     <div className="text-sm">
                       <span className="font-medium">Última conexão:</span>{" "}
