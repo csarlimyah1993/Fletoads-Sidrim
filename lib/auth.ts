@@ -367,6 +367,7 @@ export const authOptions: NextAuthOptions = {
       // Update token when session is updated
       if (trigger === "update" && session) {
         token = { ...token, ...session }
+        console.log("JWT callback - token updated from session:", token)
       }
 
       // Fetch fresh user data on each token refresh
@@ -379,6 +380,7 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (userData) {
+            const previousRole = token.role
             token.role = userData.role || "user"
             token.nome = userData.nome || userData.name || ""
             token.emailVerificado = userData.emailVerificado || false
@@ -386,6 +388,17 @@ export const authOptions: NextAuthOptions = {
             token.lojaId = userData.lojaId || null
             token.permissoes = userData.permissoes || []
             token.tipoUsuario = userData.tipoUsuario || null
+
+            // Log se o papel mudou
+            if (previousRole !== token.role) {
+              console.log(`JWT callback - role changed from ${previousRole} to ${token.role}`)
+            }
+
+            console.log("JWT callback - refreshed user data:", {
+              id: token.id,
+              role: token.role,
+              nome: token.nome,
+            })
           }
         } catch (error) {
           console.error("Erro ao atualizar dados do token:", error)

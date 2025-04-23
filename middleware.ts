@@ -21,6 +21,9 @@ export async function middleware(request: NextRequest) {
   })
 
   console.log(`Middleware: Token para ${pathname}:`, token ? "Presente" : "Ausente")
+  if (token) {
+    console.log(`Middleware: Role do usuário: ${token.role}`)
+  }
 
   // Se não houver token e o caminho for protegido, redirecionar para login
   if (!token) {
@@ -32,6 +35,12 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/admin") && token.role !== "admin") {
     console.log(`Middleware: Acesso não autorizado à área admin por usuário com papel: ${token.role}`)
     return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // ADICIONAR ESTA VERIFICAÇÃO: Redirecionar admins para área admin quando tentam acessar dashboard
+  if (pathname.startsWith("/dashboard") && token.role === "admin") {
+    console.log(`Middleware: Admin tentando acessar dashboard, redirecionando para área admin`)
+    return NextResponse.redirect(new URL("/admin", request.url))
   }
 
   // Verificações específicas para visitantes
