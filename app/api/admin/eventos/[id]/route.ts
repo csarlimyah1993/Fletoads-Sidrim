@@ -4,9 +4,12 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params
+    const { id } = await params
     const session = await getServerSession(authOptions)
 
     // Verify user is authenticated and is admin
@@ -78,9 +81,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params
+    const { id } = await params
     const session = await getServerSession(authOptions)
 
     // Verify user is authenticated and is admin
@@ -159,9 +165,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params
+    const { id } = await params
     const session = await getServerSession(authOptions)
 
     // Verify user is authenticated and is admin
@@ -185,4 +194,3 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ error: "Erro ao excluir evento" }, { status: 500 })
   }
 }
-
