@@ -5,79 +5,61 @@ import { getToken } from "next-auth/jwt"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Check if the path is protected
-  const isProtectedPath = pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/perfil"
+  // Caminhos públicos que não precisam de autenticação
+  const publicPaths = ["/login", "/cadastro", "/registro", "/esqueci-senha", "/", "/vitrines", "/planos"]
 
-  // Check if the path is admin specific
-  const isAdminPath = pathname.startsWith("/admin")
+  // Se o caminho for público ou começar com um caminho público, permitir acesso sem verificação
+  if (publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+    console.log(`Middleware: Caminho público: ${pathname}, permitindo acesso`)
+    return NextResponse.next()
+  }
 
-  // Check if the path is user dashboard
-  const isUserDashboard = pathname.startsWith("/dashboard")
-
-  // Check if the path is auth related
-  const isAuthPath = pathname === "/login" || pathname === "/cadastro" || pathname === "/esqueci-senha"
-
-  // Get the token with detailed logging
-  console.log("Middleware: Checking token for path", pathname)
+  // Verificar token de autenticação
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
   })
 
-  console.log(
-    "Middleware: Token result",
-    token ? "Token exists" : "No token",
-    token ? `User ID: ${token.sub}, Role: ${token.role || "user"}` : "",
-  )
+  console.log(`Middleware: Token para ${pathname}:`, token ? "Presente" : "Ausente")
 
-  // Redirect unauthenticated users to login page if they're trying to access protected routes
-  if (isProtectedPath && !token) {
-    console.log("Middleware: Redirecting to login - no token for protected path")
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.url))
-    return NextResponse.redirect(url)
+  // Se não houver token e o caminho for protegido, redirecionar para login
+  if (!token) {
+    console.log(`Middleware: Sem token para caminho protegido: ${pathname}, redirecionando para login`)
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Check for admin access - redirect non-admin users away from admin routes
-  if (isAdminPath && token && token.role !== "admin") {
-    console.log("Middleware: Unauthorized admin access attempt by user with role:", token.role)
+  // Verificações específicas para caminhos administrativos
+  if (pathname.startsWith("/admin") && token.role !== "admin") {
+    console.log(`Middleware: Acesso não autorizado à área admin por usuário com papel: ${token.role}`)
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Redirect admin users to admin dashboard if they try to access user dashboard
-  if (isUserDashboard && token && token.role === "admin") {
-    console.log("Middleware: Admin user accessing user dashboard, redirecting to admin dashboard")
-    return NextResponse.redirect(new URL("/admin", request.url))
-  }
-
-  // Redirect authenticated users to appropriate dashboard if they're trying to access auth routes
-  if (isAuthPath && token) {
-    console.log("Middleware: Redirecting authenticated user - user already authenticated")
-    // If user is admin, redirect to admin dashboard
-    if (token.role === "admin") {
-      console.log("Middleware: Redirecting admin to admin dashboard")
-      return NextResponse.redirect(new URL("/admin", request.url))
-    }
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // Redirect root path based on role
-  if (pathname === "/" && token) {
-    if (token.role === "admin") {
-      console.log("Middleware: Root path - redirecting admin to admin dashboard")
-      return NextResponse.redirect(new URL("/admin", request.url))
-    } else {
-      console.log("Middleware: Root path - redirecting user to user dashboard")
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Verificações específicas para visitantes
+  if (token.role === "visitante") {
+    // Visitantes só podem acessar vitrines, perfil-visitante e páginas públicas
+    if (pathname.startsWith("/dashboard")) {
+      console.log(`Middleware: Visitante tentando acessar dashboard, redirecionando para vitrines`)
+      return NextResponse.redirect(new URL("/vitrines", request.url))
     }
   }
 
-  console.log("Middleware: Allowing request to proceed")
+  // Permitir acesso para usuários autenticados
   return NextResponse.next()
 }
 
-// Update the matcher to include the root path
+// Atualizar o matcher para incluir os caminhos necessários
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/admin/:path*", "/perfil", "/login", "/cadastro", "/esqueci-senha"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/perfil",
+    "/perfil-visitante",
+    "/login",
+    "/cadastro",
+    "/registro",
+    "/esqueci-senha",
+    "/vitrines/:path*",
+    "/planos/:path*",
+  ],
 }

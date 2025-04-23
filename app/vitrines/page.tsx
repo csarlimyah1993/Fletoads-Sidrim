@@ -1,9 +1,23 @@
-'use client'
+"use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, MapPin, Store, Coffee, Utensils, Home, Shirt, Gift, Smartphone, Book, Heart } from 'lucide-react'
+import { useSession } from "next-auth/react"
+import {
+  Search,
+  MapPin,
+  Store,
+  Coffee,
+  Utensils,
+  Home,
+  Shirt,
+  Gift,
+  Smartphone,
+  Book,
+  Heart,
+  Calendar,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +27,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ThemeToggle } from "@/components/vitrine/theme-toggle"
 import { VitrinesFooter } from "@/components/vitrines/footer"
 import { LojasProximas } from "@/components/vitrines/lojas-proximas"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BasicAuthMenu } from "@/components/basic-auth-menu"
 
 interface VitrineData {
   _id: string
@@ -25,6 +41,12 @@ interface VitrineData {
     cidade?: string
     estado?: string
   }
+  participaEvento?: boolean
+}
+
+interface EventoAtivo {
+  _id: string
+  nome: string
 }
 
 const categorias = [
@@ -64,11 +86,13 @@ function VitrinesSkeleton() {
 
 function VitrineCard({ vitrine }: { vitrine: VitrineData }) {
   return (
-    <Card className="h-full flex flex-col hover:shadow-md transition-shadow">
+    <Card
+      className={`h-full flex flex-col hover:shadow-md transition-shadow ${vitrine.participaEvento ? "border-primary/50 bg-primary/5" : ""}`}
+    >
       <div className="relative aspect-video overflow-hidden">
         {vitrine.banner ? (
           <Image
-            src={vitrine.banner}
+            src={vitrine.banner || "/placeholder.svg"}
             alt={`Banner da loja ${vitrine.nome}`}
             fill
             className="object-cover"
@@ -77,6 +101,12 @@ function VitrineCard({ vitrine }: { vitrine: VitrineData }) {
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-primary/20 to-primary/5">
             <Store className="h-12 w-12 text-muted-foreground" />
+          </div>
+        )}
+
+        {vitrine.participaEvento && (
+          <div className="absolute top-2 right-2">
+            <Badge className="bg-primary text-primary-foreground">Evento</Badge>
           </div>
         )}
       </div>
@@ -118,37 +148,52 @@ function VitrineCard({ vitrine }: { vitrine: VitrineData }) {
   )
 }
 
+
 export default function VitrinesPage() {
+  const { data, status } = useSession()
   const [vitrines, setVitrines] = useState<VitrineData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [eventoAtivo, setEventoAtivo] = useState<EventoAtivo | null>(null)
   const [searchParams, setSearchParams] = useState({
-    categoria: 'todas',
-    cidade: 'todas',
-    estado: 'todas',
-    busca: ''
+    categoria: "todas",
+    cidade: "todas",
+    estado: "todas",
+    busca: "",
   })
+  const [mounted, setMounted] = useState(false)
+
+  // Extrair o usuário da sessão corretamente
+  const user = data?.user
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const fetchVitrines = async () => {
       try {
         setLoading(true)
         const query = new URLSearchParams()
-        if (searchParams.categoria !== 'todas') query.append('categoria', searchParams.categoria)
-        if (searchParams.cidade !== 'todas') query.append('cidade', searchParams.cidade)
-        if (searchParams.estado !== 'todas') query.append('estado', searchParams.estado)
-        if (searchParams.busca) query.append('busca', searchParams.busca)
+        if (searchParams.categoria !== "todas") query.append("categoria", searchParams.categoria)
+        if (searchParams.cidade !== "todas") query.append("cidade", searchParams.cidade)
+        if (searchParams.estado !== "todas") query.append("estado", searchParams.estado)
+        if (searchParams.busca) query.append("busca", searchParams.busca)
 
         const response = await fetch(`/api/vitrines?${query.toString()}`)
-        
+
         if (!response.ok) {
-          throw new Error('Erro ao buscar vitrines')
+          throw new Error("Erro ao buscar vitrines")
         }
 
         const data = await response.json()
         setVitrines(data.lojas)
+
+        if (data.eventoAtivo) {
+          setEventoAtivo(data.eventoAtivo)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido')
+        setError(err instanceof Error ? err.message : "Erro desconhecido")
       } finally {
         setLoading(false)
       }
@@ -157,25 +202,32 @@ export default function VitrinesPage() {
     fetchVitrines()
   }, [searchParams])
 
+  // Adicionando log para debug da sessão
+  useEffect(() => {
+    console.log("VitrinesPage - Status da sessão:", status)
+    console.log("VitrinesPage - Dados da sessão completos:", data)
+    console.log("VitrinesPage - User extraído:", user)
+  }, [data, user, status])
+
+  // Função para renderizar o componente de autenticação no header
+  useEffect(() => {
+    console.log("VitrinesPage - Status da sessão:", status)
+    console.log("VitrinesPage - Dados da sessão completos:", data)
+    console.log("VitrinesPage - User extraído:", user)
+  }, [data, user, status])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
           <Link href="/" className="flex items-center">
-            <span className="text-2xl font-bold text-primary">
-              fleto<span className="text-foreground">Ads</span>
-            </span>
+            <Image src="/assets/logoFleto.svg" alt="FletoAds Logo" width={120} height={40} priority />
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <Button variant="outline" asChild className="hidden sm:inline-flex">
-              <Link href="/login">Entrar</Link>
-            </Button>
-            <Button asChild size="sm" className="text-sm">
-              <Link href="/registro">Criar Conta</Link>
-            </Button>
+            <BasicAuthMenu />
           </div>
         </div>
       </header>
@@ -184,25 +236,36 @@ export default function VitrinesPage() {
       <section className="bg-gradient-to-b from-primary/10 to-background py-8 sm:py-12">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Encontre as melhores lojas e serviços para você</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
+              Encontre as melhores lojas e serviços para você
+            </h1>
             <p className="text-muted-foreground mb-6 sm:mb-8 text-sm sm:text-base">
               Descubra negócios locais, produtos exclusivos e serviços de qualidade em um só lugar.
             </p>
 
+            {eventoAtivo && (
+              <Alert className="mb-6 bg-primary/10 border-primary/20">
+                <Calendar className="h-4 w-4 text-primary" />
+                <AlertDescription>
+                  Evento ativo: <span className="font-medium">{eventoAtivo.nome}</span>. Lojas participantes destacadas.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex flex-col gap-3 sm:gap-4 max-w-2xl mx-auto">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar lojas, produtos ou serviços..." 
+                <Input
+                  placeholder="Buscar lojas, produtos ou serviços..."
                   className="pl-9 w-full"
                   value={searchParams.busca}
-                  onChange={(e) => setSearchParams({...searchParams, busca: e.target.value})}
+                  onChange={(e) => setSearchParams({ ...searchParams, busca: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <Select 
+                <Select
                   value={searchParams.estado}
-                  onValueChange={(value) => setSearchParams({...searchParams, estado: value})}
+                  onValueChange={(value) => setSearchParams({ ...searchParams, estado: value })}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Estado" />
@@ -212,9 +275,9 @@ export default function VitrinesPage() {
                     {/* Adicione os estados aqui */}
                   </SelectContent>
                 </Select>
-                <Select 
+                <Select
                   value={searchParams.cidade}
-                  onValueChange={(value) => setSearchParams({...searchParams, cidade: value})}
+                  onValueChange={(value) => setSearchParams({ ...searchParams, cidade: value })}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Cidade" />
@@ -239,7 +302,7 @@ export default function VitrinesPage() {
               <div className="lg:hidden mb-4">
                 <Select
                   value={searchParams.categoria}
-                  onValueChange={(value) => setSearchParams({...searchParams, categoria: value})}
+                  onValueChange={(value) => setSearchParams({ ...searchParams, categoria: value })}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecione uma categoria" />
@@ -256,7 +319,7 @@ export default function VitrinesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Desktop categories list */}
               <div className="hidden lg:block">
                 <h2 className="text-xl font-bold mb-4">Categorias</h2>
@@ -266,7 +329,7 @@ export default function VitrinesPage() {
                       key={categoria.id}
                       variant={categoria.id === searchParams.categoria ? "default" : "ghost"}
                       className="w-full justify-start"
-                      onClick={() => setSearchParams({...searchParams, categoria: categoria.id})}
+                      onClick={() => setSearchParams({ ...searchParams, categoria: categoria.id })}
                     >
                       <span className="mr-2">{categoria.icon}</span>
                       {categoria.nome}
@@ -274,7 +337,7 @@ export default function VitrinesPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div className="mt-4 hidden sm:block">
                 <LojasProximas />
               </div>
