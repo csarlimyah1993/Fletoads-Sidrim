@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { connectToDatabase } from "@/lib/mongodb"
+import { randomUUID } from "crypto"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { nome, email, password, telefone, tipoUsuario } = body
+    const { nome, email, password, telefone, tipoUsuario, cpf, eventoId, eventoNome } = body
 
     // Validações básicas
     if (!nome || !email || !password) {
@@ -36,14 +37,18 @@ export async function POST(request: Request) {
     // Hash da senha
     const senhaHash = await hash(password, 12) // Usando fator 12 para maior segurança
 
-    // Criar o usuário
+    // Determinar o tipo de usuário e role
+    const userRole = tipoUsuario === "admin" ? "admin" : eventoId ? "visitante" : "user"
+    const userTipo = tipoUsuario || (eventoId ? "visitante" : "cliente")
+
+    // Criar o usuário base
     const novoUsuario = {
       nome,
       email: normalizedEmail, // Armazenar email em minúsculas para evitar duplicatas
       senha: senhaHash,
       telefone: telefone || "",
-      role: tipoUsuario === "admin" ? "ADMIN" : "USER", // Prevenção contra elevação de privilégios
-      tipoUsuario: tipoUsuario || "cliente",
+      role: userRole,
+      tipoUsuario: userTipo,
       ativo: true,
       dataCriacao: new Date(),
       dataAtualizacao: new Date(),
@@ -55,9 +60,41 @@ export async function POST(request: Request) {
           tema: "light",
         },
       },
+      // Inicializar array de lojas visitadas
+      lojasVisitadas: [],
     }
 
-    // Inserir diretamente na coleção para garantir que está indo para o lugar certo
+    // Adicionar campos específicos para visitantes de eventos
+    if (eventoId) {
+      Object.assign(novoUsuario, {
+        cpf: cpf || "",
+        eventoId,
+        eventoNome,
+        verificado: false,
+      })
+
+      // Criar registro na coleção de visitantes de eventos
+      const visitanteEvento = {
+        nome,
+        email: normalizedEmail,
+        telefone: telefone || "",
+        cpf: cpf || "",
+        eventoId,
+        eventoNome,
+        dataCriacao: new Date(),
+        ultimoAcesso: new Date(),
+        // Gerar um token único para evitar o erro de chave duplicada
+        token: randomUUID(), // Adicionado para evitar o erro de chave duplicada
+        // Inicializar array de lojas visitadas
+        lojasVisitadas: [],
+      }
+
+      // Inserir na coleção de visitantes
+      const visitanteResult = await db.collection("visitanteeventos").insertOne(visitanteEvento)
+      console.log(`Visitante de evento registrado: ${normalizedEmail}, ID: ${visitanteResult.insertedId}`)
+    }
+
+    // Inserir usuário na coleção principal
     const resultado = await db.collection("usuarios").insertOne(novoUsuario)
 
     console.log(`Usuário registrado com sucesso: ${normalizedEmail}, ID: ${resultado.insertedId}`)
@@ -72,6 +109,7 @@ export async function POST(request: Request) {
       tipoUsuario: novoUsuario.tipoUsuario,
       dataCriacao: novoUsuario.dataCriacao,
       dataAtualizacao: novoUsuario.dataAtualizacao,
+      isEventoVisitante: !!eventoId,
     }
 
     return NextResponse.json(usuarioSemSenha, { status: 201 })
