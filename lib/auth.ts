@@ -426,13 +426,13 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Log para depuração da sessão
-      console.log("Session callback - session data:", {
-        id: session.user?.id,
-        role: session.user?.role,
-        email: session.user?.email,
-        tipoUsuario: session.user?.tipoUsuario || "N/A",
-      })
+  // Log para depuração da sessão
+  //    console.log("Session callback - session data:", {
+  //     id: session.user?.id,
+  //      role: session.user?.role,
+  //      email: session.user?.email,
+  //      tipoUsuario: session.user?.tipoUsuario || "N/A",
+  //    })
 
       return session
     },

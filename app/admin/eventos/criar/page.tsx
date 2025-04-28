@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { CalendarIcon, Check, Loader2 } from "lucide-react"
+import { CalendarIcon, Check, Loader2, FileText } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner"
 import { StoreSelector } from "@/components/admin/store-selector"
 import { ImageUpload } from "@/components/ui/image-upload"
+import { DocumentUpload, type DocumentInfo } from "@/components/ui/documents-upload"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Loja {
   _id: string
@@ -40,6 +42,7 @@ export default function CriarEventoPage() {
     dataFim: new Date(),
     ativo: false,
     lojasParticipantes: [] as string[],
+    documentos: [] as DocumentInfo[],
   })
 
   // Fetch available stores
@@ -92,6 +95,10 @@ export default function CriarEventoPage() {
     setFormData((prev) => ({ ...prev, imagem: typeof value === "string" ? value : value[0] || "" }))
   }
 
+  const handleDocumentsChange = (documents: DocumentInfo[]) => {
+    setFormData((prev) => ({ ...prev, documentos: documents }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -133,98 +140,131 @@ export default function CriarEventoPage() {
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informações do Evento</CardTitle>
-                <CardDescription>Preencha os dados básicos do evento</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do Evento *</Label>
-                  <Input
-                    id="nome"
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleInputChange}
-                    placeholder="Ex: Feira de Negócios 2023"
-                    required
-                  />
-                </div>
+            <Tabs defaultValue="informacoes" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="informacoes">Informações</TabsTrigger>
+                <TabsTrigger value="documentos">Documentos</TabsTrigger>
+              </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
-                  <Textarea
-                    id="descricao"
-                    name="descricao"
-                    value={formData.descricao}
-                    onChange={handleInputChange}
-                    placeholder="Descreva o evento..."
-                    rows={4}
-                  />
-                </div>
+              <TabsContent value="informacoes">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Informações do Evento</CardTitle>
+                    <CardDescription>Preencha os dados básicos do evento</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nome">Nome do Evento *</Label>
+                      <Input
+                        id="nome"
+                        name="nome"
+                        value={formData.nome}
+                        onChange={handleInputChange}
+                        placeholder="Ex: Feira de Negócios 2023"
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label>Imagem do Evento</Label>
-                  <ImageUpload value={formData.imagem} onChange={handleImageChange} />
-                  <p className="text-sm text-muted-foreground">
-                    Imagem de destaque que será exibida na página de registro
-                  </p>
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="descricao">Descrição</Label>
+                      <Textarea
+                        id="descricao"
+                        name="descricao"
+                        value={formData.descricao}
+                        onChange={handleInputChange}
+                        placeholder="Descreva o evento..."
+                        rows={4}
+                      />
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Data de Início *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(formData.dataInicio, "PPP", { locale: ptBR })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.dataInicio}
-                          onSelect={(date) => handleDateChange("dataInicio", date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                    <div className="space-y-2">
+                      <Label>Imagem do Evento</Label>
+                      <ImageUpload value={formData.imagem} onChange={handleImageChange} />
+                      <p className="text-sm text-muted-foreground">
+                        Imagem de destaque que será exibida na página de registro
+                      </p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Data de Término *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(formData.dataFim, "PPP", { locale: ptBR })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.dataFim}
-                          onSelect={(date) => handleDateChange("dataFim", date)}
-                          initialFocus
-                          disabled={(date) => date < formData.dataInicio}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Data de Início *</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(formData.dataInicio, "PPP", { locale: ptBR })}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={formData.dataInicio}
+                              onSelect={(date) => handleDateChange("dataInicio", date)}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
 
-                <div className="flex items-center space-x-2 pt-2">
-                  <Switch id="ativo" checked={formData.ativo} onCheckedChange={handleSwitchChange} />
-                  <Label htmlFor="ativo">Ativar evento</Label>
-                </div>
-                {formData.ativo && (
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    Atenção: Ativar este evento irá desativar qualquer outro evento ativo.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                      <div className="space-y-2">
+                        <Label>Data de Término *</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {format(formData.dataFim, "PPP", { locale: ptBR })}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={formData.dataFim}
+                              onSelect={(date) => handleDateChange("dataFim", date)}
+                              initialFocus
+                              disabled={(date) => date < formData.dataInicio}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch id="ativo" checked={formData.ativo} onCheckedChange={handleSwitchChange} />
+                      <Label htmlFor="ativo">Ativar evento</Label>
+                    </div>
+                    {formData.ativo && (
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
+                        Atenção: Ativar este evento irá desativar qualquer outro evento ativo.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="documentos">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Documentos do Evento</CardTitle>
+                    <CardDescription>
+                      Adicione documentos como termos de participação, regulamentos, contratos, etc.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DocumentUpload
+                      value={formData.documentos}
+                      onChange={handleDocumentsChange}
+                      maxFiles={5}
+                      allowedTypes={[".pdf", ".doc", ".docx", ".txt"]}
+                      maxSize={5}
+                    />
+
+                    <div className="mt-4 text-sm text-muted-foreground">
+                      <p>Estes documentos estarão disponíveis para download pelos lojistas participantes do evento.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="space-y-6">
@@ -268,6 +308,22 @@ export default function CriarEventoPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            {formData.documentos.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Resumo dos Documentos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FileText className="h-4 w-4" />
+                      <span>{formData.documentos.length} documentos anexados</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </form>

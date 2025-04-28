@@ -4,10 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const session = await getServerSession(authOptions)
@@ -32,6 +29,7 @@ export async function GET(
           dataFim: new Date(),
           ativo: false,
           lojasParticipantes: [],
+          documentos: [], // Add empty documentos array
         },
       })
     } else if (ObjectId.isValid(id)) {
@@ -73,6 +71,7 @@ export async function GET(
         visitantesUnicos,
         totalVisitantes,
         lojasParticipantes,
+        documentos: evento.documentos || [], // Ensure documentos is always an array
       },
     })
   } catch (error) {
@@ -81,10 +80,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const session = await getServerSession(authOptions)
@@ -126,6 +122,7 @@ export async function PUT(
         dataFim: new Date(data.dataFim),
         ativo: data.ativo || false,
         lojasParticipantes: data.lojasParticipantes || [],
+        documentos: data.documentos || [], // Add documentos array
         dataCriacao: new Date(),
         criadoPor: session.user.id,
       })
@@ -152,6 +149,7 @@ export async function PUT(
             dataFim: new Date(data.dataFim),
             ativo: data.ativo || false,
             lojasParticipantes: data.lojasParticipantes || [],
+            documentos: data.documentos || [], // Add documentos array
             ultimaAtualizacao: new Date(),
           },
         },
@@ -165,10 +163,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const session = await getServerSession(authOptions)

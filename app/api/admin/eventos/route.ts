@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       dataFim: new Date(data.dataFim),
       ativo: data.ativo || false,
       lojasParticipantes: data.lojasParticipantes || [],
+      documentos: data.documentos || [], // Add documentos array
       dataCriacao: new Date(),
       criadoPor: session.user.id,
     })

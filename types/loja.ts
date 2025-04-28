@@ -5,69 +5,89 @@ export interface CriarLojaFormProps {
 // Add the missing Endereco type
 export interface Endereco {
   rua?: string
+  logradouro?: string
   numero?: string
   complemento?: string
   bairro?: string
   cidade?: string
   estado?: string
   cep?: string
+  pais?: string
   latitude?: number
   longitude?: number
-  logradouro?: string
 }
 
-// Add the missing HorarioFuncionamento type
+// Atualizar a interface HorarioFuncionamento para suportar ambos os formatos
 export interface HorarioFuncionamento {
-  segunda?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  terca?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  quarta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  quinta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  sexta?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  sabado?: string | { open?: boolean; abertura?: string; fechamento?: string }
-  domingo?: string | { open?: boolean; abertura?: string; fechamento?: string }
+  [key: string]:
+    | {
+        aberto?: boolean
+        open?: boolean
+        abertura?: string
+        fechamento?: string
+        opening?: string
+        closing?: string
+      }
+    | string
+}
+
+export interface Contato {
+  telefone?: string
+  whatsapp?: string
+  email?: string
+  site?: string
 }
 
 export interface Loja {
   _id: string
-  id: string
+  id?: string // Added id property
   nome: string
   descricao?: string
   logo?: string
   banner?: string
-  capa?: string
+  categoria?: string
+  tags?: string[]
   endereco?: Endereco
-  contato?: {
-    telefone?: string
-    whatsapp?: string
-    email?: string
-    site?: string
-  }
+  contato?: Contato
   horarioFuncionamento?: HorarioFuncionamento
+  redesSociais?: {
+    facebook?: string
+    instagram?: string
+    twitter?: string
+    linkedin?: string
+    youtube?: string
+    tiktok?: string
+  }
+  vitrine?: any
+  usuarioId?: string
+  dataCriacao?: string | Date
+  dataAtualizacao?: string | Date
+  status?: string
+  plano?: string
+  verificada?: boolean
+  userId?: string
+  capa?: string
   vitrineId?: string
   proprietarioId?: string
   categorias?: string[]
-  status?: string
   ativo?: boolean
-  plano?: string
   planoId?: string
   proprietarioPlano?: string
-  vitrine?: any
   produtos?: Produto[]
-  telefone?: string
-  email?: string
   website?: string
   site?: string
   instagram?: string
   facebook?: string
-  redesSociais?: {
+  telefone?: string // Added telefone property
+  email?: string // Added email property
+  redesSociais2?: {
     instagram?: string
     facebook?: string
     twitter?: string
     linkedin?: string
     youtube?: string
   }
-  usuarioId?: string
-  userId?: string
+  userId2?: string
   cores?: {
     primaria?: string
     secundaria?: string
@@ -80,34 +100,43 @@ export interface Loja {
   layout?: string
   fonte?: string
   animacoes?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  titulo?: string // Added for VitrineConfig compatibility
 }
 
 export interface Produto {
   _id: string
   nome: string
-  descricaoCurta?: string
   descricao?: string
-  descricaoCompleta?: string // Adicionado
+  descricaoCurta?: string
   preco: number
   precoPromocional?: number
   imagens?: string[]
+  categorias?: string[]
+  tags?: string[]
+  estoque?: number
+  lojaId?: string
+  dataCriacao?: string | Date
+  dataAtualizacao?: string | Date
+  status?: string
+  destaque?: boolean
+  avaliacao?: number
+  numeroAvaliacoes?: number
+  descricaoCompleta?: string // Adicionado
   videoUrl?: string // Adicionado
   categoria?: string // Adicionado para compatibilidade
-  categorias?: string[]
   subcategoria?: string // Adicionado
-  tags?: string[] // Adicionado
   marca?: string // Adicionado
   modelo?: string // Adicionado
-  estoque?: number
   sku?: string // Adicionado
   codigoBarras?: string // Adicionado
   peso?: number // Adicionado
   altura?: number // Adicionado
   largura?: number // Adicionado
-  comprimento?: number // Adicionado
+  comprimento?: string // Adicionado
   tipoFrete?: string // Adicionado
   ativo?: boolean
-  destaque?: boolean
   tipoProduto?: string // Adicionado
   variacoes?: Array<{
     // Adicionado
@@ -118,14 +147,38 @@ export interface Produto {
       estoque?: number
     }>
   }>
-  dataCriacao?: string | Date
-  dataAtualizacao?: string | Date
-  createdAt?: string | Date // Adicionado
-  updatedAt?: string | Date // Adicionado
-  lojaId?: string
+  createdAt?: string | Date // Modificado para aceitar Date
+  updatedAt?: string | Date // Modificado para aceitar Date
+  createdAt2?: string | Date // Já aceita Date
+  updatedAt2?: string | Date // Já aceita Date
+  lojaId2?: string
   userId?: string // Adicionado
   metaTitle?: string // Adicionado
   metaDescription?: string // Adicionado
+  disponivel?: boolean
+}
+
+export interface VitrineConfig {
+  _id?: string
+  lojaId?: string
+  corPrimaria?: string
+  corSecundaria?: string
+  corTexto?: string
+  corFundo?: string
+  fonteTexto?: string
+  fonteTitulos?: string
+  mostrarProdutos?: boolean
+  mostrarHorarios?: boolean
+  mostrarEndereco?: boolean
+  mostrarContato?: boolean
+  mostrarRedesSociais?: boolean
+  layoutProdutos?: "grid" | "lista" | "carrossel"
+  bannerPersonalizado?: string
+  logoPersonalizado?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  titulo?: string // Added for compatibility with your code
+  descricao?: string // Added for compatibility with your code
 }
 
 export interface LojaPerfilContentProps {

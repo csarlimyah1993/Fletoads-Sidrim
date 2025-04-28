@@ -1,26 +1,22 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
-    const { db } = await connectToDatabase()
+    const session = await getServerSession(authOptions)
 
-    // Buscar o evento ativo
-    const eventoAtivo = await db.collection("eventos").findOne({ ativo: true })
-
-    if (!eventoAtivo) {
-      return NextResponse.json({ eventoAtivo: null })
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Retornar apenas os dados necessários para a página de registro
-    return NextResponse.json({
-      eventoAtivo: {
-        _id: eventoAtivo._id,
-        nome: eventoAtivo.nome,
-        descricao: eventoAtivo.descricao,
-        imagem: eventoAtivo.imagem,
-      },
-    })
+    const { db } = await connectToDatabase()
+
+    // Buscar evento ativo
+    const evento = await db.collection("eventos").findOne({ ativo: true })
+
+    return NextResponse.json({ evento })
   } catch (error) {
     console.error("Erro ao buscar evento ativo:", error)
     return NextResponse.json({ error: "Erro ao buscar evento ativo" }, { status: 500 })

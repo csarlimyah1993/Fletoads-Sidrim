@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Mail, CheckCircle } from "lucide-react"
 import type { Loja } from "@/types/loja"
 import type { VitrineConfig } from "@/types/vitrine"
 
@@ -15,68 +16,88 @@ interface VitrineNewsletterProps {
 
 export function VitrineNewsletter({ loja, config }: VitrineNewsletterProps) {
   const [email, setEmail] = useState("")
-  const [enviado, setEnviado] = useState(false)
-  const [enviando, setEnviando] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState("")
+
+  if (!config.widgetNewsletter?.ativo) {
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!email) return
-
-    setEnviando(true)
+    if (!email) {
+      setError("Por favor, informe seu email")
+      return
+    }
 
     try {
-      // Simular envio (aqui você implementaria a chamada real à API)
+      setLoading(true)
+      setError("")
+
+      // Simular envio para API
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      setEnviado(true)
+      // Sucesso
+      setSuccess(true)
       setEmail("")
 
-      // Resetar após 3 segundos
+      // Reset após 5 segundos
       setTimeout(() => {
-        setEnviado(false)
-      }, 3000)
-    } catch (error) {
-      console.error("Erro ao enviar newsletter:", error)
+        setSuccess(false)
+      }, 5000)
+    } catch (err) {
+      setError("Erro ao cadastrar email. Tente novamente.")
     } finally {
-      setEnviando(false)
+      setLoading(false)
     }
   }
 
   return (
-    <section className="py-16 px-4">
-      <div className="container mx-auto">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Fique por dentro das novidades</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Inscreva-se em nossa newsletter para receber ofertas exclusivas e novidades.
-          </p>
+    <section
+      className="py-12 px-4"
+      style={{
+        backgroundColor: config.widgetNewsletter.corFundo || "#dbeafe",
+        color: config.widgetNewsletter.corTexto || "#1e40af",
+      }}
+    >
+      <div className="container mx-auto max-w-3xl text-center">
+        <Mail className="h-12 w-12 mx-auto mb-4" />
+        <h2 className="text-3xl font-bold mb-2">{config.widgetNewsletter.titulo || "Assine nossa newsletter"}</h2>
+        <p className="mb-6">
+          {config.widgetNewsletter.descricao || "Receba novidades e promoções exclusivas no seu email"}
+        </p>
+
+        {success ? (
+          <div className="flex items-center justify-center gap-2 text-green-600">
+            <CheckCircle className="h-5 w-5" />
+            <span>Email cadastrado com sucesso!</span>
+          </div>
+        ) : (
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
             <Input
               type="email"
               placeholder="Seu melhor email"
-              className="flex-1"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="flex-1"
               required
             />
             <Button
               type="submit"
-              disabled={enviando || enviado}
+              disabled={loading}
               style={{
-                backgroundColor: config.corPrimaria,
-                color: config.corTexto,
+                backgroundColor: config.corPrimaria || "#3b82f6",
+                color: config.corTexto || "#ffffff",
               }}
             >
-              {enviando ? "Enviando..." : enviado ? "Enviado!" : "Inscrever-se"}
+              {loading ? "Enviando..." : "Assinar"}
             </Button>
           </form>
-          {enviado && (
-            <p className="mt-4 text-green-600 dark:text-green-400">
-              Obrigado por se inscrever! Em breve você receberá nossas novidades.
-            </p>
-          )}
-        </div>
+        )}
+
+        {error && <p className="mt-2 text-red-500 text-sm">{error}</p>}
       </div>
     </section>
   )
