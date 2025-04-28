@@ -13,11 +13,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { AlertCircle, Check, Info } from "lucide-react"
+import { AlertCircle, Check, Info, ExternalLink } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ColorPicker } from "@/components/ui/color-picker"
 import type { Loja } from "@/types/loja"
+import { useSession } from "next-auth/react"
 import { PlanCardCompact } from "@/components/planos/plano-compact-card"
+import { toast } from "@/components/ui/use-toast"
 
 // Componente principal
 export function VitrineForm({ loja }: { loja: Loja }) {
@@ -26,8 +28,18 @@ export function VitrineForm({ loja }: { loja: Loja }) {
   const [success, setSuccess] = useState("")
   const [activeTab, setActiveTab] = useState("geral")
   const router = useRouter()
+  const { data: session } = useSession()
 
-  const isPremium = loja.plano === "premium" || (loja as any).proprietarioPlano === "premium"
+  // Verificação do plano premium baseada nos dados do usuário logado e da loja
+  const isPremium =
+    session?.user?.plano === "premium" || loja.plano === "premium" || loja.proprietarioPlano === "premium"
+
+  console.log("Status do plano:", {
+    userPlano: session?.user?.plano,
+    lojaPlano: loja.plano,
+    proprietarioPlano: loja.proprietarioPlano,
+    isPremium,
+  })
 
   // Estado do formulário
   const [formData, setFormData] = useState({
@@ -257,20 +269,74 @@ export function VitrineForm({ loja }: { loja: Loja }) {
     setSuccess("")
 
     try {
+      console.log("Enviando dados para:", `/api/lojas/${loja._id}/vitrine`)
+
+      // Alterado de POST para PUT, que é mais apropriado para atualizar recursos existentes
       const response = await fetch(`/api/lojas/${loja._id}/vitrine`, {
-        method: "POST",
+        method: "PUT", // Alterado de POST para PUT
         headers: {
           "Content-Type": "application/json",
+          // Adicionar cabeçalhos para evitar cache
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
         body: JSON.stringify(formData),
       })
 
+      // Verificar se a resposta está ok antes de tentar analisar o JSON
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao salvar configurações")
+        let errorMessage = "Erro ao salvar configurações"
+
+        try {
+          // Tentar analisar o JSON apenas se houver conteúdo
+          const text = await response.text()
+          console.log("Resposta de erro:", text)
+
+          if (text) {
+            try {
+              const errorData = JSON.parse(text)
+              errorMessage = errorData.error || errorMessage
+            } catch (parseError) {
+              console.error("Erro ao analisar JSON:", parseError)
+              errorMessage = text || errorMessage
+            }
+          }
+        } catch (parseError) {
+          console.error("Erro ao analisar resposta:", parseError)
+        }
+
+        throw new Error(errorMessage)
       }
 
+      // Tentar obter a resposta de sucesso
+      try {
+        const result = await response.json()
+        console.log("Resposta de sucesso:", result)
+      } catch (e) {
+        console.log("Resposta vazia ou não-JSON")
+      }
+
+      // Exibir mensagem de sucesso mais visível
       setSuccess("Configurações salvas com sucesso!")
+
+      // Exibir toast de confirmação
+      toast({
+        title: "Configurações salvas!",
+        description: "Suas alterações foram salvas com sucesso.",
+        // Use "default" em vez de "success" e adicione uma classe personalizada
+        variant: "default",
+        className: "bg-green-50 border-green-200 text-green-800",
+      })
+
+      // Exibir feedback visual temporário
+      const formElement = document.querySelector("form")
+      if (formElement) {
+        formElement.classList.add("save-success-animation")
+        setTimeout(() => {
+          formElement.classList.remove("save-success-animation")
+        }, 1000)
+      }
 
       // Recarregar a página após 2 segundos
       setTimeout(() => {
@@ -279,14 +345,22 @@ export function VitrineForm({ loja }: { loja: Loja }) {
     } catch (error) {
       console.error("Erro ao salvar configurações:", error)
       setError(error instanceof Error ? error.message : "Erro ao salvar configurações")
+
+      // Exibir toast de erro
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Erro ao salvar configurações",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  // Função para visualizar a vitrine
+  // Função para visualizar a vitrine - usando o ID da loja em vez do slug
   const handlePreview = () => {
-    const vitrineUrl = formData.slug ? `/vitrines/${formData.slug}` : `/vitrines/${loja._id}`
+    // Priorizar o ID da loja para garantir que a URL seja correta
+    const vitrineUrl = `/vitrines/${loja._id}`
     window.open(vitrineUrl, "_blank")
   }
 
@@ -301,18 +375,19 @@ export function VitrineForm({ loja }: { loja: Loja }) {
       )}
 
       {success && (
-        <Alert className="bg-green-50 text-green-800 border-green-200">
+        <Alert className="bg-green-50 border-green-300 text-green-800">
           <Check className="h-4 w-4 text-green-500" />
-          <AlertTitle>Sucesso</AlertTitle>
+          <AlertTitle className="font-bold">Salvo com sucesso!</AlertTitle>
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold">Configurações da Vitrine</h1>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={handlePreview}>
-            Visualizar
+          <Button type="button" variant="outline" onClick={handlePreview} className="flex items-center gap-2">
+            <ExternalLink className="h-4 w-4" />
+            Visualizar Vitrine
           </Button>
           <Button type="submit" disabled={loading}>
             {loading ? "Salvando..." : "Salvar"}
@@ -320,7 +395,8 @@ export function VitrineForm({ loja }: { loja: Loja }) {
         </div>
       </div>
 
-      <PlanCardCompact className="mb-6" />
+      {/* Status do plano */}
+      <PlanCardCompact className="mb-4" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6 flex flex-wrap">
@@ -1059,6 +1135,24 @@ export function VitrineForm({ loja }: { loja: Loja }) {
           {loading ? "Salvando..." : "Salvar Configurações"}
         </Button>
       </div>
+
+      <style jsx global>{`
+        .save-success-animation {
+          animation: success-pulse 1s ease-in-out;
+        }
+        
+        @keyframes success-pulse {
+          0% { 
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); 
+          }
+          70% { 
+            box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); 
+          }
+          100% { 
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); 
+          }
+        }
+      `}</style>
     </form>
   )
 }

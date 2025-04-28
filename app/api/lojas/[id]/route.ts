@@ -1,196 +1,134 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../../../lib/auth"
-import { connectToDatabase, ObjectId } from "@/lib/mongodb"
+import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-// Função auxiliar para serializar ObjectIds e Dates
-function serializeData(obj: any): any {
-  if (!obj) return obj
-
-  // Se for um array, serializa cada item
-  if (Array.isArray(obj)) {
-    return obj.map((item) => serializeData(item))
-  }
-
-  // Se for um objeto, serializa suas propriedades
-  if (typeof obj === "object" && obj !== null) {
-    // Se for ObjectId, converte para string
-    if (obj instanceof ObjectId) {
-      return obj.toString()
-    }
-
-    // Se for Date, converte para ISO string
-    if (obj instanceof Date) {
-      return obj.toISOString()
-    }
-
-    // Para outros objetos, serializa recursivamente
-    const result: Record<string, any> = {}
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        result[key] = serializeData(obj[key])
-      }
-    }
-    return result
-  }
-
-  // Valores primitivos são retornados como estão
-  return obj
-}
-
-// Updated type definition for params to match Next.js 15
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// Updated GET function with proper params type
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
-    const session = await getServerSession(authOptions)
+    const { id } = await params // Await the params promise
+    console.log("GET /api/lojas/[id] - Iniciando requisição para ID:", id)
 
-    if (!session?.user) {
+    // Rest of your GET function remains the same
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      console.log("GET /api/lojas/[id] - Usuário não autenticado")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
+    if (!id || !ObjectId.isValid(id)) {
+      console.log("GET /api/lojas/[id] - ID inválido:", id)
+      return NextResponse.json({ error: "ID de loja inválido" }, { status: 400 })
+    }
 
-    // Verificar se a loja pertence ao usuário
-    const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
-      $or: [
-        { userId: session.user.id },
-        { userId: new ObjectId(session.user.id) },
-        { usuarioId: session.user.id },
-        { usuarioId: new ObjectId(session.user.id) },
-      ],
-    })
+    const { db } = await connectToDatabase()
+    console.log("GET /api/lojas/[id] - Conectado ao banco de dados, buscando loja com ID:", id)
+
+    const loja = await db.collection("lojas").findOne({ _id: new ObjectId(id) })
 
     if (!loja) {
+      console.log("GET /api/lojas/[id] - Loja não encontrada para ID:", id)
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    const data = await request.json()
-
-    // Validar dados
-    if (!data.nome) {
-      return NextResponse.json({ error: "Nome da loja é obrigatório" }, { status: 400 })
-    }
-
-    // Atualizar loja
-    const updateData: Record<string, any> = {
-      nome: data.nome,
-      dataAtualizacao: new Date(),
-    }
-
-    // Adicionar campos opcionais se fornecidos
-    if (data.descricao !== undefined) updateData.descricao = data.descricao
-    if (data.logo !== undefined) updateData.logo = data.logo
-    if (data.banner !== undefined) updateData.banner = data.banner
-
-    // Adicionar dados de endereço, contato e redes sociais
-    if (data.endereco) updateData.endereco = data.endereco
-    if (data.contato) updateData.contato = data.contato
-    if (data.redesSociais) updateData.redesSociais = data.redesSociais
-
-    await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: updateData })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Erro ao atualizar loja:", error)
-    return NextResponse.json({ error: "Erro ao processar requisição" }, { status: 500 })
-  }
-}
-
-// Updated GET handler to match Next.js 15 type definitions
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    console.log(`Buscando loja com ID: ${id}`)
-
-    const { db } = await connectToDatabase()
-
-    const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
-    })
-
-    if (!loja) {
-      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
-    }
-
-    // Garantir que todos os objetos aninhados existam
-    const lojaCompleta = {
-      ...loja,
-      endereco: loja.endereco || {},
-      contato: loja.contato || {},
-      redesSociais: loja.redesSociais || {},
-    }
-
-    // Serializar todos os dados (ObjectIds, Dates, etc)
-    const lojaSerializada = serializeData(lojaCompleta)
-
-    console.log("Dados da loja recuperados com sucesso:", {
-      id: lojaSerializada._id,
-      nome: lojaSerializada.nome,
-      temEndereco: !!lojaSerializada.endereco,
-      temContato: !!lojaSerializada.contato,
-      temRedesSociais: !!lojaSerializada.redesSociais,
-    })
-
-    return NextResponse.json(lojaSerializada)
+    console.log("GET /api/lojas/[id] - Loja encontrada:", loja._id.toString())
+    return NextResponse.json(loja)
   } catch (error) {
     console.error("Erro ao buscar loja:", error)
-    return NextResponse.json({ error: "Erro ao processar requisição" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao buscar loja" }, { status: 500 })
   }
 }
 
-// Adicionar método PUT para compatibilidade com o formulário
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// Updated PUT function with proper params type
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
-    const session = await getServerSession(authOptions)
+    const { id } = await params // Await the params promise
+    console.log("PUT /api/lojas/[id] - Iniciando requisição para ID:", id)
 
-    if (!session?.user) {
+    // Rest of your PUT function remains the same
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      console.log("PUT /api/lojas/[id] - Usuário não autenticado")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
+    if (!id || !ObjectId.isValid(id)) {
+      console.log("PUT /api/lojas/[id] - ID inválido:", id)
+      return NextResponse.json({ error: "ID de loja inválido" }, { status: 400 })
+    }
 
-    // Verificar se a loja pertence ao usuário
-    const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
-      $or: [
-        { userId: session.user.id },
-        { userId: new ObjectId(session.user.id) },
-        { usuarioId: session.user.id },
-        { usuarioId: new ObjectId(session.user.id) },
-      ],
-    })
+    const { db } = await connectToDatabase()
+    console.log("PUT /api/lojas/[id] - Conectado ao banco de dados, buscando loja com ID:", id)
+
+    const loja = await db.collection("lojas").findOne({ _id: new ObjectId(id) })
 
     if (!loja) {
+      console.log("PUT /api/lojas/[id] - Loja não encontrada para ID:", id)
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    const data = await request.json()
-    console.log("Dados recebidos para atualização:", data)
-
-    // Validar dados
-    if (!data.nome) {
-      return NextResponse.json({ error: "Nome da loja é obrigatório" }, { status: 400 })
+    // Verificar se o usuário tem permissão para atualizar esta loja
+    const userId = session.user.id
+    if (
+      loja.userId?.toString() !== userId &&
+      loja.proprietarioId?.toString() !== userId &&
+      session.user.role !== "admin"
+    ) {
+      console.log("PUT /api/lojas/[id] - Usuário sem permissão:", userId)
+      return NextResponse.json({ error: "Você não tem permissão para atualizar esta loja" }, { status: 403 })
     }
 
-    // Preparar dados para atualização
-    const updateData: Record<string, any> = {
+    // Obter os dados do corpo da requisição
+    let data
+    try {
+      data = await request.json()
+      console.log("PUT /api/lojas/[id] - Dados recebidos:", JSON.stringify(data).substring(0, 200) + "...")
+    } catch (error) {
+      console.error("PUT /api/lojas/[id] - Erro ao processar JSON:", error)
+      return NextResponse.json({ error: "Formato de dados inválido" }, { status: 400 })
+    }
+
+    // Preparar os dados para atualização
+    const updateData = {
       nome: data.nome,
-      descricao: data.descricao || "",
-      logo: data.logo || "",
-      banner: data.banner || "",
-      endereco: data.endereco || {},
-      contato: data.contato || {},
-      redesSociais: data.redesSociais || {},
+      descricao: data.descricao,
+      logo: data.logo,
+      banner: data.banner,
+      endereco: data.endereco,
+      contato: data.contato,
+      redesSociais: data.redesSociais,
+      horarioFuncionamento: data.horarioFuncionamento,
       dataAtualizacao: new Date(),
     }
 
-    await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: updateData })
+    console.log(
+      "PUT /api/lojas/[id] - Atualizando loja com dados:",
+      JSON.stringify(updateData).substring(0, 200) + "...",
+    )
 
-    return NextResponse.json({ success: true, message: "Loja atualizada com sucesso" })
+    // Atualizar a loja
+    const result = await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: updateData })
+
+    console.log("PUT /api/lojas/[id] - Resultado da atualização:", result)
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Loja atualizada com sucesso",
+      lojaId: id,
+    })
   } catch (error) {
     console.error("Erro ao atualizar loja:", error)
-    return NextResponse.json({ error: "Erro ao processar requisição" }, { status: 500 })
+    return NextResponse.json({ error: "Erro ao atualizar dados da loja" }, { status: 500 })
   }
 }

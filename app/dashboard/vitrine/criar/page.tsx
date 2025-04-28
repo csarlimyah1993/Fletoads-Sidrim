@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
+import { PlanCardCompact } from "@/components/planos/plano-compact-card"
 
 export default function CriarVitrinePage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -66,6 +67,9 @@ export default function CriarVitrinePage() {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">Criar Vitrine</h1>
+
+      <PlanCardCompact className="mb-6" />
+
       <Card>
         <CardHeader>
           <CardTitle>Informações da Vitrine</CardTitle>

@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Os valores válidos geralmente são: 'draft', 'active', 'inactive', 'scheduled'
     // Vamos definir um valor padrão se não for fornecido ou for inválido
     if (!data.status || !["draft", "active", "inactive", "scheduled"].includes(data.status)) {
-      data.status = "draft" // Valor padrão
+      data.status = "active" // Alterado de "draft" para "active"
     }
 
     // Criar o panfleto com os dados validados

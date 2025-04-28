@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -12,10 +14,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, CalendarIcon } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
+import { format, parse, isValid } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -62,6 +64,7 @@ const clienteSchema = z.object({
       permiteEmail: z.boolean().optional(),
       permiteSMS: z.boolean().optional(),
       permiteWhatsapp: z.boolean().optional(),
+      permiteInstagram: z.boolean().optional(),
     })
     .optional(),
 
@@ -69,6 +72,7 @@ const clienteSchema = z.object({
   demograficos: z
     .object({
       dataNascimento: z.date().optional().nullable(),
+      dataNascimentoString: z.string().optional().or(z.literal("")),
       genero: z.string().optional().or(z.literal("")),
       estadoCivil: z.string().optional().or(z.literal("")),
       profissao: z.string().optional().or(z.literal("")),
@@ -80,7 +84,9 @@ const clienteSchema = z.object({
   relacionamento: z
     .object({
       ultimoContato: z.date().optional().nullable(),
+      ultimoContatoString: z.string().optional().or(z.literal("")),
       proximoContato: z.date().optional().nullable(),
+      proximoContatoString: z.string().optional().or(z.literal("")),
       frequenciaIdeal: z.string().optional().or(z.literal("")),
       responsavel: z.string().optional().or(z.literal("")),
       notas: z.string().optional().or(z.literal("")),
@@ -93,7 +99,8 @@ const clienteSchema = z.object({
 
 type ClienteFormValues = z.infer<typeof clienteSchema>
 
-interface Cliente {
+// Exportando a interface Cliente para ser usada em outros componentes
+export interface Cliente {
   _id: string
   nome: string
   email?: string
@@ -125,6 +132,7 @@ interface Cliente {
     permiteEmail?: boolean
     permiteSMS?: boolean
     permiteWhatsapp?: boolean
+    permiteInstagram?: boolean
   }
   demograficos?: {
     dataNascimento?: Date | string
@@ -143,7 +151,7 @@ interface Cliente {
   camposPersonalizados?: Record<string, string>
 }
 
-interface ClienteFormProps {
+export interface ClienteFormProps {
   cliente?: Cliente
 }
 
@@ -156,7 +164,56 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
   const parseDate = (dateString?: string | Date | null): Date | undefined => {
     if (!dateString) return undefined
     if (dateString instanceof Date) return dateString
-    return new Date(dateString)
+    try {
+      return new Date(dateString)
+    } catch (e) {
+      console.error("Erro ao converter data:", e)
+      return undefined
+    }
+  }
+
+  // Função para formatar data para exibição
+  const formatDate = (date: Date | undefined | null): string => {
+    if (!date) return ""
+    try {
+      return format(date, "dd/MM/yyyy", { locale: ptBR })
+    } catch (e) {
+      console.error("Erro ao formatar data:", e)
+      return ""
+    }
+  }
+
+  // Função para converter string de data para Date
+  const parseDateString = (dateString: string): Date | null => {
+    if (!dateString) return null
+    try {
+      const parsedDate = parse(dateString, "dd/MM/yyyy", new Date())
+      return isValid(parsedDate) ? parsedDate : null
+    } catch (e) {
+      console.error("Erro ao converter string para data:", e)
+      return null
+    }
+  }
+
+  // Função para sincronizar input de data com o estado do formulário
+  const handleDateInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "demograficos.dataNascimento" | "relacionamento.ultimoContato" | "relacionamento.proximoContato",
+    stringField:
+      | "demograficos.dataNascimentoString"
+      | "relacionamento.ultimoContatoString"
+      | "relacionamento.proximoContatoString",
+  ) => {
+    const dateString = e.target.value
+    form.setValue(stringField, dateString)
+
+    // Tenta converter a string para data apenas se tiver o formato correto
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+      const parsedDate = parseDateString(dateString)
+      if (parsedDate) {
+        form.setValue(field, parsedDate)
+      }
+    }
   }
 
   // Preparar valores iniciais
@@ -195,11 +252,15 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
       permiteEmail: cliente?.marketing?.permiteEmail || false,
       permiteSMS: cliente?.marketing?.permiteSMS || false,
       permiteWhatsapp: cliente?.marketing?.permiteWhatsapp || false,
+      permiteInstagram: cliente?.marketing?.permiteInstagram || false,
     },
 
     // Dados demográficos
     demograficos: {
-      dataNascimento: parseDate(cliente?.demograficos?.dataNascimento) || null,
+      dataNascimento: parseDate(cliente?.demograficos?.dataNascimento),
+      dataNascimentoString: cliente?.demograficos?.dataNascimento
+        ? formatDate(parseDate(cliente?.demograficos?.dataNascimento))
+        : "",
       genero: cliente?.demograficos?.genero || "",
       estadoCivil: cliente?.demograficos?.estadoCivil || "",
       profissao: cliente?.demograficos?.profissao || "",
@@ -208,8 +269,14 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
 
     // Dados de relacionamento
     relacionamento: {
-      ultimoContato: parseDate(cliente?.relacionamento?.ultimoContato) || null,
-      proximoContato: parseDate(cliente?.relacionamento?.proximoContato) || null,
+      ultimoContato: parseDate(cliente?.relacionamento?.ultimoContato),
+      ultimoContatoString: cliente?.relacionamento?.ultimoContato
+        ? formatDate(parseDate(cliente?.relacionamento?.ultimoContato))
+        : "",
+      proximoContato: parseDate(cliente?.relacionamento?.proximoContato),
+      proximoContatoString: cliente?.relacionamento?.proximoContato
+        ? formatDate(parseDate(cliente?.relacionamento?.proximoContato))
+        : "",
       frequenciaIdeal: cliente?.relacionamento?.frequenciaIdeal || "",
       responsavel: cliente?.relacionamento?.responsavel || "",
       notas: cliente?.relacionamento?.notas || "",
@@ -225,10 +292,60 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
     defaultValues,
   })
 
+  // Função para sincronizar input de data com o estado do formulário
+  /*const handleDateInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "demograficos.dataNascimento" | "relacionamento.ultimoContato" | "relacionamento.proximoContato",
+    stringField:
+      | "demograficos.dataNascimentoString"
+      | "relacionamento.ultimoContatoString"
+      | "relacionamento.proximoContatoString",
+  ) => {
+    const dateString = e.target.value
+    form.setValue(stringField, dateString)
+
+    const parsedDate = parseDateString(dateString)
+    if (parsedDate) {
+      form.setValue(field, parsedDate)
+    }
+  }*/
+
   // Função para lidar com o envio do formulário
   const onSubmit = async (data: ClienteFormValues) => {
     setIsSubmitting(true)
     try {
+      // Processar datas a partir das strings, se necessário
+      if (data.demograficos?.dataNascimentoString && !data.demograficos.dataNascimento) {
+        const parsedDate = parseDateString(data.demograficos.dataNascimentoString)
+        if (parsedDate) {
+          data.demograficos.dataNascimento = parsedDate
+        }
+      }
+
+      if (data.relacionamento?.ultimoContatoString && !data.relacionamento.ultimoContato) {
+        const parsedDate = parseDateString(data.relacionamento.ultimoContatoString)
+        if (parsedDate) {
+          data.relacionamento.ultimoContato = parsedDate
+        }
+      }
+
+      if (data.relacionamento?.proximoContatoString && !data.relacionamento.proximoContato) {
+        const parsedDate = parseDateString(data.relacionamento.proximoContatoString)
+        if (parsedDate) {
+          data.relacionamento.proximoContato = parsedDate
+        }
+      }
+
+      // Remover campos de string de data antes de enviar
+      if (data.demograficos) {
+        delete data.demograficos.dataNascimentoString
+      }
+
+      if (data.relacionamento) {
+        delete data.relacionamento.ultimoContatoString
+        delete data.relacionamento.proximoContatoString
+      }
+
       const url = cliente ? `/api/clientes/${cliente._id}` : "/api/clientes"
       const method = cliente ? "PUT" : "POST"
 
@@ -330,32 +447,36 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="rua">Rua</Label>
-                    <Input id="rua" placeholder="Rua" {...form.register("endereco.rua")} />
+                    <Label htmlFor="endereco.rua">Rua</Label>
+                    <Input id="endereco.rua" placeholder="Rua" {...form.register("endereco.rua")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="numero">Número</Label>
-                    <Input id="numero" placeholder="Número" {...form.register("endereco.numero")} />
+                    <Label htmlFor="endereco.numero">Número</Label>
+                    <Input id="endereco.numero" placeholder="Número" {...form.register("endereco.numero")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="complemento">Complemento</Label>
-                    <Input id="complemento" placeholder="Complemento" {...form.register("endereco.complemento")} />
+                    <Label htmlFor="endereco.complemento">Complemento</Label>
+                    <Input
+                      id="endereco.complemento"
+                      placeholder="Complemento"
+                      {...form.register("endereco.complemento")}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bairro">Bairro</Label>
-                    <Input id="bairro" placeholder="Bairro" {...form.register("endereco.bairro")} />
+                    <Label htmlFor="endereco.bairro">Bairro</Label>
+                    <Input id="endereco.bairro" placeholder="Bairro" {...form.register("endereco.bairro")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cidade">Cidade</Label>
-                    <Input id="cidade" placeholder="Cidade" {...form.register("endereco.cidade")} />
+                    <Label htmlFor="endereco.cidade">Cidade</Label>
+                    <Input id="endereco.cidade" placeholder="Cidade" {...form.register("endereco.cidade")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="estado">Estado</Label>
-                    <Input id="estado" placeholder="Estado" {...form.register("endereco.estado")} />
+                    <Label htmlFor="endereco.estado">Estado</Label>
+                    <Input id="endereco.estado" placeholder="Estado" {...form.register("endereco.estado")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cep">CEP</Label>
-                    <Input id="cep" placeholder="CEP" {...form.register("endereco.cep")} />
+                    <Label htmlFor="endereco.cep">CEP</Label>
+                    <Input id="endereco.cep" placeholder="CEP" {...form.register("endereco.cep")} />
                   </div>
                 </div>
               </CardContent>
@@ -380,23 +501,39 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     <p className="text-sm text-muted-foreground">Exemplo: Eletrônicos, Roupas, Calçados</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cores">Cores Preferidas</Label>
-                    <Input id="cores" placeholder="Cores preferidas" {...form.register("preferencias.cores")} />
+                    <Label htmlFor="preferencias.cores">Cores Preferidas</Label>
+                    <Input
+                      id="preferencias.cores"
+                      placeholder="Cores preferidas"
+                      {...form.register("preferencias.cores")}
+                    />
                     <p className="text-sm text-muted-foreground">Exemplo: Azul, Preto, Vermelho</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="estilos">Estilos Preferidos</Label>
-                    <Input id="estilos" placeholder="Estilos preferidos" {...form.register("preferencias.estilos")} />
+                    <Label htmlFor="preferencias.estilos">Estilos Preferidos</Label>
+                    <Input
+                      id="preferencias.estilos"
+                      placeholder="Estilos preferidos"
+                      {...form.register("preferencias.estilos")}
+                    />
                     <p className="text-sm text-muted-foreground">Exemplo: Casual, Esportivo, Formal</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tamanhos">Tamanhos</Label>
-                    <Input id="tamanhos" placeholder="Tamanhos" {...form.register("preferencias.tamanhos")} />
+                    <Label htmlFor="preferencias.tamanhos">Tamanhos</Label>
+                    <Input
+                      id="preferencias.tamanhos"
+                      placeholder="Tamanhos"
+                      {...form.register("preferencias.tamanhos")}
+                    />
                     <p className="text-sm text-muted-foreground">Exemplo: M, 42, G</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="marcas">Marcas Preferidas</Label>
-                    <Input id="marcas" placeholder="Marcas preferidas" {...form.register("preferencias.marcas")} />
+                    <Label htmlFor="preferencias.marcas">Marcas Preferidas</Label>
+                    <Input
+                      id="preferencias.marcas"
+                      placeholder="Marcas preferidas"
+                      {...form.register("preferencias.marcas")}
+                    />
                     <p className="text-sm text-muted-foreground">Exemplo: Nike, Adidas, Zara</p>
                   </div>
                 </div>
@@ -422,12 +559,12 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="canalAquisicao">Canal de Aquisição</Label>
+                    <Label htmlFor="marketing.canalAquisicao">Canal de Aquisição</Label>
                     <Select
                       defaultValue={form.getValues("marketing.canalAquisicao") || ""}
                       onValueChange={(value) => form.setValue("marketing.canalAquisicao", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="marketing.canalAquisicao">
                         <SelectValue placeholder="Selecione o canal" />
                       </SelectTrigger>
                       <SelectContent>
@@ -442,20 +579,20 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="campanhaOrigem">Campanha de Origem</Label>
+                    <Label htmlFor="marketing.campanhaOrigem">Campanha de Origem</Label>
                     <Input
-                      id="campanhaOrigem"
+                      id="marketing.campanhaOrigem"
                       placeholder="Campanha que trouxe o cliente"
                       {...form.register("marketing.campanhaOrigem")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="etapaFunil">Etapa no Funil</Label>
+                    <Label htmlFor="marketing.etapaFunil">Etapa no Funil</Label>
                     <Select
                       defaultValue={form.getValues("marketing.etapaFunil") || "prospecto"}
                       onValueChange={(value) => form.setValue("marketing.etapaFunil", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="marketing.etapaFunil">
                         <SelectValue placeholder="Selecione a etapa" />
                       </SelectTrigger>
                       <SelectContent>
@@ -470,7 +607,7 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pontuacao">Pontuação (Lead Score)</Label>
+                    <Label htmlFor="marketing.pontuacao">Pontuação (Lead Score)</Label>
                     <div className="pt-6 pb-2">
                       <Slider
                         defaultValue={[form.getValues("marketing.pontuacao") || 0]}
@@ -489,30 +626,46 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
 
                 <div className="space-y-4 pt-4">
                   <Label>Permissões de Contato</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="permiteEmail"
-                        checked={form.getValues("marketing.permiteEmail")}
-                        onCheckedChange={(checked) => form.setValue("marketing.permiteEmail", checked === true)}
+                      <Switch
+                        id="marketing.permiteEmail"
+                        checked={form.watch("marketing.permiteEmail") || false}
+                        onCheckedChange={(checked) => form.setValue("marketing.permiteEmail", checked)}
                       />
-                      <Label htmlFor="permiteEmail">Permite Email Marketing</Label>
+                      <Label htmlFor="marketing.permiteEmail" className="cursor-pointer">
+                        Permite Email Marketing
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="permiteSMS"
-                        checked={form.getValues("marketing.permiteSMS")}
-                        onCheckedChange={(checked) => form.setValue("marketing.permiteSMS", checked === true)}
+                      <Switch
+                        id="marketing.permiteSMS"
+                        checked={form.watch("marketing.permiteSMS") || false}
+                        onCheckedChange={(checked) => form.setValue("marketing.permiteSMS", checked)}
                       />
-                      <Label htmlFor="permiteSMS">Permite SMS</Label>
+                      <Label htmlFor="marketing.permiteSMS" className="cursor-pointer">
+                        Permite SMS
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="permiteWhatsapp"
-                        checked={form.getValues("marketing.permiteWhatsapp")}
-                        onCheckedChange={(checked) => form.setValue("marketing.permiteWhatsapp", checked === true)}
+                      <Switch
+                        id="marketing.permiteWhatsapp"
+                        checked={form.watch("marketing.permiteWhatsapp") || false}
+                        onCheckedChange={(checked) => form.setValue("marketing.permiteWhatsapp", checked)}
                       />
-                      <Label htmlFor="permiteWhatsapp">Permite WhatsApp</Label>
+                      <Label htmlFor="marketing.permiteWhatsapp" className="cursor-pointer">
+                        Permite WhatsApp
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="marketing.permiteInstagram"
+                        checked={form.watch("marketing.permiteInstagram") || false}
+                        onCheckedChange={(checked) => form.setValue("marketing.permiteInstagram", checked)}
+                      />
+                      <Label htmlFor="marketing.permiteInstagram" className="cursor-pointer">
+                        Permite Instagram
+                      </Label>
                     </div>
                   </div>
                 </div>
@@ -529,42 +682,57 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="dataNascimento">Data de Nascimento</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !form.getValues("demograficos.dataNascimento") && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {form.getValues("demograficos.dataNascimento") ? (
-                            format(form.getValues("demograficos.dataNascimento") as Date, "PPP", { locale: ptBR })
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={(form.getValues("demograficos.dataNascimento") as Date) || undefined}
-                          onSelect={(date) => form.setValue("demograficos.dataNascimento", date)}
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="demograficos.dataNascimentoString">Data de Nascimento</Label>
+                    <div className="flex flex-col space-y-2">
+                      <Input
+                        id="demograficos.dataNascimentoString"
+                        placeholder="DD/MM/AAAA"
+                        value={form.watch("demograficos.dataNascimentoString") || ""}
+                        onChange={(e) =>
+                          handleDateInputChange(e, "demograficos.dataNascimento", "demograficos.dataNascimentoString")
+                        }
+                      />
+                      <div className="relative">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !form.getValues("demograficos.dataNascimento") && "text-muted-foreground",
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <span>Selecionar no calendário</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={form.getValues("demograficos.dataNascimento") as Date | undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  form.setValue("demograficos.dataNascimento", date)
+                                  form.setValue("demograficos.dataNascimentoString", formatDate(date))
+                                }
+                              }}
+                              disabled={(date) => date > new Date()}
+                              initialFocus
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="genero">Gênero</Label>
+                    <Label htmlFor="demograficos.genero">Gênero</Label>
                     <Select
                       defaultValue={form.getValues("demograficos.genero") || ""}
                       onValueChange={(value) => form.setValue("demograficos.genero", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="demograficos.genero">
                         <SelectValue placeholder="Selecione o gênero" />
                       </SelectTrigger>
                       <SelectContent>
@@ -577,12 +745,12 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="estadoCivil">Estado Civil</Label>
+                    <Label htmlFor="demograficos.estadoCivil">Estado Civil</Label>
                     <Select
                       defaultValue={form.getValues("demograficos.estadoCivil") || ""}
                       onValueChange={(value) => form.setValue("demograficos.estadoCivil", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="demograficos.estadoCivil">
                         <SelectValue placeholder="Selecione o estado civil" />
                       </SelectTrigger>
                       <SelectContent>
@@ -596,20 +764,20 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="profissao">Profissão</Label>
+                    <Label htmlFor="demograficos.profissao">Profissão</Label>
                     <Input
-                      id="profissao"
+                      id="demograficos.profissao"
                       placeholder="Profissão do cliente"
                       {...form.register("demograficos.profissao")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="faixaRenda">Faixa de Renda</Label>
+                    <Label htmlFor="demograficos.faixaRenda">Faixa de Renda</Label>
                     <Select
                       defaultValue={form.getValues("demograficos.faixaRenda") || ""}
                       onValueChange={(value) => form.setValue("demograficos.faixaRenda", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="demograficos.faixaRenda">
                         <SelectValue placeholder="Selecione a faixa de renda" />
                       </SelectTrigger>
                       <SelectContent>
@@ -636,72 +804,104 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="ultimoContato">Último Contato</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !form.getValues("relacionamento.ultimoContato") && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {form.getValues("relacionamento.ultimoContato") ? (
-                            format(form.getValues("relacionamento.ultimoContato") as Date, "PPP", { locale: ptBR })
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={(form.getValues("relacionamento.ultimoContato") as Date) || undefined}
-                          onSelect={(date) => form.setValue("relacionamento.ultimoContato", date)}
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="relacionamento.ultimoContatoString">Último Contato</Label>
+                    <div className="flex flex-col space-y-2">
+                      <Input
+                        id="relacionamento.ultimoContatoString"
+                        placeholder="DD/MM/AAAA"
+                        value={form.watch("relacionamento.ultimoContatoString") || ""}
+                        onChange={(e) =>
+                          handleDateInputChange(e, "relacionamento.ultimoContato", "relacionamento.ultimoContatoString")
+                        }
+                      />
+                      <div className="relative">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !form.getValues("relacionamento.ultimoContato") && "text-muted-foreground",
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <span>Selecionar no calendário</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={form.getValues("relacionamento.ultimoContato") as Date | undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  form.setValue("relacionamento.ultimoContato", date)
+                                  form.setValue("relacionamento.ultimoContatoString", formatDate(date))
+                                }
+                              }}
+                              initialFocus
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="proximoContato">Próximo Contato</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !form.getValues("relacionamento.proximoContato") && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {form.getValues("relacionamento.proximoContato") ? (
-                            format(form.getValues("relacionamento.proximoContato") as Date, "PPP", { locale: ptBR })
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={(form.getValues("relacionamento.proximoContato") as Date) || undefined}
-                          onSelect={(date) => form.setValue("relacionamento.proximoContato", date)}
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label htmlFor="relacionamento.proximoContatoString">Próximo Contato</Label>
+                    <div className="flex flex-col space-y-2">
+                      <Input
+                        id="relacionamento.proximoContatoString"
+                        placeholder="DD/MM/AAAA"
+                        value={form.watch("relacionamento.proximoContatoString") || ""}
+                        onChange={(e) =>
+                          handleDateInputChange(
+                            e,
+                            "relacionamento.proximoContato",
+                            "relacionamento.proximoContatoString",
+                          )
+                        }
+                      />
+                      <div className="relative">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !form.getValues("relacionamento.proximoContato") && "text-muted-foreground",
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <span>Selecionar no calendário</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={form.getValues("relacionamento.proximoContato") as Date | undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  form.setValue("relacionamento.proximoContato", date)
+                                  form.setValue("relacionamento.proximoContatoString", formatDate(date))
+                                }
+                              }}
+                              initialFocus
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="frequenciaIdeal">Frequência Ideal de Contato</Label>
+                    <Label htmlFor="relacionamento.frequenciaIdeal">Frequência Ideal de Contato</Label>
                     <Select
                       defaultValue={form.getValues("relacionamento.frequenciaIdeal") || ""}
                       onValueChange={(value) => form.setValue("relacionamento.frequenciaIdeal", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="relacionamento.frequenciaIdeal">
                         <SelectValue placeholder="Selecione a frequência" />
                       </SelectTrigger>
                       <SelectContent>
@@ -715,18 +915,18 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="responsavel">Responsável pelo Cliente</Label>
+                    <Label htmlFor="relacionamento.responsavel">Responsável pelo Cliente</Label>
                     <Input
-                      id="responsavel"
+                      id="relacionamento.responsavel"
                       placeholder="Nome do responsável"
                       {...form.register("relacionamento.responsavel")}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="notas">Notas de Relacionamento</Label>
+                  <Label htmlFor="relacionamento.notas">Notas de Relacionamento</Label>
                   <Textarea
-                    id="notas"
+                    id="relacionamento.notas"
                     placeholder="Notas sobre o relacionamento com o cliente"
                     {...form.register("relacionamento.notas")}
                     className="min-h-[100px]"

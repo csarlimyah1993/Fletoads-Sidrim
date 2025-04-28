@@ -1,4 +1,4 @@
-import { Metadata } from "next"
+import type { Metadata } from "next"
 import { Header } from "@/components/header"
 import { PanfletoForm } from "@/components/panfletos/panfleto-form"
 import { getPanfletoById } from "@/lib/panfletos"
@@ -17,16 +17,19 @@ export const metadata: Metadata = {
 }
 
 export default async function EditarPanfletoPage({ params }: EditarPanfletoPageProps) {
-  const { id } = await params  // Aguardamos a resolução do params
+  const { id } = await params // Aguardamos a resolução do params
 
   const panfleto = await getPanfletoById(id)
+
+  // Extrair o lojaId do panfleto
+  const lojaId = panfleto.lojaId || ""
 
   return (
     <div className="flex min-h-screen flex-col">
       <Header title="Editar Panfleto" />
       <main className="flex-1">
         <div className="container py-6">
-          <PanfletoForm panfleto={panfleto} />
+          <PanfletoForm panfleto={panfleto} lojaId={lojaId} />
         </div>
       </main>
     </div>
