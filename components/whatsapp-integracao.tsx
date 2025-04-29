@@ -29,7 +29,6 @@ export function WhatsappIntegracao() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null)
   const [qrCodeLoading, setQrCodeLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [qrName, setQrName] = useState("")
   const [qrPhone, setQrPhone] = useState("")
   const [qrTimer, setQrTimer] = useState(40)
   const [isQrActive, setIsQrActive] = useState(false)
@@ -47,7 +46,7 @@ export function WhatsappIntegracao() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+        body: JSON.stringify({ phone: qrPhone }),
       });
 
       if (!response.ok) {
@@ -81,7 +80,7 @@ export function WhatsappIntegracao() {
   };
 
   const handleStartConnection = async () => {
-    if (!qrName || !qrPhone) {
+    if (!qrPhone) {
       toast({
         title: "Erro",
         description: "Nome e Telefone são necessários para iniciar a conexão.",
@@ -94,7 +93,7 @@ export function WhatsappIntegracao() {
       const response = await fetch("/api/integracoes/whatsapp/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+        body: JSON.stringify({ phone: qrPhone }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao iniciar conexão" }));
@@ -117,7 +116,7 @@ export function WhatsappIntegracao() {
   };
 
   const handleEndConnection = async () => {
-    if (!qrName || !qrPhone) {
+    if (!qrPhone) {
       toast({
         title: "Erro",
         description: "Nome e Telefone são necessários para finalizar a conexão.",
@@ -130,7 +129,7 @@ export function WhatsappIntegracao() {
       const response = await fetch("/api/integracoes/whatsapp/end", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: qrName, phone: qrPhone }),
+        body: JSON.stringify({ phone: qrPhone }),
       });
       if (!response.ok) {
          const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao finalizar conexão" }));
@@ -177,7 +176,6 @@ export function WhatsappIntegracao() {
     setQrCodeLoading(false)
     setIsQrActive(false)
     setQrTimer(40)
-    setQrName("")
     setQrPhone("")
     setDialogOpen(false)
   }
@@ -191,9 +189,8 @@ export function WhatsappIntegracao() {
        setIsQrActive(false);
        setQrCodeLoading(false);
        setQrTimer(40);
-       setQrName("");
        setQrPhone("");
-    }
+     }
   };
 
   return (
@@ -243,7 +240,7 @@ export function WhatsappIntegracao() {
                   />
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground text-center">
-                  Abra o WhatsApp no seu celular, vá em Configurações > Aparelhos conectados > Conectar um aparelho
+                  {"Abra o WhatsApp no seu celular, vá em Configurações > Aparelhos conectados > Conectar um aparelho"}
                 </p>
                 <p className="mt-2 text-sm font-medium text-center">
                 Tempo restante: {qrTimer} segundos
@@ -268,16 +265,6 @@ export function WhatsappIntegracao() {
             ) : (
               <div className="flex flex-col items-center justify-center p-8 space-y-4 w-full">
                 <div className="space-y-2 w-full">
-                  <Label htmlFor="qrName">Nome</Label>
-                  <Input
-                    id="qrName"
-                    placeholder="Nome para identificação"
-                    value={qrName}
-                    onChange={(e) => setQrName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2 w-full">
                   <Label htmlFor="qrPhone">Telefone</Label>
                   <Input
                     id="qrPhone"
@@ -290,7 +277,7 @@ export function WhatsappIntegracao() {
                 <Button
                   className="w-full"
                   onClick={requestNewQrCode}
-                  disabled={!qrName || !qrPhone || qrCodeLoading}
+                  disabled={!qrPhone || qrCodeLoading}
                 >
                   {qrCodeLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -302,12 +289,12 @@ export function WhatsappIntegracao() {
               </div>
             )}
 
-            {(qrCodeData || (qrName && qrPhone)) && (
+            {(qrCodeData || qrPhone) && (
               <div className="mt-4 flex w-full justify-center space-x-2 border-t pt-4">
                 <Button
                   size="sm"
                   onClick={handleStartConnection}
-                  disabled={isStartEndLoading || !qrName || !qrPhone}
+                  disabled={isStartEndLoading || !qrPhone}
                   className="bg-green-500 hover:bg-green-600"
                 >
                   {isStartEndLoading ? (
@@ -321,7 +308,7 @@ export function WhatsappIntegracao() {
                   variant="destructive"
                   size="sm"
                   onClick={handleEndConnection}
-                  disabled={isStartEndLoading || !qrName || !qrPhone}
+                  disabled={isStartEndLoading || !qrPhone}
                 >
                   {isStartEndLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
