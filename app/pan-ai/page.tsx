@@ -7,14 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea'; // Assuming Textarea component exists
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast'; // Assuming a toast hook exists for notifications
+import { useSession } from 'next-auth/react'; // Import useSession
 
 export default function PanAiPage() {
+  const { data: session } = useSession(); // Get session data
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
-  const webhookUrl = 'https://n8n-w.robotizze.us/webhook/gerador-imagem';
+  const webhookUrl = 'https://n8n-w.robotizze.us/webhook/pan-ai'; // Updated webhook URL
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -23,11 +25,14 @@ export default function PanAiPage() {
 
     const formData = {
       description,
+      // Include user session data
+      userSession: session?.user,
       // Add any other fields you need here
     };
 
     console.log('Sending data to webhook:', formData); // Log data being sent
     console.log('Description value being sent:', description); // Explicitly log description
+    console.log('User session data being sent:', session?.user); // Explicitly log session data
 
     try {
       const response = await fetch(webhookUrl, {
