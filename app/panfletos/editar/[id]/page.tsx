@@ -31,11 +31,20 @@ export default async function EditarPanfletoPage({ params }: EditarPanfletoPageP
     redirect("/panfletos")
   }
 
+  // Extract lojaId from the panfleto object
+  const lojaId = panfleto.lojaId
+
+  // Ensure lojaId exists
+  if (!lojaId) {
+    console.error("Panfleto não possui lojaId:", panfleto._id)
+    redirect("/panfletos")
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header title="Editar Panfleto" />
       <div className="container py-6">
-        <PanfletoForm panfleto={panfleto} />
+        <PanfletoForm panfleto={panfleto} lojaId={lojaId} />
       </div>
     </div>
   )

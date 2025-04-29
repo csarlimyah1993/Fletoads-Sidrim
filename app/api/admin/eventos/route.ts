@@ -1,69 +1,90 @@
-// app/admin/eventos/route.ts
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Verificar autenticação
     const session = await getServerSession(authOptions)
 
+    // Verify user is authenticated and is admin
     if (!session || session.user.role !== "admin") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Conectar ao banco de dados
-    await connectToDatabase()
+    const { db } = await connectToDatabase()
 
-    // Buscar todos os eventos
-    const VisitanteEvento =
-      mongoose.models.VisitanteEvento || mongoose.model("VisitanteEvento", new mongoose.Schema({}, { strict: false }))
+    // Fetch all events
+    const eventos = await db.collection("eventos").find({}).toArray()
 
-    // Agrupar por evento e contar visitantes
-    const eventosAggregate = await VisitanteEvento.aggregate([
-      {
-        $group: {
-          _id: "$eventoId",
-          nome: { $first: "$eventoNome" },
-          local: { $first: "$eventoLocal" },
-          data: { $first: "$eventoData" },
-          totalVisitantes: { $sum: 1 },
-          visitantesUnicos: { $addToSet: "$email" },
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          nome: 1,
-          local: 1,
-          data: 1,
-          totalVisitantes: 1,
-          visitantesUnicos: { $size: "$visitantesUnicos" },
-        },
-      },
-      { $sort: { data: -1 } },
-    ])
+    // For each event, calculate metrics
+    const eventosComMetricas = await Promise.all(
+      eventos.map(async (evento) => {
+        // Count unique visitors
+        const visitantesUnicos = await db
+          .collection("visitanteeventos")
+          .countDocuments({ eventoId: evento._id.toString() })
 
-    // Formatar dados para retorno
-    const eventos = eventosAggregate.map((evento: any) => ({
-      _id: evento._id.toString(),
-      nome: evento.nome || "Evento sem nome",
-      local: evento.local || "Local não especificado",
-      data: evento.data ? evento.data.toISOString() : null,
-      totalVisitantes: evento.totalVisitantes,
-      visitantesUnicos: evento.visitantesUnicos,
-    }))
+        // Count total views
+        const totalVisitantes = await db.collection("visualizacoes").countDocuments({ eventoId: evento._id.toString() })
 
-    return NextResponse.json({ eventos })
+        return {
+          ...evento,
+          visitantesUnicos,
+          totalVisitantes,
+        }
+      }),
+    )
+
+    return NextResponse.json({ eventos: eventosComMetricas })
   } catch (error) {
     console.error("Erro ao buscar eventos:", error)
-    return NextResponse.json(
-      { error: "Erro ao buscar eventos", message: error instanceof Error ? error.message : "Erro desconhecido" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro ao buscar eventos" }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    // Verify user is authenticated and is admin
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const { db } = await connectToDatabase()
+    const data = await request.json()
+
+    // Validate data
+    if (!data.nome || !data.dataInicio || !data.dataFim) {
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
+    }
+
+    // If the event is marked as active, deactivate other active events
+    if (data.ativo) {
+      await db.collection("eventos").updateMany({ ativo: true }, { $set: { ativo: false } })
+    }
+
+    // Insert the new event
+    const resultado = await db.collection("eventos").insertOne({
+      nome: data.nome,
+      descricao: data.descricao || "",
+      imagem: data.imagem || "",
+      dataInicio: new Date(data.dataInicio),
+      dataFim: new Date(data.dataFim),
+      ativo: data.ativo || false,
+      lojasParticipantes: data.lojasParticipantes || [],
+      documentos: data.documentos || [], // Add documentos array
+      dataCriacao: new Date(),
+      criadoPor: session.user.id,
+    })
+
+    return NextResponse.json({
+      message: "Evento criado com sucesso",
+      eventoId: resultado.insertedId,
+    })
+  } catch (error) {
+    console.error("Erro ao criar evento:", error)
+    return NextResponse.json({ error: "Erro ao criar evento" }, { status: 500 })
   }
 }

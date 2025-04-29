@@ -1,184 +1,144 @@
-import { MapPin, Phone, Mail, Globe, Clock, Instagram, Facebook } from "lucide-react"
-import type { Loja, Endereco, HorarioFuncionamento } from "@/types/loja"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { MapPin, Clock, Phone, Mail, Globe } from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { Loja } from "@/types/loja"
+import type { VitrineConfig } from "@/types/vitrine"
+import { isDiaAtual, isLojaAbertaAgora } from "@/lib/vitrine-utils"
 
 interface VitrineInfoProps {
   loja: Loja
+  config?: VitrineConfig
 }
 
-export function VitrineInfo({ loja }: VitrineInfoProps) {
-  // Fix for "Property 'id' does not exist on type 'string'"
-  const isPlanoPago = loja.plano !== "gratis"
+interface HorarioFuncionamento {
+  [key: string]:
+    | {
+        aberto?: boolean
+        horaAbertura?: string
+        horaFechamento?: string
+      }
+    | undefined
+}
 
-  // Definir cores com base no plano
-  const corPrimaria = loja.cores?.primaria || "#4f46e5"
-
-  // Format address as string
-  const formatEndereco = (endereco: Endereco): string => {
-    return `${endereco.rua || endereco.logradouro || ""}, ${endereco.numero || ""}, ${endereco.bairro || ""}, ${endereco.cidade || ""} - ${endereco.estado || ""}`
-  }
-
-  // Format business hours as string
-  const formatHorarioFuncionamento = (horario: HorarioFuncionamento): string => {
-    const formatDia = (
-      dia: string | { open?: boolean; abertura?: string; fechamento?: string } | undefined,
-    ): string => {
-      if (!dia) return "Fechado"
-      if (typeof dia === "string") return dia
-      if (dia.open === false) return "Fechado"
-      return `${dia.abertura || ""} - ${dia.fechamento || ""}`
-    }
-
-    return `Seg: ${formatDia(horario.segunda)}, Ter: ${formatDia(horario.terca)}, Qua: ${formatDia(horario.quarta)}, Qui: ${formatDia(horario.quinta)}, Sex: ${formatDia(horario.sexta)}, Sáb: ${formatDia(horario.sabado)}, Dom: ${formatDia(horario.domingo)}`
-  }
-
-  // Verificar se há informações de contato para exibir
-  const hasContactInfo =
-    loja.endereco ||
-    loja.telefone ||
-    loja.email ||
-    loja.website ||
-    loja.horarioFuncionamento ||
-    loja.redesSociais?.instagram ||
-    loja.redesSociais?.facebook ||
-    loja.instagram ||
-    loja.facebook
-
-  if (!loja.descricao && !hasContactInfo) {
-    return null
-  }
+export function VitrineInfo({ loja, config }: VitrineInfoProps) {
+  const isAberto = loja.horarioFuncionamento ? isLojaAbertaAgora(loja.horarioFuncionamento) : false
 
   return (
-    <section className="py-8 bg-white dark:bg-gray-900 transition-colors duration-200">
-      <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
-          {loja.descricao && (
-            <div className="mb-6 text-center">
-              <p className="text-gray-700 dark:text-gray-300">{loja.descricao}</p>
+    <section className="py-8 px-4">
+      <div className="container mx-auto">
+        <Card className="overflow-hidden border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Informações básicas */}
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2">{loja.nome}</h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">{loja.descricao}</p>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge
+                    variant={isAberto ? "default" : "outline"}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium",
+                      isAberto ? "bg-green-500 hover:bg-green-600" : "text-red-500 border-red-500",
+                    )}
+                  >
+                    {isAberto ? "Aberto agora" : "Fechado"}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Contato e endereço */}
+              {(config?.mostrarContato || config?.mostrarEndereco) && (
+                <div className="flex-1">
+                  {config?.mostrarEndereco && loja.endereco && (
+                    <div className="flex items-start gap-2 mb-3">
+                      <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
+                      <div>
+                        <p className="text-sm">
+                          {loja.endereco.rua}, {loja.endereco.numero}
+                          {loja.endereco.complemento && `, ${loja.endereco.complemento}`}
+                        </p>
+                        <p className="text-sm">
+                          {loja.endereco.bairro}, {loja.endereco.cidade} - {loja.endereco.estado}
+                        </p>
+                        <p className="text-sm">{loja.endereco.cep}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {config?.mostrarContato && loja.contato && (
+                    <>
+                      {loja.contato.telefone && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Phone className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">{loja.contato.telefone}</span>
+                        </div>
+                      )}
+
+                      {loja.contato.email && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mail className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">{loja.contato.email}</span>
+                        </div>
+                      )}
+
+                      {loja.contato.site && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Globe className="h-4 w-4 text-gray-500" />
+                          <a
+                            href={loja.contato.site}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            {loja.contato.site.replace(/^https?:\/\//, "")}
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Horários de funcionamento */}
+              {config?.mostrarHorarios && loja.horarioFuncionamento && (
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    Horários de Funcionamento
+                  </h3>
+
+                  <div className="grid grid-cols-1 gap-1 text-sm">
+                    {["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"].map((dia) => {
+                      const diaFormatado =
+                        dia === "terca" ? "terça" : dia === "sabado" ? "sábado" : dia === "domingo" ? "domingo" : dia
+
+                      const horario = loja.horarioFuncionamento
+                        ? (loja.horarioFuncionamento as HorarioFuncionamento)[dia]
+                        : undefined
+                      const isHoje = isDiaAtual(dia)
+
+                      return (
+                        <div key={dia} className={cn("flex justify-between py-0.5", isHoje && "font-medium")}>
+                          <span className={isHoje ? "text-primary" : ""}>
+                            {diaFormatado.charAt(0).toUpperCase() + diaFormatado.slice(1)}
+                            {isHoje && " (hoje)"}
+                          </span>
+                          <span>
+                            {horario && horario.aberto
+                              ? `${horario.horaAbertura} - ${horario.horaFechamento}`
+                              : "Fechado"}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {hasContactInfo && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {loja.endereco && (
-                <div className="flex items-start gap-3">
-                  <MapPin
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Endereço</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{formatEndereco(loja.endereco)}</p>
-                  </div>
-                </div>
-              )}
-
-              {loja.telefone && (
-                <div className="flex items-start gap-3">
-                  <Phone
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Telefone</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{loja.telefone}</p>
-                  </div>
-                </div>
-              )}
-
-              {loja.email && (
-                <div className="flex items-start gap-3">
-                  <Mail
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Email</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{loja.email}</p>
-                  </div>
-                </div>
-              )}
-
-              {loja.website && (
-                <div className="flex items-start gap-3">
-                  <Globe
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Website</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a href={loja.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                        {loja.website}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {loja.horarioFuncionamento && (
-                <div className="flex items-start gap-3">
-                  <Clock
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Horário de Funcionamento</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {formatHorarioFuncionamento(loja.horarioFuncionamento)}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {(loja.redesSociais?.instagram || loja.instagram) && (
-                <div className="flex items-start gap-3">
-                  <Instagram
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Instagram</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a
-                        href={`https://instagram.com/${(loja.redesSociais?.instagram || loja.instagram || "").replace("@", "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {loja.redesSociais?.instagram || loja.instagram}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {(loja.redesSociais?.facebook || loja.facebook) && (
-                <div className="flex items-start gap-3">
-                  <Facebook
-                    className="h-5 w-5 text-gray-500 shrink-0 mt-0.5 dark:text-gray-400"
-                    style={{ color: corPrimaria }}
-                  />
-                  <div>
-                    <p className="font-medium dark:text-white">Facebook</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <a
-                        href={loja.redesSociais?.facebook || loja.facebook || ""}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {loja.redesSociais?.facebook || loja.facebook}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Remove or comment out the Twitter, LinkedIn, and YouTube sections since they're not in the type definition */}
-              {/* If you want to keep them, you'll need to update the Loja interface in types/loja.ts */}
-            </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </section>
   )

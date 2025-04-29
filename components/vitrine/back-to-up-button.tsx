@@ -1,9 +1,12 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
 import { ChevronUp } from "lucide-react"
-import type { BackToTopButtonProps } from "@/types/vitrine"
+import { motion } from "framer-motion"
+import type { VitrineConfig } from "@/types/vitrine"
+
+interface BackToTopButtonProps {
+  config?: VitrineConfig
+}
 
 export function BackToTopButton({ config }: BackToTopButtonProps) {
   const scrollToTop = () => {
@@ -14,23 +17,19 @@ export function BackToTopButton({ config }: BackToTopButtonProps) {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      className="fixed bottom-8 right-8 z-50"
+    <motion.button
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg z-50"
+      onClick={scrollToTop}
+      aria-label="Voltar ao topo"
+      style={{
+        backgroundColor: config?.corPrimaria || "#3b82f6",
+        color: config?.corTexto || "#ffffff",
+      }}
     >
-      <Button
-        size="icon"
-        className="rounded-full shadow-lg h-12 w-12"
-        onClick={scrollToTop}
-        style={{
-          backgroundColor: config?.corPrimaria || "#3b82f6",
-          color: config?.corTexto || "#ffffff",
-        }}
-      >
-        <ChevronUp className="h-6 w-6" />
-      </Button>
-    </motion.div>
+      <ChevronUp className="h-6 w-6" />
+    </motion.button>
   )
 }

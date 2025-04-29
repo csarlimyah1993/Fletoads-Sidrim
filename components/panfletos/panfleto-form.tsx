@@ -5,51 +5,56 @@ import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { CalendarIcon, Loader2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { toast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { ImageUpload } from "@/components/ui/image-upload"
+import { toast } from "@/hooks/use-toast"
 
-// Define the form schema with zod
-const panfletoSchema = z.object({
+// Esquema de validação com Zod
+const panfletoFormSchema = z.object({
   titulo: z.string().min(3, { message: "O título deve ter pelo menos 3 caracteres" }),
   descricao: z.string().min(10, { message: "A descrição deve ter pelo menos 10 caracteres" }),
-  conteudo: z.string().min(10, { message: "O conteúdo deve ter pelo menos 10 caracteres" }),
+  conteudo: z.string().min(20, { message: "O conteúdo deve ter pelo menos 20 caracteres" }),
   imagem: z.string().min(1, { message: "A imagem é obrigatória" }),
   categoria: z.string().min(1, { message: "A categoria é obrigatória" }),
   tags: z.string().optional(),
-  preco: z.coerce.number().min(0).optional(),
-  precoPromocional: z.coerce.number().min(0).optional(),
-  tipo: z.enum(["ativo", "programado", "hotpromo", "evento"]).default("ativo"),
-  status: z.enum(["draft", "active", "inactive", "scheduled"]).default("active"),
-  dataInicio: z.date().optional(),
-  dataFim: z.date().optional(),
+  preco: z.string().optional(),
+  precoPromocional: z.string().optional(),
+  tipo: z.string().default("ativo"),
+  status: z.string().default("active"),
+  dataInicio: z.date().optional().nullable(),
+  dataFim: z.date().optional().nullable(),
   ativo: z.boolean().default(true),
   destaque: z.boolean().default(false),
   botaoAcao: z.string().optional(),
-  botaoLink: z.string().url().optional().or(z.literal("")),
+  botaoLink: z.string().optional(),
   codigo: z.string().optional(),
-  eventoId: z.string().optional(), // Add eventoId to the schema
 })
 
-type PanfletoFormValues = z.infer<typeof panfletoSchema>
+type PanfletoFormValues = z.infer<typeof panfletoFormSchema>
 
 interface PanfletoFormProps {
   panfleto?: any
-  eventoId?: string
+  lojaId: string
 }
 
-export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function PanfletoForm({ panfleto, lojaId }: PanfletoFormProps) {
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Prepare default values
+  // Valores padrão para o formulário
   const defaultValues: Partial<PanfletoFormValues> = {
     titulo: panfleto?.titulo || "",
     descricao: panfleto?.descricao || "",
@@ -57,68 +62,71 @@ export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
     imagem: panfleto?.imagem || "",
     categoria: panfleto?.categoria || "",
     tags: panfleto?.tags?.join(", ") || "",
-    preco: panfleto?.preco || 0,
-    precoPromocional: panfleto?.precoPromocional || undefined,
-    tipo: panfleto?.tipo || (eventoId ? "evento" : "ativo"),
+    preco: panfleto?.preco?.toString() || "",
+    precoPromocional: panfleto?.precoPromocional?.toString() || "",
+    tipo: panfleto?.tipo || "ativo",
     status: panfleto?.status || "active",
-    dataInicio: panfleto?.dataInicio ? new Date(panfleto.dataInicio) : undefined,
-    dataFim: panfleto?.dataFim ? new Date(panfleto.dataFim) : undefined,
+    dataInicio: panfleto?.dataInicio ? new Date(panfleto.dataInicio) : null,
+    dataFim: panfleto?.dataFim ? new Date(panfleto.dataFim) : null,
     ativo: panfleto?.ativo !== undefined ? panfleto.ativo : true,
     destaque: panfleto?.destaque || false,
     botaoAcao: panfleto?.botaoAcao || "",
     botaoLink: panfleto?.botaoLink || "",
     codigo: panfleto?.codigo || "",
-    eventoId: eventoId, // Set the eventoId
   }
 
-  // Initialize form
+  // Inicializar o formulário
   const form = useForm<PanfletoFormValues>({
-    resolver: zodResolver(panfletoSchema),
+    resolver: zodResolver(panfletoFormSchema),
     defaultValues,
   })
 
-  // Handle form submission
-  async function onSubmit(data: PanfletoFormValues) {
-    setIsSubmitting(true)
+  // Função para lidar com o envio do formulário
+  const onSubmit = async (data: PanfletoFormValues) => {
     try {
-      // Convert tags from string to array
-      const formData = {
+      setIsSubmitting(true)
+
+      // Preparar os dados para envio
+      const formattedData = {
         ...data,
+        lojaId,
         tags: data.tags ? data.tags.split(",").map((tag) => tag.trim()) : [],
+        preco: data.preco ? Number.parseFloat(data.preco) : undefined,
+        precoPromocional: data.precoPromocional ? Number.parseFloat(data.precoPromocional) : undefined,
       }
 
+      // Determinar se é uma criação ou atualização
       const url = panfleto?._id ? `/api/panfletos/${panfleto._id}` : "/api/panfletos"
+
       const method = panfleto?._id ? "PUT" : "POST"
 
-      console.log("Enviando dados para:", url, "Método:", method, "Dados:", JSON.stringify(formData))
-
+      // Enviar os dados para a API
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formattedData),
       })
+
+      const result = await response.json()
 
       if (!response.ok) {
-        let errorData
-        try {
-          errorData = await response.json()
-        } catch (jsonError) {
-          console.error("Erro ao parsear JSON:", jsonError)
-          errorData = { error: `Falha ao salvar panfleto: ${response.statusText}` }
-        }
-        console.error("Erro na resposta:", errorData)
-        throw new Error(errorData.error || `Falha ao salvar panfleto: ${response.statusText}`)
+        throw new Error(result.error || "Erro ao salvar o panfleto")
       }
 
+      // Mostrar mensagem de sucesso
       toast({
-        title: panfleto?._id ? "Panfleto atualizado!" : "Panfleto criado!",
-        description: "O panfleto foi salvo com sucesso.",
+        title: panfleto?._id ? "Panfleto atualizado" : "Panfleto criado",
+        description: panfleto?._id ? "O panfleto foi atualizado com sucesso." : "O panfleto foi criado com sucesso.",
       })
 
-      router.push("/dashboard/panfletos")
-      router.refresh()
+      // Redirecionar para a página de detalhes ou lista
+      if (panfleto?._id) {
+        router.refresh()
+      } else {
+        router.push("/dashboard/panfletos")
+      }
     } catch (error) {
       console.error("Erro ao salvar panfleto:", error)
       toast({
@@ -131,143 +139,41 @@ export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
     }
   }
 
+  // Modifique a função handleImageUpload para aceitar string ou string[]
+  // Substitua a função atual:
+
+  const handleImageUpload = (value: string | string[]) => {
+    // Como nosso campo imagem espera uma string, pegamos apenas a primeira imagem se for um array
+    const imageUrl = Array.isArray(value) ? value[0] : value
+    form.setValue("imagem", imageUrl, { shouldValidate: true })
+  }
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Básicas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="titulo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Título*</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Título do panfleto" {...field} />
-                  </FormControl>
-                  <FormDescription>O título que será exibido no panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>{panfleto?._id ? "Editar Panfleto" : "Criar Novo Panfleto"}</CardTitle>
+        <CardDescription>
+          {panfleto?._id
+            ? "Atualize as informações do seu panfleto"
+            : "Preencha os campos abaixo para criar um novo panfleto"}
+        </CardDescription>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <CardContent className="space-y-6">
+            {/* Seção de informações básicas */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Informações Básicas</h3>
 
-            <FormField
-              control={form.control}
-              name="descricao"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição*</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descrição do panfleto" {...field} />
-                  </FormControl>
-                  <FormDescription>Uma breve descrição do panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="conteudo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Conteúdo*</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Conteúdo detalhado do panfleto" className="min-h-[150px]" {...field} />
-                  </FormControl>
-                  <FormDescription>O conteúdo completo do panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="categoria"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria*</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="alimentos">Alimentos</SelectItem>
-                      <SelectItem value="bebidas">Bebidas</SelectItem>
-                      <SelectItem value="eletronicos">Eletrônicos</SelectItem>
-                      <SelectItem value="moda">Moda</SelectItem>
-                      <SelectItem value="casa">Casa e Decoração</SelectItem>
-                      <SelectItem value="saude">Saúde e Beleza</SelectItem>
-                      <SelectItem value="servicos">Serviços</SelectItem>
-                      <SelectItem value="outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>A categoria do panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="tags"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tags</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tags separadas por vírgula" {...field} />
-                  </FormControl>
-                  <FormDescription>Tags para ajudar na busca (ex: promoção, desconto, verão)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Imagem</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              control={form.control}
-              name="imagem"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Imagem do Panfleto*</FormLabel>
-                  <FormControl>
-                    <ImageUpload value={field.value} onChange={field.onChange} onRemove={() => field.onChange("")} />
-                  </FormControl>
-                  <FormDescription>A imagem principal do panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Preços</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="preco"
+                name="titulo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preço Original</FormLabel>
+                    <FormLabel>Título</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
+                      <Input placeholder="Digite o título do panfleto" {...field} />
                     </FormControl>
-                    <FormDescription>Preço original do produto</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -275,87 +181,312 @@ export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
 
               <FormField
                 control={form.control}
-                name="precoPromocional"
+                name="descricao"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preço Promocional</FormLabel>
+                    <FormLabel>Descrição</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={field.value === undefined ? "" : field.value}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === "" ? undefined : Number.parseFloat(e.target.value))
-                        }
-                      />
+                      <Textarea placeholder="Digite uma breve descrição do panfleto" {...field} rows={3} />
                     </FormControl>
-                    <FormDescription>Preço promocional (opcional)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="conteudo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Conteúdo</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Digite o conteúdo detalhado do panfleto" {...field} rows={5} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="imagem"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Imagem</FormLabel>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <ImageUpload
+                          value={field.value}
+                          onChange={handleImageUpload}
+                          onRemove={() => form.setValue("imagem", "", { shouldValidate: true })}
+                        />
+                        {!field.value && <Input placeholder="URL da imagem" {...field} />}
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Configurações</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Panfleto</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+            {/* Seção de categorização */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Categorização</h3>
+
+              <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="alimentos">Alimentos</SelectItem>
+                        <SelectItem value="vestuario">Vestuário</SelectItem>
+                        <SelectItem value="eletronicos">Eletrônicos</SelectItem>
+                        <SelectItem value="moveis">Móveis</SelectItem>
+                        <SelectItem value="servicos">Serviços</SelectItem>
+                        <SelectItem value="promocoes">Promoções</SelectItem>
+                        <SelectItem value="eventos">Eventos</SelectItem>
+                        <SelectItem value="outros">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tags</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
+                      <Input placeholder="Digite as tags separadas por vírgula" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="ativo">Ativo</SelectItem>
-                      <SelectItem value="programado">Programado</SelectItem>
-                      <SelectItem value="hotpromo">Hotpromo</SelectItem>
-                      <SelectItem value="evento">Evento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>O tipo de panfleto determina como ele será exibido</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormDescription>Ex: promoção, desconto, oferta</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="draft">Rascunho</SelectItem>
-                      <SelectItem value="active">Ativo</SelectItem>
-                      <SelectItem value="inactive">Inativo</SelectItem>
-                      <SelectItem value="scheduled">Agendado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>O status atual do panfleto</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Seção de preços */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Preços</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="preco"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preço Regular</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="precoPromocional"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preço Promocional</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Seção de configurações */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Configurações</h3>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="tipo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ativo">Ativo</SelectItem>
+                          <SelectItem value="programado">Programado</SelectItem>
+                          <SelectItem value="hotpromo">Hot Promo</SelectItem>
+                          <SelectItem value="evento">Evento</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Ativo</SelectItem>
+                          <SelectItem value="draft">Rascunho</SelectItem>
+                          <SelectItem value="inactive">Inativo</SelectItem>
+                          <SelectItem value="scheduled">Agendado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="dataInicio"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data de Início</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground",
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                              ) : (
+                                <span>Selecione uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value || undefined}
+                            onSelect={field.onChange}
+                            initialFocus
+                            locale={ptBR}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="dataFim"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data de Término</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground",
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                              ) : (
+                                <span>Selecione uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value || undefined}
+                            onSelect={field.onChange}
+                            initialFocus
+                            locale={ptBR}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="ativo"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Ativo</FormLabel>
+                        <FormDescription>Determina se o panfleto está ativo e visível para os usuários</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="destaque"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Destaque</FormLabel>
+                        <FormDescription>Coloca o panfleto em destaque na página inicial</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Seção de chamada para ação */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Chamada para Ação</h3>
+
               <FormField
                 control={form.control}
                 name="botaoAcao"
@@ -363,9 +494,8 @@ export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
                   <FormItem>
                     <FormLabel>Texto do Botão</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Comprar Agora" {...field} />
+                      <Input placeholder="Ex: Comprar Agora, Saiba Mais" {...field} />
                     </FormControl>
-                    <FormDescription>Texto para o botão de ação (opcional)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -380,72 +510,37 @@ export function PanfletoForm({ panfleto, eventoId }: PanfletoFormProps) {
                     <FormControl>
                       <Input placeholder="https://..." {...field} />
                     </FormControl>
-                    <FormDescription>URL para onde o botão irá direcionar</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="codigo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código Promocional</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: PROMO10" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="ativo"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Ativo</FormLabel>
-                      <FormDescription>Panfletos ativos são exibidos na vitrine</FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="destaque"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Destaque</FormLabel>
-                      <FormDescription>Panfletos em destaque aparecem no topo da vitrine</FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
           </CardContent>
-        </Card>
-
-        <CardFooter className="flex justify-between gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/dashboard/panfletos")}
-            disabled={isSubmitting}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : panfleto ? (
-              "Atualizar Panfleto"
-            ) : (
-              "Criar Panfleto"
-            )}
-          </Button>
-        </CardFooter>
-      </form>
-    </Form>
+          <CardFooter className="flex justify-between">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {panfleto?._id ? "Atualizar Panfleto" : "Criar Panfleto"}
+            </Button>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
   )
 }

@@ -6,8 +6,20 @@ import { ObjectId } from "mongodb"
 import bcrypt from "bcryptjs"
 import { connectToDatabase } from "./mongodb"
 
+// Definir interface para estender o User do NextAuth
+interface ExtendedUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role?: string
+  lojaId?: string
+  tipoUsuario?: string
+}
+
 // Update the Session user interface to include lojaId
 declare module "next-auth" {
+  // Corrigido: Removida a declaração duplicada de user
   interface Session {
     user: {
       id: string
@@ -22,7 +34,19 @@ declare module "next-auth" {
       twoFactorMethod?: "app" | "email"
       permissoes?: string[]
       lojaId?: string
+      tipoUsuario?: string
     }
+  }
+
+  // Estender a interface User para incluir campos personalizados
+  interface User {
+    id: string
+    name?: string | null
+    email?: string | null
+    image?: string | null
+    role?: string
+    lojaId?: string
+    tipoUsuario?: string
   }
 }
 
@@ -36,6 +60,7 @@ declare module "next-auth/jwt" {
     emailVerificado?: boolean
     plano?: string
     permissoes?: string[]
+    tipoUsuario?: string
   }
 }
 
@@ -147,7 +172,7 @@ export const authOptions: NextAuthOptions = {
 
           // Find user by email
           const user = await db.collection("usuarios").findOne({
-            email: { $regex: new RegExp(`^${normalizedEmail}$`, "i") },
+            email: { $regex: new RegExp(`^${normalizedEmail}`, "i") },
           })
 
           if (!user) {
@@ -169,7 +194,8 @@ export const authOptions: NextAuthOptions = {
               role: user.role || "user",
               image: user.image || null,
               lojaId: user.lojaId || null,
-            }
+              tipoUsuario: user.tipoUsuario || null,
+            } as ExtendedUser
           }
 
           // Regular login flow - check password
@@ -246,7 +272,8 @@ export const authOptions: NextAuthOptions = {
             role: user.role || "user",
             image: user.image || null,
             lojaId: user.lojaId || null,
-          }
+            tipoUsuario: user.tipoUsuario || null,
+          } as ExtendedUser
         } catch (error) {
           console.error("Erro na autenticação:", error)
           throw error
@@ -319,19 +346,28 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role || "user"
+        token.nome = user.name || ""
         if ("lojaId" in user) token.lojaId = user.lojaId
+
+        // Corrigido: Verificar se tipoUsuario existe no objeto user antes de atribuir
+        const extendedUser = user as ExtendedUser
+        if (extendedUser.tipoUsuario) {
+          token.tipoUsuario = extendedUser.tipoUsuario
+        }
 
         // Log para depuração
         console.log("JWT callback - user data:", {
           id: user.id,
           role: user.role || "user",
           email: user.email,
+          tipoUsuario: extendedUser.tipoUsuario || "N/A",
         })
       }
 
       // Update token when session is updated
       if (trigger === "update" && session) {
         token = { ...token, ...session }
+        console.log("JWT callback - token updated from session:", token)
       }
 
       // Fetch fresh user data on each token refresh
@@ -344,12 +380,25 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (userData) {
+            const previousRole = token.role
             token.role = userData.role || "user"
             token.nome = userData.nome || userData.name || ""
             token.emailVerificado = userData.emailVerificado || false
             token.plano = userData.plano || "gratuito"
             token.lojaId = userData.lojaId || null
             token.permissoes = userData.permissoes || []
+            token.tipoUsuario = userData.tipoUsuario || null
+
+            // Log se o papel mudou
+            if (previousRole !== token.role) {
+              console.log(`JWT callback - role changed from ${previousRole} to ${token.role}`)
+            }
+
+            console.log("JWT callback - refreshed user data:", {
+              id: token.id,
+              role: token.role,
+              nome: token.nome,
+            })
           }
         } catch (error) {
           console.error("Erro ao atualizar dados do token:", error)
@@ -367,7 +416,23 @@ export const authOptions: NextAuthOptions = {
         session.user.plano = token.plano
         session.user.lojaId = token.lojaId
         session.user.permissoes = token.permissoes
+
+        // Make sure tipoUsuario is passed from token to session
+        session.user.tipoUsuario = token.tipoUsuario
+
+        // Garantir que o campo name esteja preenchido para compatibilidade
+        if (!session.user.name && token.nome) {
+          session.user.name = token.nome
+        }
       }
+
+  // Log para depuração da sessão
+  //    console.log("Session callback - session data:", {
+  //     id: session.user?.id,
+  //      role: session.user?.role,
+  //      email: session.user?.email,
+  //      tipoUsuario: session.user?.tipoUsuario || "N/A",
+  //    })
 
       return session
     },

@@ -1,116 +1,124 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../../../../lib/auth"
-import { connectToDatabase, ObjectId } from "@/lib/mongodb"
+import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+// Função para obter a vitrine de uma loja
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await context.params
-    const session = await getServerSession(authOptions)
+    const { id } = await params // Await the params promise
+    console.log("GET /api/lojas/[id]/vitrine - Iniciando requisição para ID:", id)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    if (!id || !ObjectId.isValid(id)) {
+      console.log("GET /api/lojas/[id]/vitrine - ID inválido:", id)
+      return NextResponse.json({ error: "ID de loja inválido" }, { status: 400 })
     }
 
-    if (!id) {
-      return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
-    }
-
-    const body = await request.json()
-    const { nome, cnpj, descricao, endereco, contato, categorias, horarioFuncionamento, redesSociais } = body
-
+    // Restante do seu código GET permanece o mesmo
     const { db } = await connectToDatabase()
+    console.log("GET /api/lojas/[id]/vitrine - Conectado ao banco de dados, buscando loja com ID:", id)
 
-    // Verificar se a loja existe e pertence ao usuário
-    const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
-      $or: [
-        { usuarioId: session.user.id },
-        { usuarioId: new ObjectId(session.user.id) },
-        { proprietarioId: session.user.id },
-        { proprietarioId: new ObjectId(session.user.id) },
-      ],
-    })
+    const loja = await db.collection("lojas").findOne({ _id: new ObjectId(id) })
 
     if (!loja) {
-      return NextResponse.json(
-        { error: "Loja não encontrada ou você não tem permissão para editá-la" },
-        { status: 404 },
-      )
-    }
-
-    // Preparar dados para atualização
-    const dadosAtualizados = {
-      nome,
-      cnpj,
-      descricao,
-      endereco,
-      contato,
-      categorias,
-      horarioFuncionamento,
-      redesSociais,
-      dataAtualizacao: new Date(),
-    }
-
-    // Remover campos undefined
-    Object.keys(dadosAtualizados).forEach((key) => {
-      if (dadosAtualizados[key as keyof typeof dadosAtualizados] === undefined) {
-        delete dadosAtualizados[key as keyof typeof dadosAtualizados]
-      }
-    })
-
-    // Atualizar a loja
-    await db.collection("lojas").updateOne({ _id: new ObjectId(id) }, { $set: dadosAtualizados })
-
-    return NextResponse.json({
-      success: true,
-      message: "Loja atualizada com sucesso",
-    })
-  } catch (error) {
-    console.error("Erro ao atualizar loja:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao atualizar loja",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await context.params
-    if (!id) {
-      return NextResponse.json({ error: "ID da loja não fornecido" }, { status: 400 })
-    }
-
-    const { db } = await connectToDatabase()
-
-    // Buscar a loja
-    const loja = await db.collection("lojas").findOne({
-      _id: new ObjectId(id),
-    })
-
-    if (!loja) {
+      console.log("GET /api/lojas/[id]/vitrine - Loja não encontrada para ID:", id)
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
     }
 
-    // Converter ObjectId para string para serialização JSON
-    const lojaFormatada = {
-      ...loja,
-      _id: loja._id.toString(),
-      usuarioId: loja.usuarioId ? loja.usuarioId.toString() : undefined,
-      proprietarioId: loja.proprietarioId ? loja.proprietarioId.toString() : undefined,
+    console.log("GET /api/lojas/[id]/vitrine - Loja encontrada:", loja._id.toString())
+    return NextResponse.json({ vitrine: loja.vitrine || {} })
+  } catch (error) {
+    console.error("Erro ao buscar vitrine:", error)
+    return NextResponse.json({ error: "Erro ao buscar vitrine" }, { status: 500 })
+  }
+}
+
+// Função para atualizar a vitrine de uma loja
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params // Await the params promise
+    console.log("PUT /api/lojas/[id]/vitrine - Iniciando requisição para ID:", id)
+
+    // Restante do seu código PUT permanece o mesmo
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      console.log("PUT /api/lojas/[id]/vitrine - Usuário não autenticado")
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    return NextResponse.json(lojaFormatada)
+    if (!id || !ObjectId.isValid(id)) {
+      console.log("PUT /api/lojas/[id]/vitrine - ID inválido:", id)
+      return NextResponse.json({ error: "ID de loja inválido" }, { status: 400 })
+    }
+
+    const { db } = await connectToDatabase()
+    console.log("PUT /api/lojas/[id]/vitrine - Conectado ao banco de dados, buscando loja com ID:", id)
+
+    const loja = await db.collection("lojas").findOne({ _id: new ObjectId(id) })
+
+    if (!loja) {
+      console.log("PUT /api/lojas/[id]/vitrine - Loja não encontrada para ID:", id)
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    }
+
+    // Verificar se o usuário tem permissão para atualizar esta loja
+    const userId = session.user.id
+    if (
+      loja.userId?.toString() !== userId &&
+      loja.proprietarioId?.toString() !== userId &&
+      session.user.role !== "admin"
+    ) {
+      console.log("PUT /api/lojas/[id]/vitrine - Usuário sem permissão:", userId)
+      return NextResponse.json({ error: "Você não tem permissão para atualizar esta vitrine" }, { status: 403 })
+    }
+
+    // Obter os dados do corpo da requisição
+    let vitrineData
+    try {
+      vitrineData = await request.json()
+      console.log(
+        "PUT /api/lojas/[id]/vitrine - Dados recebidos:",
+        JSON.stringify(vitrineData).substring(0, 200) + "...",
+      )
+    } catch (error) {
+      console.error("PUT /api/lojas/[id]/vitrine - Erro ao processar JSON:", error)
+      return NextResponse.json({ error: "Formato de dados inválido" }, { status: 400 })
+    }
+
+    // Atualizar a vitrine da loja
+    const result = await db
+      .collection("lojas")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { vitrine: vitrineData, dataAtualizacaoVitrine: new Date() } })
+
+    console.log("PUT /api/lojas/[id]/vitrine - Resultado da atualização:", result)
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Vitrine atualizada com sucesso",
+      lojaId: id,
+    })
   } catch (error) {
-    console.error("Erro ao buscar loja:", error)
-    return NextResponse.json(
-      {
-        error: "Erro ao buscar loja",
-      },
-      { status: 500 },
-    )
+    console.error("Erro ao atualizar vitrine:", error)
+    return NextResponse.json({ error: "Erro ao atualizar dados da vitrine" }, { status: 500 })
   }
+}
+
+// Adicionar suporte ao método POST para compatibilidade com código existente
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  // Redirecionar para o método PUT
+  return PUT(request, { params })
 }

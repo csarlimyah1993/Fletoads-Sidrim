@@ -2,20 +2,43 @@
 
 import { useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Eye, Edit, Trash2, Search, AlertCircle } from "lucide-react"
+import { Search, AlertCircle, Plus } from "lucide-react"
 import Link from "next/link"
+import { PanfletoCard } from "@/components/panfletos/panfleto-card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Panfleto {
   _id: string
-  title: string
-  description: string
+  titulo: string
+  descricao: string
+  imagem: string
+  categoria: string
   status: string
-  createdAt: string
-  updatedAt: string
+  dataCriacao: string
+  dataAtualizacao: string
+  visualizacoes?: number
+  tipo?: string
+  tags?: string[]
+  preco?: number
+  precoPromocional?: number
+  dataInicio?: string
+  dataFim?: string
+  ativo?: boolean
+  destaque?: boolean
+  botaoAcao?: string
+  botaoLink?: string
+  codigo?: string
 }
 
 export function PanfletosList() {
@@ -23,6 +46,7 @@ export function PanfletosList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [panfletoToDelete, setPanfletoToDelete] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -57,19 +81,33 @@ export function PanfletosList() {
         setPanfletos([
           {
             _id: "1",
-            title: "Promoção de Verão",
-            description: "Grandes descontos em produtos de verão",
-            status: "ativo",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            titulo: "Promoção de Verão",
+            descricao: "Grandes descontos em produtos de verão",
+            imagem: "/vibrant-summer-sale.png",
+            categoria: "Promoções",
+            status: "active",
+            dataCriacao: new Date().toISOString(),
+            dataAtualizacao: new Date().toISOString(),
+            visualizacoes: 120,
+            tipo: "ativo",
+            tags: ["verão", "promoção", "desconto"],
+            preco: 99.9,
+            precoPromocional: 79.9,
           },
           {
             _id: "2",
-            title: "Liquidação de Inverno",
-            description: "Até 50% de desconto em produtos de inverno",
-            status: "inativo",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            titulo: "Liquidação de Inverno",
+            descricao: "Até 50% de desconto em produtos de inverno",
+            imagem: "/winter-sale-shopping.png",
+            categoria: "Liquidação",
+            status: "inactive",
+            dataCriacao: new Date().toISOString(),
+            dataAtualizacao: new Date().toISOString(),
+            visualizacoes: 85,
+            tipo: "inativo",
+            tags: ["inverno", "liquidação", "desconto"],
+            preco: 149.9,
+            precoPromocional: 74.95,
           },
         ])
       } finally {
@@ -83,36 +121,37 @@ export function PanfletosList() {
   const filteredPanfletos = Array.isArray(panfletos)
     ? panfletos.filter(
         (panfleto) =>
-          panfleto.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          panfleto.description.toLowerCase().includes(searchQuery.toLowerCase()),
+          panfleto.titulo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          panfleto.descricao?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          panfleto.categoria?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (panfleto.tags && panfleto.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))),
       )
     : []
 
   const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este panfleto?")) {
-      try {
-        const response = await fetch(`/api/panfletos/${id}`, {
-          method: "DELETE",
-        })
+    try {
+      const response = await fetch(`/api/panfletos/${id}`, {
+        method: "DELETE",
+      })
 
-        if (!response.ok) {
-          throw new Error("Erro ao excluir panfleto")
-        }
-
-        setPanfletos(panfletos.filter((panfleto) => panfleto._id !== id))
-
-        toast({
-          title: "Panfleto excluído",
-          description: "O panfleto foi excluído com sucesso.",
-        })
-      } catch (error) {
-        console.error("Erro ao excluir panfleto:", error)
-        toast({
-          title: "Erro",
-          description: "Não foi possível excluir o panfleto.",
-          variant: "destructive",
-        })
+      if (!response.ok) {
+        throw new Error("Erro ao excluir panfleto")
       }
+
+      setPanfletos(panfletos.filter((panfleto) => panfleto._id !== id))
+      setPanfletoToDelete(null)
+
+      toast({
+        title: "Panfleto excluído",
+        description: "O panfleto foi excluído com sucesso.",
+      })
+    } catch (error) {
+      console.error("Erro ao excluir panfleto:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o panfleto.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -137,69 +176,79 @@ export function PanfletosList() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar panfletos..."
+            placeholder="Buscar panfletos por título, descrição, categoria ou tags..."
             className="pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <Button asChild>
-          <Link href="/dashboard/panfletos/novo">Novo Panfleto</Link>
+          <Link href="/dashboard/panfletos/novo">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Panfleto
+          </Link>
         </Button>
       </div>
 
       {filteredPanfletos.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-muted-foreground">Nenhum panfleto encontrado.</p>
+        <div className="text-center py-10 bg-muted/30 rounded-lg border border-muted">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 rounded-full bg-muted">
+              <Search className="h-6 w-6 text-muted-foreground" />
+            </div>
+          </div>
+          <h3 className="text-lg font-medium mb-1">Nenhum panfleto encontrado</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            {searchQuery
+              ? `Não encontramos panfletos correspondentes à sua busca "${searchQuery}".`
+              : "Você ainda não tem panfletos cadastrados."}
+          </p>
+          {searchQuery ? (
+            <Button variant="outline" className="mt-4" onClick={() => setSearchQuery("")}>
+              Limpar busca
+            </Button>
+          ) : (
+            <Button className="mt-4" asChild>
+              <Link href="/dashboard/panfletos/novo">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar seu primeiro panfleto
+              </Link>
+            </Button>
+          )}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredPanfletos.map((panfleto) => (
-            <Card key={panfleto._id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{panfleto.title}</CardTitle>
-                  <Badge variant={panfleto.status === "ativo" ? "default" : "outline"}>
-                    {panfleto.status === "ativo" ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-                <CardDescription className="line-clamp-2">{panfleto.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Criado em: {new Date(panfleto.createdAt).toLocaleDateString()}
-                </p>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/panfletos/${panfleto._id}`}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Ver
-                  </Link>
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/panfletos/${panfleto._id}/editar`}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Editar
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(panfleto._id)}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
+            <PanfletoCard key={panfleto._id} panfleto={panfleto} onDelete={(id: string) => setPanfletoToDelete(id)} />
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!panfletoToDelete} onOpenChange={(open) => !open && setPanfletoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir panfleto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este panfleto? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => panfletoToDelete && handleDelete(panfletoToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

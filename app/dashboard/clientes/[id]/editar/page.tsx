@@ -3,33 +3,14 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { ClienteForm } from "@/components/clientes/cliente-form"
 
-interface Cliente {
-  _id: string
-  nome: string
-  email: string | null
-  telefone: string | null
-  documento: string | null
-  status: string
-  totalGasto: number
-  numeroPedidos: number
-  dataCadastro: string
-  dataCriacao: string
-  dataAtualizacao: string
-  cidade?: string
-  estado?: string
-  cep?: string
-  endereco?: string
-  categoriasPreferidasArray?: string[]
-  observacoes?: string
-}
+// Importando a interface Cliente do componente ClienteForm
+import type { Cliente } from "@/components/clientes/cliente-form"
 
 // Usando a tipagem correta para Next.js 15
 export default function ClienteEditarPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +37,17 @@ export default function ClienteEditarPage({ params }: { params: Promise<{ id: st
 
         const data = await response.json()
         console.log("Dados recebidos:", data)
-        setCliente(data.cliente)
+
+        // Garantir que os dados do cliente estejam no formato esperado
+        // Converter null para undefined quando necessário
+        const clienteFormatado: Cliente = {
+          ...data.cliente,
+          email: data.cliente.email || undefined,
+          telefone: data.cliente.telefone || undefined,
+          documento: data.cliente.documento || undefined,
+        }
+
+        setCliente(clienteFormatado)
       } catch (err) {
         console.error(err)
         setError("Erro ao carregar cliente.")
@@ -67,33 +58,6 @@ export default function ClienteEditarPage({ params }: { params: Promise<{ id: st
 
     fetchCliente()
   }, [id])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!id || !cliente) return
-
-    try {
-      const response = await fetch(`/api/clientes/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cliente),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao atualizar cliente")
-      }
-
-      router.push(`/dashboard/clientes/${id}`)
-    } catch (err) {
-      console.error(err)
-      alert("Erro ao atualizar cliente.")
-    }
-  }
-
-  const handleChange = (field: keyof Cliente, value: any) => {
-    setCliente((prev) => (prev ? { ...prev, [field]: value } : prev))
-  }
 
   if (isLoading)
     return (
@@ -108,12 +72,12 @@ export default function ClienteEditarPage({ params }: { params: Promise<{ id: st
     return (
       <div className="flex-1 p-4 md:p-8 pt-6">
         <Card>
-          <CardContent className="flex flex-col items-center justify-center h-64">
+          <div className="flex flex-col items-center justify-center h-64 p-6">
             <p className="text-lg font-medium text-center">{error || "Cliente não encontrado"}</p>
             <Button onClick={() => router.push("/dashboard/clientes")} className="mt-4">
               Voltar para a lista de clientes
             </Button>
-          </CardContent>
+          </div>
         </Card>
       </div>
     )
@@ -130,70 +94,13 @@ export default function ClienteEditarPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Informações do Cliente</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form className="grid gap-4" onSubmit={handleSubmit}>
-            <div>
-              <Label>Nome</Label>
-              <Input value={cliente.nome} onChange={(e) => handleChange("nome", e.target.value)} required />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={cliente.email || ""}
-                onChange={(e) => handleChange("email", e.target.value || null)}
-              />
-            </div>
-            <div>
-              <Label>Telefone</Label>
-              <Input
-                value={cliente.telefone || ""}
-                onChange={(e) => handleChange("telefone", e.target.value || null)}
-              />
-            </div>
-            <div>
-              <Label>Documento</Label>
-              <Input
-                value={cliente.documento || ""}
-                onChange={(e) => handleChange("documento", e.target.value || null)}
-              />
-            </div>
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={cliente.observacoes || ""}
-                onChange={(e) => handleChange("observacoes", e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Endereço</Label>
-                <Input value={cliente.endereco || ""} onChange={(e) => handleChange("endereco", e.target.value)} />
-              </div>
-              <div>
-                <Label>CEP</Label>
-                <Input value={cliente.cep || ""} onChange={(e) => handleChange("cep", e.target.value)} />
-              </div>
-              <div>
-                <Label>Cidade</Label>
-                <Input value={cliente.cidade || ""} onChange={(e) => handleChange("cidade", e.target.value)} />
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <Input value={cliente.estado || ""} onChange={(e) => handleChange("estado", e.target.value)} />
-              </div>
-            </div>
-
-            <Button type="submit" className="mt-4">
-              Salvar Alterações
-            </Button>
-          </form>
-        </CardContent>
+        <div className="p-6 pt-0">
+          <ClienteForm cliente={cliente} />
+        </div>
       </Card>
     </div>
   )

@@ -11,12 +11,14 @@ import { ClientesAtivos } from "@/components/dashboard/clientes-ativos"
 import { TipsCard } from "@/components/dashboard/tips-card"
 import { PlanCard } from "@/components/planos/plano-card"
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card"
-import  UserLocationCard  from "@/components/dashboard/user-location-card"
+import UserLocationCard from "@/components/dashboard/user-location-card"
 import { useEstatisticas } from "@/hooks/use-estatisticas"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BarChart3, ShoppingBag, Users, TrendingUp, Calendar, Lightbulb, Activity, Store } from "lucide-react"
+import { BarChart3, ShoppingBag, Users, TrendingUp, Calendar, Lightbulb, Activity, Store } from 'lucide-react'
 import { VendasRecentes } from "@/components/dashboard/vendas-recentes"
 import { useRouter } from "next/navigation"
+import { HorariosFuncionamentoCard } from "@/components/dashboard/horarios-funcionamento-card"
+import { EventoCard } from "@/components/dashboard/evento-card"
 
 interface Cliente {
   _id: string
@@ -329,6 +331,9 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
 
         {/* Conteúdo da aba Minha Loja */}
         <TabsContent value="loja" className="space-y-6">
+          {/* Adicionar o componente EventoCard no início da seção */}
+          {loja && loja._id && <EventoCard lojaId={loja._id.toString()} />}
+          
           <section>
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Store className="h-5 w-5 text-primary" />
@@ -376,26 +381,13 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
                       </div>
                     </CardContent>
                   </Card>
-                  <UserLocationCard />
+                  <UserLocationCard loja={loja} />
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium">Horário de Funcionamento</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Segunda-Sexta:</span>
-                          <span className="font-medium">{loja.horarioFormatado?.segunda || "09:00 - 18:00"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Sábado:</span>
-                          <span className="font-medium">{loja.horarioFormatado?.sabado || "10:00 - 15:00"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Domingo:</span>
-                          <span className="font-medium">{loja.horarioFormatado?.domingo || "Fechado"}</span>
-                        </div>
-                      </div>
+                      <HorariosFuncionamentoCard horarios={loja.horarioFuncionamento} />
                     </CardContent>
                   </Card>
                 </>

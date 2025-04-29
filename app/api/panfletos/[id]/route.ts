@@ -15,15 +15,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectToDatabase()
 
-    const { id } = await params // Adicionado await aqui
+    const { id } = await params
     // Convert the id to an ObjectId
-    const panfleto = await Panfleto.findById(new ObjectId(id)).lean()
+    const panfleto = await Panfleto.findById(new ObjectId(id))
 
     if (!panfleto) {
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(panfleto)
+    // Serializar o panfleto para evitar erros com objetos MongoDB
+    const serializedPanfleto = {
+      ...panfleto.toObject(),
+      _id: panfleto._id.toString(),
+      lojaId: panfleto.lojaId ? panfleto.lojaId.toString() : null,
+      usuarioId: panfleto.usuarioId ? panfleto.usuarioId.toString() : null,
+      dataCriacao: panfleto.dataCriacao ? panfleto.dataCriacao.toISOString() : null,
+      dataAtualizacao: panfleto.dataAtualizacao ? panfleto.dataAtualizacao.toISOString() : null,
+      dataInicio: panfleto.dataInicio ? panfleto.dataInicio.toISOString() : null,
+      dataFim: panfleto.dataFim ? panfleto.dataFim.toISOString() : null,
+      eventoId: panfleto.eventoId ? panfleto.eventoId.toString() : null,
+    }
+
+    return NextResponse.json(serializedPanfleto)
   } catch (error) {
     console.error("Erro ao buscar panfleto:", error)
     return NextResponse.json({ error: "Erro ao buscar panfleto" }, { status: 500 })
@@ -39,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectToDatabase()
 
-    const { id } = await params // Adicionado await aqui
+    const { id } = await params
     const data = await request.json()
 
     // Verificar campos obrigatórios
@@ -61,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
     }
 
-    // Verificar si el usuario tiene permiso para editar este panfleto
+    // Verificar se o usuário tem permissão para editar este panfleto
     const loja = await Loja.findOne({
       $or: [
         { usuarioId: session.user.id },
@@ -83,9 +96,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         dataAtualizacao: new Date(),
       },
       { new: true, runValidators: true },
-    ).lean()
+    )
 
-    return NextResponse.json(panfletoAtualizado)
+    if (!panfletoAtualizado) {
+      return NextResponse.json({ error: "Erro ao atualizar panfleto" }, { status: 500 })
+    }
+
+    // Serializar o panfleto para evitar erros com objetos MongoDB
+    const serializedPanfleto = {
+      ...panfletoAtualizado.toObject(),
+      _id: panfletoAtualizado._id.toString(),
+      lojaId: panfletoAtualizado.lojaId ? panfletoAtualizado.lojaId.toString() : null,
+      usuarioId: panfletoAtualizado.usuarioId ? panfletoAtualizado.usuarioId.toString() : null,
+      dataCriacao: panfletoAtualizado.dataCriacao ? panfletoAtualizado.dataCriacao.toISOString() : null,
+      dataAtualizacao: panfletoAtualizado.dataAtualizacao ? panfletoAtualizado.dataAtualizacao.toISOString() : null,
+      dataInicio: panfletoAtualizado.dataInicio ? panfletoAtualizado.dataInicio.toISOString() : null,
+      dataFim: panfletoAtualizado.dataFim ? panfletoAtualizado.dataFim.toISOString() : null,
+      eventoId: panfletoAtualizado.eventoId ? panfletoAtualizado.eventoId.toString() : null,
+    }
+
+    return NextResponse.json(serializedPanfleto)
   } catch (error) {
     console.error("Erro ao atualizar panfleto:", error)
     return NextResponse.json({ error: "Erro ao atualizar panfleto" }, { status: 500 })
@@ -101,7 +131,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectToDatabase()
 
-    const { id } = await params // Adicionado await aqui
+    const { id } = await params
 
     // Buscar o panfleto para verificar se pertence ao usuário
     const panfleto = await Panfleto.findById(new ObjectId(id))
@@ -109,7 +139,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Panfleto não encontrado" }, { status: 404 })
     }
 
-    // Verificar si el usuario tiene permiso para excluir este panfleto
+    // Verificar se o usuário tem permissão para excluir este panfleto
     const loja = await Loja.findOne({
       $or: [
         { usuarioId: session.user.id },

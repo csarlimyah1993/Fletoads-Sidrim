@@ -13,44 +13,81 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { GoogleMap } from "@/components/ui/google-map"
-import { toast } from "sonner"
-import { Loader2, MapPin } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { CheckCircle2, Loader2, MapPin, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { HorariosFuncionamento } from "./horarios-funcionamento"
+
+// Definir os tipos para horários de funcionamento
+type DiaSemana = "segunda" | "terca" | "quarta" | "quinta" | "sexta" | "sabado" | "domingo"
+
+// Definir o tipo para os horários de cada dia
+interface HorarioDia {
+  aberto: boolean
+  horaAbertura: string
+  horaFechamento: string
+}
+
+type HorariosFuncionamentoType = {
+  [key in DiaSemana]?: {
+    aberto: boolean
+    horaAbertura: string
+    horaFechamento: string
+  }
+}
 
 const lojaFormSchema = z.object({
   nome: z.string().min(2, {
     message: "O nome da loja deve ter pelo menos 2 caracteres.",
   }),
   descricao: z.string().optional(),
-  endereco: z.object({
-    rua: z.string().min(1, { message: "A rua é obrigatória." }),
-    numero: z.string().min(1, { message: "O número é obrigatório." }),
-    complemento: z.string().optional(),
-    bairro: z.string().min(1, { message: "O bairro é obrigatório." }),
-    cidade: z.string().min(1, { message: "A cidade é obrigatória." }),
-    estado: z.string().min(1, { message: "O estado é obrigatório." }),
-    cep: z.string().min(1, { message: "O CEP é obrigatório." }),
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
-  }),
-  contato: z.object({
-    telefone: z.string().min(1, { message: "O telefone é obrigatório." }),
-    email: z.string().email({ message: "Email inválido." }),
-    whatsapp: z.string().optional(),
-    site: z.string().optional(),
-  }),
-  redesSociais: z.object({
-    instagram: z.string().optional(),
-    facebook: z.string().optional(),
-    twitter: z.string().optional(),
-    youtube: z.string().optional(),
-    linkedin: z.string().optional(),
-  }),
+  endereco: z
+    .object({
+      rua: z.string().min(1, { message: "A rua é obrigatória." }).optional(),
+      numero: z.string().min(1, { message: "O número é obrigatório." }).optional(),
+      complemento: z.string().optional(),
+      bairro: z.string().min(1, { message: "O bairro é obrigatório." }).optional(),
+      cidade: z.string().min(1, { message: "A cidade é obrigatória." }).optional(),
+      estado: z.string().min(1, { message: "O estado é obrigatório." }).optional(),
+      cep: z.string().min(1, { message: "O CEP é obrigatório." }).optional(),
+      latitude: z.string().optional(),
+      longitude: z.string().optional(),
+    })
+    .optional(),
+  contato: z
+    .object({
+      telefone: z.string().min(1, { message: "O telefone é obrigatório." }).optional(),
+      email: z.string().email({ message: "Email inválido." }).optional(),
+      whatsapp: z.string().optional(),
+      site: z.string().optional(),
+    })
+    .optional(),
+  redesSociais: z
+    .object({
+      instagram: z.string().optional(),
+      facebook: z.string().optional(),
+      twitter: z.string().optional(),
+      youtube: z.string().optional(),
+      linkedin: z.string().optional(),
+    })
+    .optional(),
+  horarioFuncionamento: z
+    .record(
+      z.string(),
+      z.object({
+        aberto: z.boolean(),
+        horaAbertura: z.string(),
+        horaFechamento: z.string(),
+      }),
+    )
+    .optional(),
   logo: z.string().optional(),
   banner: z.string().optional(),
 })
 
 type LojaFormValues = z.infer<typeof lojaFormSchema>
 
+// Atualizar a interface LojaPerfilFormWrapperProps para incluir horarioFuncionamento
 interface LojaPerfilFormWrapperProps {
   lojaId: string
   initialValues?: {
@@ -58,13 +95,28 @@ interface LojaPerfilFormWrapperProps {
     descricao?: string
     logoUrl?: string
     bannerUrl?: string
+    horarioFuncionamento?: Record<string, any>
   }
 }
 
 export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilFormWrapperProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [activeTab, setActiveTab] = useState("informacoes")
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  // Valores padrão para horários de funcionamento
+  const horariosPadrao = {
+    segunda: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    terca: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    quarta: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    quinta: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    sexta: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    sabado: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+    domingo: { aberto: false, horaAbertura: "08:00", horaFechamento: "18:00" },
+  }
 
   const form = useForm<LojaFormValues>({
     resolver: zodResolver(lojaFormSchema),
@@ -97,6 +149,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         youtube: "",
         linkedin: "",
       },
+      horarioFuncionamento: initialValues?.horarioFuncionamento || horariosPadrao,
     },
   })
 
@@ -105,64 +158,88 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
     const fetchLojaData = async () => {
       try {
         setIsLoading(true)
-        console.log(`Buscando dados da loja com ID: ${lojaId}`)
-        const response = await fetch(`/api/lojas/${lojaId}`)
+        setError(null)
+
+        if (!lojaId) {
+          console.error("ID da loja não fornecido")
+          setError("ID da loja não fornecido")
+          setIsLoading(false)
+          return
+        }
+
+        // Adicionar um timeout mais longo para a requisição
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout
+
+        const response = await fetch(`/api/lojas/${lojaId}`, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Erro ao buscar dados da loja: ${response.status}`, errorText)
           throw new Error(`Erro ao buscar dados da loja: ${response.status}`)
         }
 
         const data = await response.json()
-        console.log("Dados da loja recebidos:", data)
 
-        if (data.loja) {
+        if (data) {
           // Garantir que todos os objetos aninhados existam
-          const loja = {
-            ...data.loja,
-            endereco: data.loja.endereco || {},
-            contato: data.loja.contato || {},
-            redesSociais: data.loja.redesSociais || {},
+          const lojaData = {
+            ...data,
+            endereco: data.endereco || {},
+            contato: data.contato || {},
+            redesSociais: data.redesSociais || {},
+            horarioFuncionamento: data.horarioFuncionamento || horariosPadrao,
           }
-
-          console.log("Preenchendo formulário com dados:", loja)
 
           // Preencher o formulário com os dados da loja
           form.reset({
-            nome: loja.nome || initialValues?.nomeLoja || "",
-            descricao: loja.descricao || initialValues?.descricao || "",
-            logo: loja.logo || initialValues?.logoUrl || "",
-            banner: loja.banner || initialValues?.bannerUrl || "",
+            nome: lojaData.nome || initialValues?.nomeLoja || "",
+            descricao: lojaData.descricao || initialValues?.descricao || "",
+            logo: lojaData.logo || initialValues?.logoUrl || "",
+            banner: lojaData.banner || initialValues?.bannerUrl || "",
             endereco: {
-              rua: loja.endereco.rua || "",
-              numero: loja.endereco.numero || "",
-              complemento: loja.endereco.complemento || "",
-              bairro: loja.endereco.bairro || "",
-              cidade: loja.endereco.cidade || "",
-              estado: loja.endereco.estado || "",
-              cep: loja.endereco.cep || "",
-              latitude: loja.endereco.latitude || "",
-              longitude: loja.endereco.longitude || "",
+              rua: lojaData.endereco.rua || "",
+              numero: lojaData.endereco.numero || "",
+              complemento: lojaData.endereco.complemento || "",
+              bairro: lojaData.endereco.bairro || "",
+              cidade: lojaData.endereco.cidade || "",
+              estado: lojaData.endereco.estado || "",
+              cep: lojaData.endereco.cep || "",
+              latitude: lojaData.endereco.latitude || "",
+              longitude: lojaData.endereco.longitude || "",
             },
             contato: {
-              telefone: loja.contato.telefone || "",
-              email: loja.contato.email || "",
-              whatsapp: loja.contato.whatsapp || "",
-              site: loja.contato.site || "",
+              telefone: lojaData.contato.telefone || "",
+              email: lojaData.contato.email || "",
+              whatsapp: lojaData.contato.whatsapp || "",
+              site: lojaData.contato.site || "",
             },
             redesSociais: {
-              instagram: loja.redesSociais.instagram || "",
-              facebook: loja.redesSociais.facebook || "",
-              twitter: loja.redesSociais.twitter || "",
-              youtube: loja.redesSociais.youtube || "",
-              linkedin: loja.redesSociais.linkedin || "",
+              instagram: lojaData.redesSociais.instagram || "",
+              facebook: lojaData.redesSociais.facebook || "",
+              twitter: lojaData.redesSociais.twitter || "",
+              youtube: lojaData.redesSociais.youtube || "",
+              linkedin: lojaData.redesSociais.linkedin || "",
             },
+            horarioFuncionamento: lojaData.horarioFuncionamento || horariosPadrao,
           })
-
-          console.log("Formulário preenchido com sucesso")
         }
       } catch (error) {
         console.error("Erro ao buscar dados da loja:", error)
-        toast.error("Não foi possível carregar os dados da loja. Tente novamente mais tarde.")
+        setError(error instanceof Error ? error.message : "Erro desconhecido ao buscar dados da loja")
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os dados da loja. Tente novamente mais tarde.",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -170,10 +247,12 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
 
     if (lojaId) {
       fetchLojaData()
+    } else {
+      setIsLoading(false)
     }
   }, [lojaId, form, initialValues])
 
-  // Função para atualizar as coordenadas no formulário
+  // Função para atualizar as coordenadas no formulário (escondida do usuário)
   const handleLocationChange = (lat: number, lng: number) => {
     form.setValue("endereco.latitude", lat.toString())
     form.setValue("endereco.longitude", lng.toString())
@@ -205,37 +284,90 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
   const onSubmit = async (values: LojaFormValues) => {
     try {
       setIsSubmitting(true)
-      console.log("Enviando dados da loja:", values)
+      setSaveSuccess(false)
+      setError(null)
+
+      if (!lojaId) {
+        throw new Error("ID da loja não fornecido")
+      }
+
+      // Adicionar um timeout mais longo para a requisição
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout
+
+      // Criar uma cópia dos valores para enviar
+      const dataToSend = {
+        ...values,
+        // Garantir que os horários estejam no formato correto
+        horarioFuncionamento: values.horarioFuncionamento || horariosPadrao,
+      }
 
       const response = await fetch(`/api/lojas/${lojaId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(dataToSend),
+        signal: controller.signal,
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao salvar dados da loja")
+      clearTimeout(timeoutId)
+
+      // Tentar obter o texto da resposta primeiro
+      const responseText = await response.text()
+
+      // Tentar converter para JSON
+      let result
+      try {
+        result = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Resposta inválida do servidor: ${responseText}`)
       }
 
-      toast.success("Dados da loja salvos com sucesso!")
-      console.log("Loja atualizada com sucesso")
+      if (!response.ok) {
+        throw new Error(result.error || `Erro ao salvar dados da loja: ${response.status}`)
+      }
 
-      // Redirecionar para a página de perfil
-      router.push("/dashboard/perfil-da-loja")
-      router.refresh()
+      // Mostrar mensagem de sucesso
+      setSaveSuccess(true)
+
+      toast({
+        title: "Sucesso",
+        description: "Dados da loja salvos com sucesso!",
+      })
+
+      // Scroll para o topo para mostrar a mensagem de sucesso
+      window.scrollTo({ top: 0, behavior: "smooth" })
+
+      // Não redirecionar automaticamente para permitir que o usuário veja a confirmação
+      setTimeout(() => {
+        router.refresh()
+      }, 500)
     } catch (error) {
       console.error("Erro ao salvar dados da loja:", error)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar os dados da loja. Tente novamente mais tarde.",
-      )
+      setError(error instanceof Error ? error.message : "Erro desconhecido ao salvar dados da loja")
+      toast({
+        title: "Erro",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar os dados da loja. Tente novamente mais tarde.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Função para atualizar os horários de funcionamento
+  const handleHorariosSave = async (horarios: any) => {
+    form.setValue("horarioFuncionamento", horarios)
+    toast({
+      title: "Horários atualizados",
+      description: "Os horários foram atualizados no formulário. Clique em Salvar Alterações para confirmar.",
+    })
   }
 
   if (isLoading) {
@@ -247,18 +379,47 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
     )
   }
 
+  if (error && !lojaId) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+        <h3 className="text-lg font-medium text-red-800">Erro ao carregar dados</h3>
+        <p className="text-red-700">{error}</p>
+        <Button className="mt-4" onClick={() => router.push("/dashboard")}>
+          Voltar para o Dashboard
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        {saveSuccess && (
+          <Alert className="bg-green-50 border-green-200 text-green-800 mb-6">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertTitle>Dados salvos com sucesso!</AlertTitle>
+            <AlertDescription>As informações da sua loja foram atualizadas com sucesso.</AlertDescription>
+          </Alert>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro ao salvar dados</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Perfil da Loja</CardTitle>
             <CardDescription>Configure as informações da sua loja que serão exibidas para os clientes.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="informacoes">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-6">
                 <TabsTrigger value="informacoes">Informações Básicas</TabsTrigger>
+                <TabsTrigger value="horarios">Horários</TabsTrigger>
                 <TabsTrigger value="endereco">Endereço</TabsTrigger>
                 <TabsTrigger value="contato">Contato</TabsTrigger>
                 <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
@@ -303,7 +464,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                            <ImageUpload
+                              value={field.value || ""}
+                              onChange={(url) => field.onChange(typeof url === "string" ? url : url[0] || "")}
+                              onRemove={() => field.onChange("")}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -319,7 +484,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <ImageUpload value={field.value || ""} onChange={field.onChange} />
+                            <ImageUpload
+                              value={field.value || ""}
+                              onChange={(url) => field.onChange(typeof url === "string" ? url : url[0] || "")}
+                              onRemove={() => field.onChange("")}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -330,6 +499,15 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     </p>
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* Aba de Horários de Funcionamento */}
+              <TabsContent value="horarios" className="space-y-6">
+                <HorariosFuncionamento
+                  lojaId={lojaId}
+                  horarios={form.watch("horarioFuncionamento") as Record<string, any>}
+                  onSave={handleHorariosSave}
+                />
               </TabsContent>
 
               <TabsContent value="endereco" className="space-y-6">
@@ -464,36 +642,6 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                       zoom={15}
                       onLocationChange={handleLocationChange}
                       interactive={true}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <FormField
-                      control={form.control}
-                      name="endereco.latitude"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Latitude</FormLabel>
-                          <FormControl>
-                            <Input {...field} readOnly />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="endereco.longitude"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Longitude</FormLabel>
-                          <FormControl>
-                            <Input {...field} readOnly />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
                     />
                   </div>
                 </div>
@@ -635,7 +783,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             </Tabs>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/perfil-da-loja")}>
+            <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>

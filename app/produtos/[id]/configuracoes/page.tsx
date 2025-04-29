@@ -64,6 +64,7 @@ export default async function ProdutoConfiguracoesPage({ params }: ProdutoConfig
       metaTitle: produtoDoc.metaTitle,
       metaDescription: produtoDoc.metaDescription,
       variacoes: produtoDoc.variacoes,
+      lojaId: produtoDoc.lojaId || '',
     }
 
     return (

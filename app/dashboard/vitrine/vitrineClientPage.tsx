@@ -1,116 +1,112 @@
-"use client"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ExternalLink } from "lucide-react"
+import { getServerSession } from "next-auth"
+import { authOptions } from "../../../lib/auth"
+import { redirect } from "next/navigation"
+import { VitrineForm } from "@/components/vitrine/vitrine-form"
+import { connectToDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { ExternalLink } from "lucide-react"
+import { OfflineFallback } from "./offline-fallback"
 
-interface VitrineClientPageProps {
-  vitrine: any
-  loja: any
-}
+export default async function VitrinePage() {
+  const session = await getServerSession(authOptions)
 
-export default function VitrineClientPage({ vitrine, loja }: VitrineClientPageProps) {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  if (!loja) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center p-6">
-          <p className="text-lg mb-4">Você ainda não possui uma loja cadastrada.</p>
-          <Button asChild>
-            <Link href="/dashboard/perfil-da-loja/criar">Criar Loja</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    )
+  if (!session) {
+    redirect("/login")
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Personalização da Vitrine</h2>
-        {vitrine && (
-          <Button variant="outline" asChild>
-            <Link href={`/vitrines/${vitrine._id}`} target="_blank">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Ver Vitrine
-            </Link>
-          </Button>
-        )}
+  const userId = session.user.id
+
+  try {
+    // Buscar a loja diretamente do banco de dados
+    const { db } = await connectToDatabase()
+
+    // Buscar o usuário para verificar o lojaId e o plano
+    const usuario = await db.collection("usuarios").findOne({ _id: new ObjectId(userId) })
+    console.log("Usuário encontrado:", usuario ? "Sim" : "Não")
+    console.log("LojaId do usuário:", usuario?.lojaId)
+    console.log("Plano do usuário:", usuario?.plano)
+
+    // Se o usuário tiver lojaId, buscar a loja diretamente pelo ID
+    let loja = null
+    if (usuario && usuario.lojaId) {
+      try {
+        console.log("Buscando loja pelo lojaId:", usuario.lojaId)
+        loja = await db.collection("lojas").findOne({
+          _id: typeof usuario.lojaId === "string" ? new ObjectId(usuario.lojaId) : usuario.lojaId,
+        })
+        console.log("Loja encontrada pelo lojaId:", loja ? "Sim" : "Não")
+      } catch (error) {
+        console.error("Erro ao buscar loja pelo lojaId:", error)
+      }
+    }
+
+    // Se não encontrou pelo lojaId, tentar pelos campos proprietarioId/usuarioId
+    if (!loja) {
+      console.log("Buscando loja por proprietarioId/usuarioId:", userId)
+      loja = await db.collection("lojas").findOne({
+        $or: [
+          { proprietarioId: userId },
+          { proprietarioId: new ObjectId(userId) },
+          { usuarioId: userId },
+          { usuarioId: new ObjectId(userId) },
+        ],
+      })
+      console.log("Loja encontrada por proprietarioId/usuarioId:", loja ? "Sim" : "Não")
+    }
+
+    if (!loja) {
+      return (
+        <div className="container mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-6">Vitrine</h1>
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+            <p>Você precisa criar uma loja antes de configurar sua vitrine.</p>
+          </div>
+          <Link href="/dashboard/perfil-da-loja">
+            <Button>Criar Loja</Button>
+          </Link>
+        </div>
+      )
+    }
+
+    // Adicionar informações do plano à loja
+    if (usuario) {
+      loja.plano = usuario.plano || loja.plano
+      loja.proprietarioPlano = usuario.plano || loja.proprietarioPlano
+    }
+
+    // Serializar os dados para evitar erros de serialização
+    const serializableLoja = JSON.parse(
+      JSON.stringify({
+        ...loja,
+        _id: loja._id.toString(),
+        dataCriacao: loja.dataCriacao ? loja.dataCriacao.toISOString() : null,
+        dataAtualizacao: loja.dataAtualizacao ? loja.dataAtualizacao.toISOString() : null,
+      }),
+    )
+
+    // Verificar se a loja já tem uma vitrine configurada
+    // Usar o ID da loja para a URL da vitrine
+    const vitrineUrl = `/vitrines/${loja._id}`
+
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Configurar Vitrine</h1>
+          <Link href={vitrineUrl} target="_blank" passHref>
+            <Button variant="outline" className="mt-2 md:mt-0 flex items-center gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Visualizar Vitrine
+            </Button>
+          </Link>
+        </div>
+
+        <VitrineForm loja={serializableLoja} />
       </div>
-
-      <Tabs defaultValue="personalizacao">
-        <TabsList>
-          <TabsTrigger value="personalizacao">Personalização</TabsTrigger>
-          <TabsTrigger value="produtos">Produtos</TabsTrigger>
-          <TabsTrigger value="estatisticas">Estatísticas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="personalizacao" className="mt-6">
-          {vitrine ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações da Vitrine</CardTitle>
-                <CardDescription>Personalize a aparência da sua vitrine online</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/dashboard/vitrine/editar">Editar Configurações</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Vitrine não configurada</CardTitle>
-                <CardDescription>Você ainda não configurou sua vitrine online</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/dashboard/vitrine/criar">Configurar Vitrine</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="produtos" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Produtos na Vitrine</CardTitle>
-              <CardDescription>Gerencie os produtos que aparecem na sua vitrine online.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Nenhum produto cadastrado ainda.</p>
-                <Button className="mt-4" asChild>
-                  <Link href="/dashboard/produtos/novo">Adicionar Produto</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="estatisticas" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Estatísticas da Vitrine</CardTitle>
-              <CardDescription>Acompanhe o desempenho da sua vitrine online.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Estatísticas em breve disponíveis.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+    )
+  } catch (error) {
+    console.error("Erro ao carregar dados da vitrine:", error)
+    return <OfflineFallback />
+  }
 }

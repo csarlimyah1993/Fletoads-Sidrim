@@ -2,49 +2,73 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
-// This function can be marked `async` if using `await` inside
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Check if the path is protected
-  const isProtectedPath = pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/perfil"
+  // Caminhos públicos que não precisam de autenticação
+  const publicPaths = ["/login", "/cadastro", "/registro", "/esqueci-senha", "/", "/vitrines", "/planos"]
 
-  // Check if the path is auth related
-  const isAuthPath = pathname === "/login" || pathname === "/cadastro" || pathname === "/esqueci-senha"
+  // Se o caminho for público ou começar com um caminho público, permitir acesso sem verificação
+  if (publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+    console.log(`Middleware: Caminho público: ${pathname}, permitindo acesso`)
+    return NextResponse.next()
+  }
 
-  // Get the token with detailed logging
-  console.log("Middleware: Checking token for path", pathname)
+  // Verificar token de autenticação
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",
   })
 
-  console.log(
-    "Middleware: Token result",
-    token ? "Token exists" : "No token",
-    token ? `User ID: ${token.sub}, Role: ${token.role || "user"}` : "",
-  )
-
-  // Redirect unauthenticated users to login page if they're trying to access protected routes
-  if (isProtectedPath && !token) {
-    console.log("Middleware: Redirecting to login - no token for protected path")
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.url))
-    return NextResponse.redirect(url)
+  console.log(`Middleware: Token para ${pathname}:`, token ? "Presente" : "Ausente")
+  if (token) {
+    console.log(`Middleware: Role do usuário: ${token.role}`)
   }
 
-  // Redirect authenticated users to dashboard if they're trying to access auth routes
-  if (isAuthPath && token) {
-    console.log("Middleware: Redirecting to dashboard - user already authenticated")
+  // Se não houver token e o caminho for protegido, redirecionar para login
+  if (!token) {
+    console.log(`Middleware: Sem token para caminho protegido: ${pathname}, redirecionando para login`)
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // Verificações específicas para caminhos administrativos
+  if (pathname.startsWith("/admin") && token.role !== "admin") {
+    console.log(`Middleware: Acesso não autorizado à área admin por usuário com papel: ${token.role}`)
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  console.log("Middleware: Allowing request to proceed")
+  // ADICIONAR ESTA VERIFICAÇÃO: Redirecionar admins para área admin quando tentam acessar dashboard
+  if (pathname.startsWith("/dashboard") && token.role === "admin") {
+    console.log(`Middleware: Admin tentando acessar dashboard, redirecionando para área admin`)
+    return NextResponse.redirect(new URL("/admin", request.url))
+  }
+
+  // Verificações específicas para visitantes
+  if (token.role === "visitante") {
+    // Visitantes só podem acessar vitrines, perfil-visitante e páginas públicas
+    if (pathname.startsWith("/dashboard")) {
+      console.log(`Middleware: Visitante tentando acessar dashboard, redirecionando para vitrines`)
+      return NextResponse.redirect(new URL("/vitrines", request.url))
+    }
+  }
+
+  // Permitir acesso para usuários autenticados
   return NextResponse.next()
 }
 
-// See "Matching Paths" below to learn more
+// Atualizar o matcher para incluir os caminhos necessários
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/perfil", "/login", "/cadastro", "/esqueci-senha"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/perfil",
+    "/perfil-visitante",
+    "/login",
+    "/cadastro",
+    "/registro",
+    "/esqueci-senha",
+    "/vitrines/:path*",
+    "/planos/:path*",
+  ],
 }

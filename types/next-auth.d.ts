@@ -7,6 +7,7 @@ declare module "next-auth" {
   interface User {
     id: string
     role?: string
+    tipoUsuario?: string
     nome?: string
     cargo?: string
     permissoes?: string[]
@@ -24,12 +25,13 @@ declare module "next-auth" {
     user: {
       id: string
       role: string
+      tipoUsuario?: string
       nome?: string
-      cargo?: string
-      permissoes?: string[]
-      plano?: string
       emailVerificado?: boolean
+      plano?: string
+      permissoes?: string[]
       lojaId?: string
+      cargo?: string
       twoFactorEnabled?: boolean
       twoFactorMethod?: "email" | "app"
     } & DefaultSession["user"]
@@ -41,6 +43,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: string
+    tipoUsuario?: string
     nome?: string
     cargo?: string
     permissoes?: string[]

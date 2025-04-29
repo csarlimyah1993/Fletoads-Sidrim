@@ -1,79 +1,83 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Eye, MousePointer, Edit, Trash2, Share2 } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
-import { formatDistanceToNow } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+import Link from "next/link"
 import Image from "next/image"
+import { format, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Eye, Calendar, Tag, ArrowUpRight, Edit, Trash2, Share2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 interface PanfletoCardProps {
   panfleto: {
     _id: string
-    title: string
-    description: string
-    images: string[]
-    createdAt: string
-    status: "draft" | "published"
-    views: number
-    clicks: number
+    titulo: string
+    descricao: string
+    imagem: string
+    categoria: string
+    status: string
+    dataCriacao: string
+    visualizacoes?: number
+    ativo?: boolean
   }
+  onDelete?: (id: string) => void
 }
 
-export function PanfletoCard({ panfleto }: PanfletoCardProps) {
+export function PanfletoCard({ panfleto, onDelete }: PanfletoCardProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/panfletos/${panfleto._id}`, {
-        method: "DELETE",
-      })
+  // Função para determinar a cor do status
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800 border-green-300"
+      case "draft":
+        return "bg-amber-100 text-amber-800 border-amber-300"
+      case "inactive":
+      case "archived":
+        return "bg-red-100 text-red-800 border-red-300"
+      case "scheduled":
+        return "bg-blue-100 text-blue-800 border-blue-300"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300"
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error("Falha ao excluir panfleto")
-      }
+  // Tradução do status
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Ativo"
+      case "draft":
+        return "Rascunho"
+      case "inactive":
+        return "Inativo"
+      case "archived":
+        return "Arquivado"
+      case "scheduled":
+        return "Agendado"
+      default:
+        return status
+    }
+  }
 
-      toast({
-        title: "Panfleto excluído",
-        description: "O panfleto foi excluído com sucesso.",
-      })
+  // Formatar data
+  const formattedDate = panfleto.dataCriacao
+    ? format(parseISO(panfleto.dataCriacao), "dd 'de' MMMM, yyyy", { locale: ptBR })
+    : "Data não disponível"
 
-      // Recarregar a página para atualizar a lista
-      router.refresh()
-    } catch (error) {
-      console.error("Erro ao excluir panfleto:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o panfleto. Tente novamente mais tarde.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-      setShowDeleteDialog(false)
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(panfleto._id)
     }
   }
 
   const handleShare = () => {
-    // Implementação futura de compartilhamento
+    navigator.clipboard.writeText(`${window.location.origin}/panfletos/${panfleto._id}`)
     toast({
       title: "Link copiado",
       description: "O link do panfleto foi copiado para a área de transferência.",
@@ -81,107 +85,83 @@ export function PanfletoCard({ panfleto }: PanfletoCardProps) {
   }
 
   return (
-    <>
-      <Card className="overflow-hidden flex flex-col h-full">
-        <div className="relative h-48 bg-muted">
-          {panfleto.images && panfleto.images.length > 0 ? (
-            <Carousel className="w-full h-full">
-              <CarouselContent className="h-full">
-                {panfleto.images.map((image, index) => (
-                  <CarouselItem key={index} className="h-full">
-                    <div className="h-full w-full relative">
-                      <Image
-                        src={image || "/placeholder.svg"}
-                        alt={`${panfleto.title} - Imagem ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {panfleto.images.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-2" />
-                  <CarouselNext className="right-2" />
-                </>
-              )}
-            </Carousel>
-          ) : (
-            <div className="flex items-center justify-center h-full bg-muted">
-              <p className="text-muted-foreground">Sem imagens</p>
+    <Card className="overflow-hidden transition-all duration-300 hover:shadow-md group h-full flex flex-col">
+      <div className="relative h-48 w-full overflow-hidden">
+        {panfleto.imagem ? (
+          <Image
+            src={panfleto.imagem || "/placeholder.svg"}
+            alt={panfleto.titulo}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-muted">
+            <p className="text-muted-foreground">Sem imagem</p>
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+
+        <Badge className={`absolute top-3 right-3 ${getStatusColor(panfleto.status)}`}>
+          {getStatusText(panfleto.status)}
+        </Badge>
+      </div>
+
+      <CardContent className="flex-grow flex flex-col p-4">
+        <h3 className="text-lg font-semibold line-clamp-1 mb-1">{panfleto.titulo}</h3>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{panfleto.descricao}</p>
+
+        <div className="mt-auto space-y-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5" />
+              <span>{panfleto.categoria}</span>
             </div>
-          )}
-          <Badge variant={panfleto.status === "published" ? "default" : "secondary"} className="absolute top-2 right-2">
-            {panfleto.status === "published" ? "Publicado" : "Rascunho"}
-          </Badge>
-        </div>
-        <CardHeader>
-          <CardTitle className="line-clamp-1">{panfleto.title}</CardTitle>
-          <CardDescription className="line-clamp-2">{panfleto.description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-grow">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              <span>{panfleto.views}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MousePointer className="h-4 w-4" />
-              <span>{panfleto.clicks}</span>
-            </div>
-            <div>
-              {formatDistanceToNow(new Date(panfleto.createdAt), {
-                addSuffix: true,
-                locale: ptBR,
-              })}
+
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{formattedDate}</span>
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="flex gap-2 pt-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => router.push(`/panfletos/editar/${panfleto._id}`)}
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Editar
-          </Button>
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="h-4 w-4 mr-1" />
-            Excluir
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleShare}>
-            <Share2 className="h-4 w-4" />
-          </Button>
-        </CardFooter>
-      </Card>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir panfleto</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este panfleto? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Eye className="h-3.5 w-3.5" />
+              <span>{panfleto.visualizacoes || 0} visualizações</span>
+            </div>
+
+            <Link
+              href={`/dashboard/panfletos/${panfleto._id}`}
+              className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
             >
-              {isDeleting ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+              Ver detalhes
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      </CardContent>
+
+      <div className="px-4 pb-4 pt-0 flex gap-2 mt-auto">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={() => router.push(`/dashboard/panfletos/editar/${panfleto._id}`)}
+        >
+          <Edit className="h-3.5 w-3.5 mr-1.5" />
+          Editar
+        </Button>
+
+        <Button variant="outline" size="sm" className="flex-1" onClick={handleDelete}>
+          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+          Excluir
+        </Button>
+
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleShare}>
+          <Share2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </Card>
   )
 }
-

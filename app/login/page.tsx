@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -13,9 +13,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, status } = useSession()
 
   // Check for error in URL params (from NextAuth)
   useEffect(() => {
@@ -35,7 +35,6 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-    setDebugInfo(null)
 
     try {
       console.log("Iniciando login com:", { email })
@@ -47,7 +46,6 @@ export default function LoginPage() {
       })
 
       console.log("Resultado do login:", result)
-      setDebugInfo(result)
 
       if (result?.error) {
         setError(`Erro: ${result.error}`)
@@ -70,7 +68,6 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Erro no login:", error)
       setError(`Ocorreu um erro ao fazer login: ${error instanceof Error ? error.message : String(error)}`)
-      setDebugInfo(error)
       setIsLoading(false)
     }
   }
@@ -83,6 +80,26 @@ export default function LoginPage() {
       setError("Ocorreu um erro ao fazer login com Google")
       setIsLoading(false)
     }
+  }
+
+  // Função para forçar o logout e limpar todos os dados de autenticação
+  const handleForceLogout = () => {
+    // Limpar todos os cookies
+    document.cookie.split(";").forEach((cookie) => {
+      const [name] = cookie.trim().split("=")
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`
+    })
+
+    // Limpar localStorage e sessionStorage
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+    } catch (e) {
+      console.error("Erro ao limpar storage:", e)
+    }
+
+    // Recarregar a página para aplicar as alterações
+    window.location.reload()
   }
 
   return (
@@ -121,6 +138,13 @@ export default function LoginPage() {
               <p>{error}</p>
             </div>
           )}
+
+          {/* Botão para forçar logout */}
+          <div className="mb-6 text-center">
+            <button onClick={handleForceLogout} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Problemas para entrar? Clique aqui para limpar dados de sessão
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -228,18 +252,19 @@ export default function LoginPage() {
                 href="/cadastro"
                 className="text-fleto-primary dark:text-fleto-secondary font-medium hover:underline"
               >
-                Cadastre-se
+                Cadastre-se como Lojista
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Ou{" "}
+              <Link
+                href="/registro"
+                className="text-fleto-primary dark:text-fleto-secondary font-medium hover:underline"
+              >
+                Registre-se como Visitante
               </Link>
             </p>
           </div>
-
-          {/* Debug information - only in development */}
-          {process.env.NODE_ENV === "development" && debugInfo && (
-            <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-60">
-              <h3 className="font-medium mb-2">Debug Info:</h3>
-              <pre className="text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
-            </div>
-          )}
         </div>
       </div>
     </div>
