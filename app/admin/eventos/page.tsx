@@ -5,7 +5,19 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Calendar, Plus, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, Users, Store } from "lucide-react"
+import {
+  Calendar,
+  Plus,
+  Edit,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Loader2,
+  Users,
+  Store,
+  Bell,
+  ClipboardList,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,6 +49,7 @@ interface Evento {
   criadoPor: string
   visitantesUnicos: number
   totalVisitantes: number
+  solicitacoesPendentes?: number
 }
 
 export default function EventosPage() {
@@ -142,12 +155,20 @@ export default function EventosPage() {
     <div className="container mx-auto py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Gerenciamento de Eventos</h1>
-        <Button asChild>
-          <Link href="/admin/eventos/criar">
-            <Plus className="h-4 w-4 mr-2" />
-            Criar Evento
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/admin/eventos/participacoes">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Solicitações de Participação
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin/eventos/criar">
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Evento
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {eventos.length === 0 ? (
@@ -181,6 +202,7 @@ export default function EventosPage() {
                     <TableHead>Período</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Participantes</TableHead>
+                    <TableHead>Solicitações</TableHead>
                     <TableHead>Visualizações</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -205,6 +227,16 @@ export default function EventosPage() {
                           <Store className="h-4 w-4 text-muted-foreground" />
                           <span>{evento.lojasParticipantes?.length || 0}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {evento.solicitacoesPendentes ? (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Bell className="h-3 w-3" />
+                            <span>{evento.solicitacoesPendentes}</span>
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

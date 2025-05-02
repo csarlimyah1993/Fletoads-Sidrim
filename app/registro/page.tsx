@@ -1,14 +1,17 @@
 "use client"
 
+import { Label } from "@/components/ui/label"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { FcGoogle } from "react-icons/fc"
 import { signIn } from "next-auth/react"
 import { Loader2, Calendar, User, Mail, Phone, Lock, Eye, EyeOff, FileText, AlertCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface EventoAtivo {
   _id: string
@@ -30,28 +33,51 @@ export default function RegistroPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [eventoAtivo, setEventoAtivo] = useState<EventoAtivo | null>(null)
-  const [loadingEvento, setLoadingEvento] = useState(true)
+  const [eventosAtivos, setEventosAtivos] = useState<EventoAtivo[]>([])
+  const [selectedEventoId, setSelectedEventoId] = useState<string>("")
+  const [loadingEventos, setLoadingEventos] = useState(true)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // Buscar evento ativo
+  // Obter o ID do evento da URL
+  const eventoId = searchParams.get("eventoId")
+
+  // Buscar eventos ativos
   useEffect(() => {
-    const fetchEventoAtivo = async () => {
+    const fetchEventos = async () => {
       try {
-        const response = await fetch("/api/eventos/ativo")
-        if (!response.ok) throw new Error("Falha ao buscar evento ativo")
+        setLoadingEventos(true)
 
-        const data = await response.json()
-        setEventoAtivo(data.eventoAtivo)
+        // Se tiver um ID de evento na URL, buscar esse evento específico
+        if (eventoId) {
+          const response = await fetch(`/api/eventos/${eventoId}`)
+          if (!response.ok) throw new Error("Falha ao buscar evento")
+
+          const data = await response.json()
+          if (data.evento) {
+            setEventosAtivos([data.evento])
+            setSelectedEventoId(data.evento._id)
+          }
+        } else {
+          // Caso contrário, buscar todos os eventos ativos
+          const response = await fetch("/api/eventos/ativo")
+          if (!response.ok) throw new Error("Falha ao buscar eventos ativos")
+
+          const data = await response.json()
+          if (data.eventosAtivos && data.eventosAtivos.length > 0) {
+            setEventosAtivos(data.eventosAtivos)
+            setSelectedEventoId(data.eventosAtivos[0]._id)
+          }
+        }
       } catch (error) {
-        console.error("Erro ao buscar evento ativo:", error)
+        console.error("Erro ao buscar eventos:", error)
       } finally {
-        setLoadingEvento(false)
+        setLoadingEventos(false)
       }
     }
 
-    fetchEventoAtivo()
-  }, [])
+    fetchEventos()
+  }, [eventoId])
 
   const formatarCPF = (valor: string) => {
     const apenasNumeros = valor.replace(/\D/g, "")
@@ -95,6 +121,9 @@ export default function RegistroPage() {
       return
     }
 
+    // Encontrar o evento selecionado
+    const eventoSelecionado = eventosAtivos.find((evento) => evento._id === selectedEventoId)
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -107,8 +136,8 @@ export default function RegistroPage() {
           password,
           cpf: cpf.replace(/\D/g, ""),
           telefone: telefone.replace(/\D/g, ""),
-          eventoId: eventoAtivo?._id,
-          eventoNome: eventoAtivo?.nome,
+          eventoId: selectedEventoId,
+          eventoNome: eventoSelecionado?.nome,
           tipoUsuario: "visitante", // Definir tipo de usuário como visitante
           role: "visitante", // Garantir que o role também seja definido como visitante
         }),
@@ -147,7 +176,10 @@ export default function RegistroPage() {
   const handleGoogleSignup = async () => {
     try {
       setGoogleLoading(true)
-      await signIn("google", { callbackUrl: "/vitrines" })
+      // Incluir o eventoId como parâmetro de estado para recuperar após o login com Google
+      const callbackUrl = selectedEventoId ? `/api/auth/evento-callback?eventoId=${selectedEventoId}` : "/vitrines"
+
+      await signIn("google", { callbackUrl })
     } catch (error) {
       console.error("Erro ao registrar com Google:", error)
       setError("Erro ao registrar com Google")
@@ -157,6 +189,8 @@ export default function RegistroPage() {
 
   // Se o cadastro foi bem-sucedido, mostrar mensagem de sucesso
   if (success) {
+    const eventoSelecionado = eventosAtivos.find((evento) => evento._id === selectedEventoId)
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 text-center">
@@ -173,8 +207,8 @@ export default function RegistroPage() {
           </div>
           <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Cadastro Realizado!</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            {eventoAtivo
-              ? `Sua conta foi criada com sucesso. Você será redirecionado para as vitrines do evento ${eventoAtivo.nome}.`
+            {eventoSelecionado
+              ? `Sua conta foi criada com sucesso. Você será redirecionado para as vitrines do evento ${eventoSelecionado.nome}.`
               : "Sua conta foi criada com sucesso. Você será redirecionado para as vitrines."}
           </p>
           <div className="animate-pulse">
@@ -185,15 +219,18 @@ export default function RegistroPage() {
     )
   }
 
+  // Encontrar o evento selecionado para exibição
+  const eventoSelecionado = eventosAtivos.find((evento) => evento._id === selectedEventoId)
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Coluna esquerda - Imagem/Gradiente */}
       <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-fleto-primary via-fleto-dark to-fleto-secondary relative overflow-hidden">
-        {eventoAtivo?.imagem ? (
+        {eventoSelecionado?.imagem ? (
           <>
             <Image
-              src={eventoAtivo.imagem || "/placeholder.svg"}
-              alt={eventoAtivo.nome}
+              src={eventoSelecionado.imagem || "/placeholder.svg"}
+              alt={eventoSelecionado.nome}
               fill
               className="object-cover"
               priority
@@ -203,14 +240,14 @@ export default function RegistroPage() {
         ) : null}
 
         <div className="relative z-10 max-w-md mx-auto flex flex-col justify-center h-full p-12 text-white">
-          {eventoAtivo ? (
+          {eventoSelecionado ? (
             <>
               <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
                 <Calendar className="h-4 w-4" />
                 <span className="text-sm font-medium">Evento Ativo</span>
               </div>
-              <h1 className="text-4xl font-bold mb-4">{eventoAtivo.nome}</h1>
-              {eventoAtivo.descricao && <p className="text-lg opacity-90 mb-8">{eventoAtivo.descricao}</p>}
+              <h1 className="text-4xl font-bold mb-4">{eventoSelecionado.nome}</h1>
+              {eventoSelecionado.descricao && <p className="text-lg opacity-90 mb-8">{eventoSelecionado.descricao}</p>}
               <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
                 <p className="italic text-white/90">
                   "Registre-se para participar do evento e ter acesso a todas as lojas e produtos exclusivos."
@@ -244,13 +281,34 @@ export default function RegistroPage() {
               <Image src="/assets/logoFleto.svg" alt="FletoAds Logo" width={180} height={60} priority />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {eventoAtivo ? `Registre-se para ${eventoAtivo.nome}` : "Crie sua conta de visitante"}
+              {eventosAtivos.length > 0 ? "Registre-se para um evento" : "Crie sua conta de visitante"}
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              {eventoAtivo
+              {eventosAtivos.length > 0
                 ? "Preencha seus dados para participar do evento"
                 : "Preencha seus dados para acessar as vitrines como visitante"}
             </p>
+
+            {/* Seletor de eventos */}
+            {eventosAtivos.length > 1 && (
+              <div className="mt-4">
+                <Label htmlFor="evento" className="text-left block mb-2">
+                  Selecione o evento
+                </Label>
+                <Select value={selectedEventoId} onValueChange={setSelectedEventoId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um evento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventosAtivos.map((evento) => (
+                      <SelectItem key={evento._id} value={evento._id}>
+                        {evento.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Aviso para lojistas */}
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">

@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { X, ExternalLink, Users, Calendar, FileText } from 'lucide-react'
+import { X, ExternalLink, Users, Calendar, FileText } from "lucide-react"
 import { toast } from "sonner"
 
 interface EventoCardProps {
-  lojaId?: string
+  lojaId: string
 }
 
 interface Evento {
@@ -37,14 +37,20 @@ export function EventoCard({ lojaId }: EventoCardProps) {
   useEffect(() => {
     async function fetchEventoAtivo() {
       try {
+        console.log("Buscando evento ativo para lojaId:", lojaId)
         const response = await fetch("/api/eventos/ativo")
         if (response.ok) {
           const data = await response.json()
+          console.log("Resposta da API de evento ativo:", data)
           if (data.evento) {
             setEvento(data.evento)
             // Verificar se a loja já está participando
             checkParticipacao(data.evento._id)
+          } else {
+            console.log("Nenhum evento ativo encontrado")
           }
+        } else {
+          console.error("Erro ao buscar evento ativo:", response.status)
         }
       } catch (error) {
         console.error("Erro ao buscar evento ativo:", error)
@@ -58,16 +64,18 @@ export function EventoCard({ lojaId }: EventoCardProps) {
 
   // Verificar se a loja já está participando do evento
   const checkParticipacao = async (eventoId: string) => {
-    if (!lojaId) return
-    
     try {
+      console.log("Verificando participação para evento:", eventoId, "e loja:", lojaId)
       const response = await fetch(`/api/eventos/${eventoId}/participacao?lojaId=${lojaId}`)
       if (response.ok) {
         const data = await response.json()
+        console.log("Status de participação:", data)
         setIsParticipando(data.participando)
         if (data.participando) {
           fetchMetricas(eventoId)
         }
+      } else {
+        console.error("Erro ao verificar participação:", response.status)
       }
     } catch (error) {
       console.error("Erro ao verificar participação:", error)
@@ -76,8 +84,6 @@ export function EventoCard({ lojaId }: EventoCardProps) {
 
   // Buscar métricas do evento para a loja
   const fetchMetricas = async (eventoId: string) => {
-    if (!lojaId) return
-    
     try {
       const response = await fetch(`/api/eventos/${eventoId}/metricas?lojaId=${lojaId}`)
       if (response.ok) {
@@ -119,7 +125,12 @@ export function EventoCard({ lojaId }: EventoCardProps) {
     }
   }
 
-  if (!evento || fechado) return null
+  console.log("Estado atual do EventoCard:", { evento, isParticipando, fechado })
+
+  if (!evento || fechado) {
+    console.log("EventoCard não será renderizado:", { evento, fechado })
+    return null
+  }
 
   return (
     <Card

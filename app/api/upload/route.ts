@@ -19,9 +19,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
     }
 
+    // Lista de tipos de arquivo permitidos
+    const allowedTypes = [
+      // Imagens
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "image/svg+xml",
+      // Documentos
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // Word
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // Excel
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation", // PowerPoint
+      "text/plain",
+      "text/csv",
+      "text/html",
+      "text/rtf",
+      "application/zip",
+      "application/x-zip-compressed",
+    ]
+
     // Verificar o tipo de arquivo
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Apenas imagens são permitidas" }, { status: 400 })
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        {
+          error: `Tipo de arquivo não permitido: ${file.type}. Tipos permitidos: imagens, PDF, Word, Excel, PowerPoint, texto e ZIP.`,
+        },
+        { status: 400 },
+      )
     }
 
     // Gerar um nome único para o arquivo
@@ -38,4 +67,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao fazer upload do arquivo" }, { status: 500 })
   }
 }
-

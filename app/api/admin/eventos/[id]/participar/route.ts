@@ -22,22 +22,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { db } = await connectToDatabase()
 
     // Verificar se o evento existe
-    let eventoQuery = {}
-    if (ObjectId.isValid(id)) {
-      eventoQuery = { _id: new ObjectId(id) }
-    } else {
-      eventoQuery = { slug: id }
-    }
-
-    const evento = await db.collection("eventos").findOne(eventoQuery)
-
+    const evento = await db.collection("eventos").findOne({ _id: new ObjectId(id) })
     if (!evento) {
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 })
     }
 
     // Verificar se já existe uma solicitação para esta loja neste evento
     const participacaoExistente = await db.collection("participacoesEventos").findOne({
-      eventoId: evento._id.toString(),
+      eventoId: id,
       lojaId,
     })
 
@@ -47,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     // Criar solicitação de participação
     await db.collection("participacoesEventos").insertOne({
-      eventoId: evento._id.toString(),
+      eventoId: id,
       eventoNome: evento.nome,
       lojaId,
       usuarioId: session.user.id,
@@ -63,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       link: "/admin/eventos/participacoes",
       lida: false,
       dataCriacao: new Date().toISOString(),
-      eventoId: evento._id.toString(),
+      eventoId: id,
       lojaId,
     })
 

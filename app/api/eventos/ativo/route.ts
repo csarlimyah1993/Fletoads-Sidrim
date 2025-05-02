@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
-    }
-
     const { db } = await connectToDatabase()
 
-    // Buscar evento ativo
-    const evento = await db.collection("eventos").findOne({ ativo: true })
+    // Find all active events instead of just one
+    const eventosAtivos = await db
+      .collection("eventos")
+      .find({ ativo: true })
+      .sort({ dataInicio: 1 }) // Sort by start date
+      .toArray()
 
-    return NextResponse.json({ evento })
+    if (!eventosAtivos || eventosAtivos.length === 0) {
+      return NextResponse.json({ message: "Nenhum evento ativo encontrado" }, { status: 404 })
+    }
+
+    return NextResponse.json({ eventosAtivos })
   } catch (error) {
-    console.error("Erro ao buscar evento ativo:", error)
-    return NextResponse.json({ error: "Erro ao buscar evento ativo" }, { status: 500 })
+    console.error("Erro ao buscar eventos ativos:", error)
+    return NextResponse.json({ error: "Erro ao buscar eventos ativos" }, { status: 500 })
   }
 }
