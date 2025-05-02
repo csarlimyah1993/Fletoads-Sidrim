@@ -65,6 +65,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .project({ nome: 1, logo: 1 })
       .toArray()
 
+    // Generate registration URL
+    const registrationUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://lojista.fleto.com.br"}/registro?eventoId=${evento._id}`
+
     return NextResponse.json({
       evento: {
         ...evento,
@@ -72,6 +75,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         totalVisitantes,
         lojasParticipantes,
         documentos: evento.documentos || [], // Ensure documentos is always an array
+        registrationUrl, // Add registration URL
       },
     })
   } catch (error) {
@@ -98,19 +102,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
     }
 
-    // If the event is marked as active, deactivate other active events
-    if (data.ativo) {
-      // Check if we're creating a new event
-      if (id === "novo") {
-        // Deactivate all active events
-        await db.collection("eventos").updateMany({ ativo: true }, { $set: { ativo: false } })
-      } else if (ObjectId.isValid(id)) {
-        // Deactivate other active events, except this one
-        await db
-          .collection("eventos")
-          .updateMany({ _id: { $ne: new ObjectId(id) }, ativo: true }, { $set: { ativo: false } })
-      }
-    }
+    // REMOVED: The code that deactivates other events when one is activated
+    // Now multiple events can be active simultaneously
 
     // If it's a new event, insert
     if (id === "novo") {

@@ -2,11 +2,10 @@
 
 import type React from "react"
 
-import { useState, useEffect, use } from "react"
-import { useRouter } from "next/navigation"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { CalendarIcon, Check, Loader2, Trash2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
+import { Loader2, Copy } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,194 +13,127 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { toast } from "sonner"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { StoreSelector } from "@/components/admin/store-selector"
-import { ImageUpload } from "@/components/ui/image-upload"
+import { DocumentUpload, type DocumentInfo } from "@/components/ui/documents-upload"
+import DatePicker from "@/components/ui/date-picker"
 
-interface Loja {
+interface Evento {
   _id: string
   nome: string
-  logo?: string
-  ativo?: boolean
+  descricao: string
+  imagem: string
+  dataInicio: Date
+  dataFim: Date
+  ativo: boolean
+  lojasParticipantes: string[]
+  documentos: DocumentInfo[]
+  registrationUrl?: string
 }
 
-interface EventoPageProps {
-  params: Promise<{ id: string }>
-}
-
-export default function EventoPage({ params }: EventoPageProps) {
-  const resolvedParams = use(params)
-  const eventoId = resolvedParams.id
+export default function EventoPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [lojas, setLojas] = useState<Loja[]>([])
-  const [lojasLoading, setLojasLoading] = useState(true)
-  const [formData, setFormData] = useState({
-    nome: "",
-    descricao: "",
-    imagem: "",
-    dataInicio: new Date(),
-    dataFim: new Date(),
-    ativo: false,
-    lojasParticipantes: [] as string[],
-  })
+  const params = useParams()
+  const id = params?.id as string
 
-  // Remover o useEffect para definir eventoId, já que agora temos o valor diretamente
-  // Fetch event data
+  const [evento, setEvento] = useState<Evento | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Form state
+  const [nome, setNome] = useState("")
+  const [descricao, setDescricao] = useState("")
+  const [imagem, setImagem] = useState("")
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined)
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined)
+  const [ativo, setAtivo] = useState(false)
+  const [documentos, setDocumentos] = useState<DocumentInfo[]>([])
+  const [registrationUrl, setRegistrationUrl] = useState("")
+
   useEffect(() => {
-    if (!eventoId) return
-
-    const fetchEvento = async () => {
-      setIsLoading(true)
-      try {
-        const baseUrl = window.location.origin
-        const response = await fetch(`${baseUrl}/api/admin/eventos/${eventoId}`)
-        if (!response.ok) throw new Error("Falha ao buscar evento")
-
-        const data = await response.json()
-        const evento = data.evento
-
-        setFormData({
-          nome: evento.nome || "",
-          descricao: evento.descricao || "",
-          imagem: evento.imagem || "",
-          dataInicio: new Date(evento.dataInicio),
-          dataFim: new Date(evento.dataFim),
-          ativo: evento.ativo || false,
-          lojasParticipantes: evento.lojasParticipantes || [],
-        })
-      } catch (error) {
-        console.error("Erro ao buscar evento:", error)
-        toast.error("Erro ao carregar dados do evento")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchEvento()
-  }, [eventoId])
+  }, [id])
 
-  // Fetch available stores
-  useEffect(() => {
-    const fetchLojas = async () => {
-      try {
-        const baseUrl = window.location.origin
-        const response = await fetch(`${baseUrl}/api/admin/lojas`)
-        if (!response.ok) throw new Error("Falha ao buscar lojas")
+  const fetchEvento = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/admin/eventos/${id}`)
 
-        const data = await response.json()
-        setLojas(data.lojas || [])
-      } catch (error) {
-        console.error("Erro ao buscar lojas:", error)
-        toast.error("Erro ao carregar lojas")
-      } finally {
-        setLojasLoading(false)
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar evento: ${response.status}`)
       }
+
+      const data = await response.json()
+      const eventoData = data.evento
+
+      setEvento(eventoData)
+      setNome(eventoData.nome || "")
+      setDescricao(eventoData.descricao || "")
+      setImagem(eventoData.imagem || "")
+      setDataInicio(eventoData.dataInicio ? new Date(eventoData.dataInicio) : undefined)
+      setDataFim(eventoData.dataFim ? new Date(eventoData.dataFim) : undefined)
+      setAtivo(eventoData.ativo || false)
+      setDocumentos(eventoData.documentos || [])
+      setRegistrationUrl(eventoData.registrationUrl || "")
+    } catch (error) {
+      console.error("Erro ao buscar evento:", error)
+      setError(error instanceof Error ? error.message : "Erro desconhecido")
+    } finally {
+      setLoading(false)
     }
-
-    fetchLojas()
-  }, [])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSwitchChange = (checked: boolean) => {
-    setFormData((prev) => ({ ...prev, ativo: checked }))
-  }
-
-  const handleDateChange = (field: "dataInicio" | "dataFim", date: Date | undefined) => {
-    if (date) {
-      setFormData((prev) => ({ ...prev, [field]: date }))
-    }
-  }
-
-  const handleLojaToggle = (lojaId: string, checked: boolean) => {
-    setFormData((prev) => {
-      if (checked) {
-        return { ...prev, lojasParticipantes: [...prev.lojasParticipantes, lojaId] }
-      } else {
-        return { ...prev, lojasParticipantes: prev.lojasParticipantes.filter((id) => id !== lojaId) }
-      }
-    })
-  }
-
-  const handleImageChange = (value: string | string[]) => {
-    setFormData((prev) => ({ ...prev, imagem: typeof value === "string" ? value : value[0] || "" }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!eventoId) return
-
-    setIsSaving(true)
+    setSaving(true)
 
     try {
-      const baseUrl = window.location.origin
-      const response = await fetch(`${baseUrl}/api/admin/eventos/${eventoId}`, {
+      const response = await fetch(`/api/admin/eventos/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          nome,
+          descricao,
+          imagem,
+          dataInicio,
+          dataFim,
+          ativo,
+          documentos,
+        }),
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Erro ao atualizar evento")
+        throw new Error("Falha ao salvar evento")
       }
 
-      toast.success("Evento atualizado com sucesso!")
+      const data = await response.json()
+
+      toast.success("Evento salvo com sucesso")
+
+      // If it's a new event, redirect to the edit page
+      if (id === "novo" && data.eventoId) {
+        router.push(`/admin/eventos/${data.eventoId}`)
+      } else {
+        // Refresh the data
+        fetchEvento()
+      }
     } catch (error) {
-      console.error("Erro ao atualizar evento:", error)
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar evento")
+      console.error("Erro ao salvar evento:", error)
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar evento")
     } finally {
-      setIsSaving(false)
+      setSaving(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (!eventoId) return
-
-    setIsDeleting(true)
-
-    try {
-      const baseUrl = window.location.origin
-      const response = await fetch(`${baseUrl}/api/admin/eventos/${eventoId}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Erro ao excluir evento")
-      }
-
-      toast.success("Evento excluído com sucesso!")
-      router.push("/admin/eventos")
-    } catch (error) {
-      console.error("Erro ao excluir evento:", error)
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir evento")
-      setIsDeleting(false)
+  const copyRegistrationUrl = () => {
+    if (registrationUrl) {
+      navigator.clipboard.writeText(registrationUrl)
+      toast.success("URL de registro copiada para a área de transferência")
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -209,188 +141,137 @@ export default function EventoPage({ params }: EventoPageProps) {
     )
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-red-800 dark:text-red-200">Erro ao carregar evento</h3>
+          <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
+          <Button onClick={fetchEvento} className="mt-4">
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Editar Evento</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.back()}>
-            Voltar
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o evento e todos os dados associados.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Excluindo...
-                    </>
-                  ) : (
-                    "Sim, excluir evento"
-                  )}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+        <h1 className="text-2xl font-bold">{id === "novo" ? "Criar Novo Evento" : "Editar Evento"}</h1>
+        <Button variant="outline" onClick={() => router.push("/admin/eventos")}>
+          Voltar
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informações do Evento</CardTitle>
-                <CardDescription>Edite os dados do evento</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do Evento *</Label>
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações Básicas</CardTitle>
+              <CardDescription>Defina as informações básicas do evento</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="nome">Nome do Evento</Label>
                   <Input
                     id="nome"
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleInputChange}
-                    placeholder="Ex: Feira de Negócios 2023"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    placeholder="Nome do evento"
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="descricao">Descrição</Label>
                   <Textarea
                     id="descricao"
-                    name="descricao"
-                    value={formData.descricao}
-                    onChange={handleInputChange}
-                    placeholder="Descreva o evento..."
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value)}
+                    placeholder="Descrição do evento"
                     rows={4}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Imagem do Evento</Label>
-                  <ImageUpload value={formData.imagem} onChange={handleImageChange} />
-                  <p className="text-sm text-muted-foreground">
-                    Imagem de destaque que será exibida na página de registro
-                  </p>
+                <div>
+                  <Label htmlFor="imagem">URL da Imagem</Label>
+                  <Input
+                    id="imagem"
+                    value={imagem}
+                    onChange={(e) => setImagem(e.target.value)}
+                    placeholder="https://exemplo.com/imagem.jpg"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Data de Início *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(formData.dataInicio, "PPP", { locale: ptBR })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.dataInicio}
-                          onSelect={(date) => handleDateChange("dataInicio", date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <div>
+                    <Label htmlFor="dataInicio">Data de Início</Label>
+                    <DatePicker id="dataInicio" date={dataInicio} onSelect={setDataInicio} />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Data de Término *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(formData.dataFim, "PPP", { locale: ptBR })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.dataFim}
-                          onSelect={(date) => handleDateChange("dataFim", date)}
-                          initialFocus
-                          disabled={(date) => date < formData.dataInicio}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <div>
+                    <Label htmlFor="dataFim">Data de Término</Label>
+                    <DatePicker id="dataFim" date={dataFim} onSelect={setDataFim} />
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2 pt-2">
-                  <Switch id="ativo" checked={formData.ativo} onCheckedChange={handleSwitchChange} />
-                  <Label htmlFor="ativo">Ativar evento</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
+                  <Label htmlFor="ativo">Evento Ativo</Label>
                 </div>
-                {formData.ativo && (
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    Atenção: Ativar este evento irá desativar qualquer outro evento ativo.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Lojas Participantes</CardTitle>
-                <CardDescription>Selecione as lojas que participarão do evento</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <StoreSelector selectedStores={formData.lojasParticipantes} onStoreToggle={handleLojaToggle} />
-
-                {formData.lojasParticipantes.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {formData.lojasParticipantes.length}{" "}
-                      {formData.lojasParticipantes.length === 1 ? "loja selecionada" : "lojas selecionadas"}
+                {evento?._id && (
+                  <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Label className="block mb-2">URL de Registro</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-white dark:bg-gray-900 p-2 rounded border text-sm overflow-x-auto">
+                        <code className="text-xs md:text-sm">{registrationUrl}</code>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={copyRegistrationUrl}
+                        title="Copiar URL"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Compartilhe esta URL para que os usuários possam se registrar diretamente para este evento.
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardContent className="pt-6">
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSaving || !formData.nome || formData.lojasParticipantes.length === 0}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Salvar Alterações
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Documentos</CardTitle>
+              <CardDescription>Adicione documentos relacionados ao evento</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DocumentUpload value={documentos} onChange={setDocumentos} />
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" type="button" onClick={() => router.push("/admin/eventos")}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Evento"
+              )}
+            </Button>
           </div>
         </div>
       </form>

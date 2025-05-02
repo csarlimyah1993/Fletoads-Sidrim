@@ -28,10 +28,16 @@ export async function GET(request: Request) {
         // Count total views
         const totalVisitantes = await db.collection("visualizacoes").countDocuments({ eventoId: evento._id.toString() })
 
+        // Count pending participation requests
+        const solicitacoesPendentes = await db
+          .collection("participacoesEventos")
+          .countDocuments({ eventoId: evento._id.toString(), status: "pendente" })
+
         return {
           ...evento,
           visitantesUnicos,
           totalVisitantes,
+          solicitacoesPendentes,
         }
       }),
     )

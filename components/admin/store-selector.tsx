@@ -1,7 +1,5 @@
 "use client"
 
-// Vamos substituir completamente o componente para garantir que a pesquisa funcione corretamente
-
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Check, ChevronDown, Store, Search } from "lucide-react"
@@ -22,10 +20,11 @@ interface Loja {
 interface StoreSelectorProps {
   selectedStores: string[]
   onStoreToggle: (storeId: string, selected: boolean) => void
+  excludeIds?: string[] // Add this property
   className?: string
 }
 
-export function StoreSelector({ selectedStores, onStoreToggle, className }: StoreSelectorProps) {
+export function StoreSelector({ selectedStores, onStoreToggle, excludeIds = [], className }: StoreSelectorProps) {
   const [open, setOpen] = useState(false)
   const [lojas, setLojas] = useState<Loja[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +52,9 @@ export function StoreSelector({ selectedStores, onStoreToggle, className }: Stor
 
   // Filter stores based on search query - case insensitive
   const filteredLojas = lojas.filter((loja) => {
+    // First filter out excluded IDs
+    if (excludeIds.includes(loja._id)) return false
+
     if (!searchQuery.trim()) return true
 
     // Normalizar texto para pesquisa (remover acentos, converter para minúsculas)

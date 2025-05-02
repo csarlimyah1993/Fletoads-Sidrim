@@ -14,11 +14,11 @@ import { RecentActivityCard } from "@/components/dashboard/recent-activity-card"
 import UserLocationCard from "@/components/dashboard/user-location-card"
 import { useEstatisticas } from "@/hooks/use-estatisticas"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BarChart3, ShoppingBag, Users, TrendingUp, Calendar, Lightbulb, Activity, Store } from 'lucide-react'
+import { BarChart3, ShoppingBag, Users, TrendingUp, Calendar, Lightbulb, Activity, Store } from "lucide-react"
 import { VendasRecentes } from "@/components/dashboard/vendas-recentes"
 import { useRouter } from "next/navigation"
 import { HorariosFuncionamentoCard } from "@/components/dashboard/horarios-funcionamento-card"
-import { EventoCard } from "@/components/dashboard/evento-card"
+import { EventosCarousel } from "@/components/dashboard/eventos-carousel"
 
 interface Cliente {
   _id: string
@@ -331,9 +331,9 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
 
         {/* Conteúdo da aba Minha Loja */}
         <TabsContent value="loja" className="space-y-6">
-          {/* Adicionar o componente EventoCard no início da seção */}
-          {loja && loja._id && <EventoCard lojaId={loja._id.toString()} />}
-          
+          {/* Substituir o EventoCard pelo EventosCarousel */}
+          {loja && loja._id && <EventosCarousel lojaId={loja._id.toString()} />}
+
           <section>
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Store className="h-5 w-5 text-primary" />
