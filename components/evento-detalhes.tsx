@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,6 +47,7 @@ interface Evento {
   dataFim: string
   ativo: boolean
   documentos: Documento[]
+  lojasParticipantes?: string[]
   comercializacao?: {
     title: string
     items: string[]
@@ -76,6 +78,7 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
   useEffect(() => {
     async function fetchEvento() {
       try {
+        console.log("EventoDetalhes: Buscando evento com ID:", id)
         setLoading(true)
         const response = await fetch(`/api/eventos/${id}`)
 
@@ -84,11 +87,12 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
         }
 
         const data = await response.json()
+        console.log("EventoDetalhes: Evento recebido:", data.evento)
         setEvento(data.evento)
 
         // Verificar status de participação se o usuário estiver logado
         if (session?.user) {
-          await checkParticipacaoStatus()
+          await checkParticipacaoStatus(data.evento)
         } else {
           setParticipacaoStatus("nao-participando")
         }
@@ -104,16 +108,30 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
   }, [id, session])
 
   // Verificar status de participação
-  const checkParticipacaoStatus = async () => {
-    if (!session?.user) return
+  const checkParticipacaoStatus = async (eventoData?: Evento) => {
+    if (!session?.user) {
+      setParticipacaoStatus("nao-participando")
+      return
+    }
 
     try {
+      console.log("EventoDetalhes: Verificando status de participação")
       const lojaId = session.user.lojaId
       if (!lojaId) {
+        console.log("EventoDetalhes: Usuário não tem lojaId")
         setParticipacaoStatus("nao-participando")
         return
       }
 
+      // Verificar se a loja está na lista de participantes do evento
+      const eventoAtual = eventoData || evento
+      if (eventoAtual?.lojasParticipantes && eventoAtual.lojasParticipantes.includes(lojaId)) {
+        console.log("EventoDetalhes: Loja já está participando do evento")
+        setParticipacaoStatus("aprovado")
+        return
+      }
+
+      // Se não estiver na lista, verificar se há uma solicitação pendente
       const response = await fetch(`/api/eventos/${id}/status-participacao?lojaId=${lojaId}`)
 
       if (!response.ok) {
@@ -121,6 +139,7 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
       }
 
       const data = await response.json()
+      console.log("EventoDetalhes: Status de participação:", data.status)
       setParticipacaoStatus(data.status)
     } catch (error) {
       console.error("Erro ao verificar status de participação:", error)
@@ -270,6 +289,50 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
       ],
     },
   ]
+
+  // Renderizar botão de participação baseado no status
+  const renderBotaoParticipacao = () => {
+    if (participacaoStatus === "carregando") {
+      return (
+        <Button className="bg-gray-400 hover:bg-gray-500" disabled>
+          <Skeleton className="h-4 w-24" />
+        </Button>
+      )
+    }
+
+    if (participacaoStatus === "aprovado") {
+      return (
+        <Button className="bg-green-600 hover:bg-green-700" disabled>
+          <Check className="h-4 w-4 mr-2" />
+          Participando
+        </Button>
+      )
+    }
+
+    if (participacaoStatus === "pendente") {
+      return (
+        <Button className="bg-yellow-600 hover:bg-yellow-700" disabled>
+          <Clock className="h-4 w-4 mr-2" />
+          Solicitação pendente
+        </Button>
+      )
+    }
+
+    if (participacaoStatus === "rejeitado") {
+      return (
+        <Button className="bg-red-600 hover:bg-red-700" disabled>
+          <X className="h-4 w-4 mr-2" />
+          Solicitação rejeitada
+        </Button>
+      )
+    }
+
+    return (
+      <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleParticiparEvento}>
+        Participar do Evento
+      </Button>
+    )
+  }
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -485,17 +548,7 @@ export function EventoDetalhes({ id }: EventoDetalhesProps) {
       </Card>
 
       {/* Participate Button */}
-      {participacaoStatus !== "aprovado" && participacaoStatus !== "pendente" && (
-        <div className="flex justify-end mb-8">
-          <Button
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={handleParticiparEvento}
-            disabled={participacaoStatus === "carregando"}
-          >
-            Participar do Evento
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end mb-8">{renderBotaoParticipacao()}</div>
 
       {/* Footer */}
       <div className="text-center text-xs text-gray-500 py-4">Designed by REZZON</div>
