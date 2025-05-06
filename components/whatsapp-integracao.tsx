@@ -33,6 +33,7 @@ export function WhatsappIntegracao() {
   const [qrTimer, setQrTimer] = useState(40)
   const [isQrActive, setIsQrActive] = useState(false)
   const [isStartEndLoading, setIsStartEndLoading] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1)
 
   const requestNewQrCode = async () => {
     try {
@@ -101,8 +102,9 @@ export function WhatsappIntegracao() {
       }
       toast({
         title: "Sucesso",
-        description: "Comando para iniciar conexão enviado.",
+        description: "Instância criada. Avance para o QR Code.",
       });
+      setStep(2);
     } catch (error: any) {
       console.error("Erro ao iniciar conexão:", error);
       toast({
@@ -222,47 +224,7 @@ export function WhatsappIntegracao() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center p-4 min-h-[300px]">
-            {qrCodeLoading ? (
-              <div className="flex flex-col items-center justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Gerando QR Code...
-                </p>
-              </div>
-            ) : qrCodeData && isQrActive ? (
-              <div className="flex flex-col items-center">
-                <div className="relative h-64 w-64">
-                  <Image
-                    src={`data:image/png;base64,${qrCodeData}`}
-                    alt="QR Code para WhatsApp"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-                <p className="mt-4 text-sm text-muted-foreground text-center">
-                  {"Abra o WhatsApp no seu celular, vá em Configurações > Aparelhos conectados > Conectar um aparelho"}
-                </p>
-                <p className="mt-2 text-sm font-medium text-center">
-                Tempo restante: {qrTimer} segundos
-                </p>
-              </div>
-            ) : qrCodeData && !isQrActive ? (
-               <div className="flex flex-col items-center justify-center p-8">
-                <p className="text-sm text-muted-foreground">
-                  QR Code expirado.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={requestNewQrCode}
-                  disabled={qrCodeLoading}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Gerar novo QR Code
-                </Button>
-              </div>
-            ) : (
+            {step === 1 ? (
               <div className="flex flex-col items-center justify-center p-8 space-y-4 w-full">
                 <div className="space-y-2 w-full">
                   <Label htmlFor="qrPhone">Telefone</Label>
@@ -276,26 +238,8 @@ export function WhatsappIntegracao() {
                 </div>
                 <Button
                   className="w-full"
-                  onClick={requestNewQrCode}
-                  disabled={!qrPhone || qrCodeLoading}
-                >
-                  {qrCodeLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <QrCode className="mr-2 h-4 w-4" />
-                  )}
-                  Gerar QR Code
-                </Button>
-              </div>
-            )}
-
-            {(qrCodeData || qrPhone) && (
-              <div className="mt-4 flex w-full justify-center space-x-2 border-t pt-4">
-                <Button
-                  size="sm"
                   onClick={handleStartConnection}
-                  disabled={isStartEndLoading || !qrPhone}
-                  className="bg-green-500 hover:bg-green-600"
+                  disabled={!qrPhone || isStartEndLoading}
                 >
                   {isStartEndLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -304,20 +248,70 @@ export function WhatsappIntegracao() {
                   )}
                   Iniciar Conexão
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleEndConnection}
-                  disabled={isStartEndLoading || !qrPhone}
-                >
-                  {isStartEndLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <StopCircle className="mr-2 h-4 w-4" />
-                  )}
-                  Finalizar Conexão
-                </Button>
               </div>
+            ) : (
+              qrCodeLoading ? (
+                <div className="flex flex-col items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Gerando QR Code...</p>
+                </div>
+              ) : qrCodeData && isQrActive ? (
+                <div className="flex flex-col items-center">
+                  <div className="relative h-64 w-64">
+                    <Image
+                      src={`data:image/png;base64,${qrCodeData}`}
+                      alt="QR Code para WhatsApp"
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                  <p className="mt-4 text-sm text-muted-foreground text-center">
+                    {"Abra o WhatsApp no seu celular, vá em Configurações > Aparelhos conectados > Conectar um aparelho"}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-center">
+                    Tempo restante: {qrTimer} segundos
+                  </p>
+                </div>
+              ) : qrCodeData && !isQrActive ? (
+                <div className="flex flex-col items-center justify-center p-8">
+                  <p className="text-sm text-muted-foreground">QR Code expirado.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={requestNewQrCode}
+                    disabled={qrCodeLoading}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Gerar novo QR Code
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 space-y-4 w-full">
+                  <Button
+                    className="w-full"
+                    onClick={requestNewQrCode}
+                    disabled={qrCodeLoading}
+                  >
+                    {qrCodeLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <QrCode className="mr-2 h-4 w-4" />
+                    )}
+                    Gerar QR Code
+                  </Button>
+                </div>
+              )
+            )}
+            {step === 2 && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-4"
+                onClick={() => setStep(1)}
+              >
+                Voltar
+              </Button>
             )}
           </div>
           <DialogFooter className="sm:justify-center">

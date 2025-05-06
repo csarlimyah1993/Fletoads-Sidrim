@@ -24,7 +24,9 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(integracao)
+    // Remover campos evolutionApiUrl e apiKey da resposta
+    const { evolutionApiUrl, apiKey, ...rest } = integracao.toObject ? integracao.toObject() : integracao
+    return NextResponse.json(rest)
   } catch (error) {
     console.error("Erro ao obter integração do WhatsApp:", error)
     return NextResponse.json({ error: "Erro ao obter integração do WhatsApp" }, { status: 500 })
@@ -43,6 +45,9 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     }
 
     const dados = await req.json()
+    // Remover campos evolutionApiUrl e apiKey do update
+    delete dados.evolutionApiUrl
+    delete dados.apiKey
 
     const integracao = await WhatsappIntegracao.findOneAndUpdate(
       { _id: id, userId: session.user.id },
@@ -54,7 +59,9 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
       return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(integracao)
+    // Remover campos evolutionApiUrl e apiKey da resposta
+    const { evolutionApiUrl, apiKey, ...rest } = integracao.toObject ? integracao.toObject() : integracao
+    return NextResponse.json(rest)
   } catch (error) {
     console.error("Erro ao atualizar integração do WhatsApp:", error)
     return NextResponse.json({ error: "Erro ao atualizar integração do WhatsApp" }, { status: 500 })
