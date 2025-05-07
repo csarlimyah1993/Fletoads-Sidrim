@@ -28,8 +28,13 @@ export async function GET(request: NextRequest) {
 
     if (userId) {
       try {
+        // Validação do formato do userId antes de converter para ObjectId
+        let userIdObj: ObjectId | string = userId
+        if (typeof userId === "string" && /^[a-fA-F0-9]{24}$/.test(userId)) {
+          userIdObj = new ObjectId(userId)
+        }
         usuario = await db.collection<Usuario>("usuarios").findOne({
-          $or: [{ _id: new ObjectId(userId) }, { _id: userId }],
+          $or: [{ _id: userIdObj }, { _id: userId }],
         })
         console.log("API /api/dashboard/loja - Usuário encontrado:", usuario ? "Sim" : "Não")
         console.log("API /api/dashboard/loja - LojaId do usuário:", usuario?.lojaId)
