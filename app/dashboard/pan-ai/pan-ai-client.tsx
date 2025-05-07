@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2, Sparkles, FileText, MessageSquare, TrendingUp, Lightbulb } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { Loader2, Sparkles, FileText, MessageSquare, TrendingUp, Lightbulb } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface PanAIClientProps {
   userData: {
@@ -24,8 +24,10 @@ export default function PanAIClient({ userData }: PanAIClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("panfletos")
   const [prompt, setPrompt] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [result, setResult] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [result, setResult] = useState("");
+
+  const webhookUrl = 'https://n8n.robotizze.us/webhook-test/pan-ia'; // Updated Webhook URL
 
   // Verificar se o usuário tem acesso ao recurso premium
   useEffect(() => {
@@ -48,45 +50,69 @@ export default function PanAIClient({ userData }: PanAIClientProps) {
       return
     }
 
-    setIsGenerating(true)
-    setResult("")
+    setIsGenerating(true);
+    setResult("");
 
     try {
-      // Simular uma chamada de API para o modelo de IA
-      // Em produção, isso seria uma chamada real para um serviço de IA como OpenAI
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // --- Unified Webhook Call for ALL Tabs ---
+      const formData = {
+        action: activeTab, // Send the active tab as the action
+        prompt: prompt,
+      };
+      console.log('Sending data to unified webhook:', formData);
 
-      let generatedResult = ""
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-      switch (activeTab) {
-        case "panfletos":
-          generatedResult = `# Panfleto: ${prompt}\n\n## Título Chamativo\n\nTexto promocional gerado com base na sua solicitação: "${prompt}"\n\n- Ponto de destaque 1\n- Ponto de destaque 2\n- Ponto de destaque 3\n\nCHAMADA PARA AÇÃO IMPACTANTE!`
-          break
-        case "descricoes":
-          generatedResult = `Descrição otimizada para: "${prompt}"\n\n${prompt} - agora com uma descrição mais atraente, usando palavras-chave relevantes e destacando os principais benefícios do produto. Esta descrição foi criada para aumentar a conversão e melhorar o SEO da sua loja.`
-          break
-        case "marketing":
-          generatedResult = `Sugestões de marketing para: "${prompt}"\n\n1. Crie uma campanha de email marketing destacando os benefícios exclusivos\n2. Utilize depoimentos de clientes satisfeitos nas redes sociais\n3. Ofereça um desconto por tempo limitado para aumentar a urgência\n4. Desenvolva um programa de indicação para expandir sua base de clientes`
-          break
-        case "tendencias":
-          generatedResult = `Análise de tendências para: "${prompt}"\n\n- Tendência 1: Crescimento de 23% no interesse por produtos sustentáveis\n- Tendência 2: Aumento na busca por experiências personalizadas\n- Tendência 3: Maior engajamento em conteúdos de vídeo curtos\n- Tendência 4: Preferência por marcas com propósito social claro`
-          break
-        default:
-          generatedResult = `Resultado para: "${prompt}"\n\nConteúdo gerado com base na sua solicitação.`
+      console.log('Unified webhook response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Unified webhook response error:', errorText);
+        throw new Error(`Webhook unificado falhou com status: ${response.status}`);
       }
 
-      setResult(generatedResult)
+      const webhookResult = await response.json();
+      console.log('Unified webhook response success:', webhookResult);
+
+      // Handle response: Expect resultText for the prompt
+      if (webhookResult.output && webhookResult.output.trim()) {
+        setResult(webhookResult.output);
+        toast({ title: 'Sucesso!', description: 'Prompt gerado com sucesso!' });
+      } else {
+        // Handle case where resultText is missing or empty
+        console.warn('Webhook response successful, but missing or empty resultText:', webhookResult);
+        setResult("Não foi possível gerar o prompt. Tente novamente.");
+        toast({ title: 'Aviso', description: 'Não foi possível gerar o prompt a partir da resposta.', variant: 'destructive' });
+      }
+      // --- End Unified Webhook Call ---
     } catch (error) {
       console.error("Erro ao gerar conteúdo:", error)
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao gerar o conteúdo. Por favor, tente novamente.",
+        description: `Ocorreu um erro ao gerar o conteúdo: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Por favor, tente novamente.`,
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
   }
+
+  const handleCopyPrompt = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result);
+      toast({ title: 'Sucesso!', description: 'Prompt copiado para a área de transferência!' });
+    } catch (err) {
+      console.error('Failed to copy prompt: ', err);
+      toast({ title: 'Erro', description: 'Falha ao copiar o prompt.', variant: 'destructive' });
+    }
+  };
 
   // Se o usuário não for premium, mostrar página de upgrade
   if (!userData.isPremium) {
@@ -213,14 +239,27 @@ export default function PanAIClient({ userData }: PanAIClientProps) {
               />
             </div>
 
-            {result && (
-              <div className="mt-6 p-4 bg-muted rounded-md">
-                <Label>Resultado:</Label>
-                <div className="mt-2 whitespace-pre-line">{result}</div>
+            {/* Display Generated Prompt */}
+            {result ? (
+              <div className="mt-6 space-y-3">
+                 <Label htmlFor="generated-prompt">Prompt Gerado:</Label>
+                 <p className="text-sm text-muted-foreground">
+                   Copie o prompt abaixo e cole no chat.com para gerar sua imagem:
+                 </p>
+                <Textarea
+                  id="generated-prompt"
+                  readOnly
+                  value={result}
+                  className="min-h-[100px] bg-muted"
+                  rows={5}
+                />
+                <Button onClick={handleCopyPrompt} size="sm" variant="outline">
+                  Copiar Prompt
+                </Button>
               </div>
-            )}
+            ) : null}
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between items-center pt-4"> {/* Adjusted padding */}
             <Button variant="outline" onClick={() => setPrompt("")}>
               Limpar
             </Button>

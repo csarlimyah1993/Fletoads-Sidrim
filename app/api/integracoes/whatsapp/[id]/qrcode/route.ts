@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../../../../../lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import WhatsappIntegracao from "@/lib/models/whatsapp-integracao"
+import { createInstance, checkInstanceStatus } from "@/lib/utils/evolution-api"
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -24,53 +25,33 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     }
 
     try {
-      // Primeiro, verificamos se a instância já existe
-      const checkInstanceResponse = await fetch(
-        `${integracao.evolutionApiUrl}/instance/instanceInfo/${integracao.nomeInstancia}`,
-        {
-          method: "GET",
-          headers: {
-            apikey: integracao.apiKey,
-          },
-        },
-      )
-
-      const instanceData = await checkInstanceResponse.json()
-
-      // Se a instância não existe, criamos uma nova
-      if (!checkInstanceResponse.ok || instanceData.error) {
-        // Criar nova instância
-        const createResponse = await fetch(`${integracao.evolutionApiUrl}/instance/create`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: integracao.apiKey,
-          },
-          body: JSON.stringify({
-            instanceName: integracao.nomeInstancia,
-          }),
-        })
-
-        if (!createResponse.ok) {
-          const errorData = await createResponse.json()
-          return NextResponse.json({ error: "Erro ao criar instância", details: errorData }, { status: 500 })
+      // Configurar variáveis de ambiente temporariamente para usar as funções utilitárias
+      process.env.EVOLUTION_API_BASE_URL = integracao.evolutionApiUrl;
+      process.env.EVOLUTION_API_KEY = integracao.apiKey;
+      
+      let qrData;
+      
+      try {
+        // Tentar criar/reconectar a instância com QR code
+        const instanceData = await createInstance({
+          instanceName: integracao.nomeInstancia,
+          number: integracao.numero,
+          integration: 'WHATSAPP-BAILEYS',
+          qrcode: true
+        });
+        
+        // O QR code já vem na resposta da criação da instância
+        qrData = instanceData;
+        
+        // Verificar se temos o QR code na resposta
+        if (!qrData.qrcode) {
+          console.error("QR code não encontrado na resposta:", instanceData);
+          return NextResponse.json({ error: "QR code não disponível" }, { status: 500 });
         }
+      } catch (error) {
+        console.error("Erro ao criar/reconectar instância:", error);
+        return NextResponse.json({ error: "Erro ao criar instância ou gerar QR Code" }, { status: 500 });
       }
-
-      // Gerar QR Code
-      const qrResponse = await fetch(`${integracao.evolutionApiUrl}/instance/qrcode/${integracao.nomeInstancia}`, {
-        method: "GET",
-        headers: {
-          apikey: integracao.apiKey,
-        },
-      })
-
-      if (!qrResponse.ok) {
-        const errorData = await qrResponse.json()
-        return NextResponse.json({ error: "Erro ao gerar QR Code", details: errorData }, { status: 500 })
-      }
-
-      const qrData = await qrResponse.json()
 
       // Atualizar status da integração
       await WhatsappIntegracao.findByIdAndUpdate(id, {
