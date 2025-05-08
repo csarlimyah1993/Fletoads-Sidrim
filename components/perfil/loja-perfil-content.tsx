@@ -202,6 +202,8 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
           console.log("Dados da loja carregados:", {
             logo: lojaData.logo,
             banner: lojaData.banner,
+            endereco: lojaData.endereco,
+            horarioFuncionamento: lojaData.horarioFuncionamento,
           })
 
           // Preencher o formulário com os dados da loja
@@ -310,7 +312,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
       // Adicionar campos para compatibilidade com o formato antigo
       if (dataToSend.horarioFuncionamento) {
         Object.keys(dataToSend.horarioFuncionamento).forEach((dia) => {
-          const horario = (dataToSend.horarioFuncionamento as Record<string, any>)[dia]
+          const horario = dataToSend.horarioFuncionamento![dia as keyof typeof dataToSend.horarioFuncionamento]
           if (horario) {
             // Adicionar campos no formato antigo para compatibilidade
             ;(horario as any).open = horario.aberto
@@ -323,6 +325,8 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
       console.log("Enviando dados para salvar:", {
         logo: dataToSend.logo,
         banner: dataToSend.banner,
+        endereco: dataToSend.endereco,
+        horarioFuncionamento: dataToSend.horarioFuncionamento,
       })
 
       const response = await fetch(`/api/lojas/${lojaId}`, {
@@ -397,6 +401,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
       }
     })
 
+    console.log("Atualizando horários de funcionamento:", horarios)
     form.setValue("horarioFuncionamento", horarios)
     toast({
       title: "Horários atualizados",
