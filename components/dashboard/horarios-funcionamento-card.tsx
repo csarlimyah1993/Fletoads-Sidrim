@@ -4,6 +4,9 @@ interface HorarioFuncionamento {
   open?: boolean
   abertura?: string
   fechamento?: string
+  aberto?: boolean
+  horaAbertura?: string
+  horaFechamento?: string
 }
 
 interface HorariosFuncionamentoCardProps {
@@ -22,10 +25,22 @@ export function HorariosFuncionamentoCard({ horarios }: HorariosFuncionamentoCar
   // Função para formatar o horário
   const formatarHorario = (dia?: HorarioFuncionamento) => {
     if (!dia) return "Fechado"
-    if (!dia.open) return "Fechado"
-    if (!dia.abertura || !dia.fechamento) return "Horário não definido"
 
-    return `${dia.abertura} - ${dia.fechamento}`
+    // Verificar formato novo (aberto)
+    if (dia.aberto !== undefined) {
+      if (!dia.aberto) return "Fechado"
+      if (!dia.horaAbertura || !dia.horaFechamento) return "Horário não definido"
+      return `${dia.horaAbertura} - ${dia.horaFechamento}`
+    }
+
+    // Verificar formato antigo (open)
+    if (dia.open !== undefined) {
+      if (!dia.open) return "Fechado"
+      if (!dia.abertura || !dia.fechamento) return "Horário não definido"
+      return `${dia.abertura} - ${dia.fechamento}`
+    }
+
+    return "Horário não definido"
   }
 
   // Verificar se os dias da semana têm o mesmo horário (seg-sex)
