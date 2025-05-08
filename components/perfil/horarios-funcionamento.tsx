@@ -38,6 +38,7 @@ export function HorariosFuncionamento({ lojaId, horarios: initialHorarios, onSav
   // Inicializar com os horários existentes, se houver
   useEffect(() => {
     if (initialHorarios) {
+      console.log("Inicializando horários:", initialHorarios)
       const diasSemana: DiaSemana[] = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"]
       const horariosAtualizados = { ...horarios }
 
@@ -105,10 +106,27 @@ export function HorariosFuncionamento({ lojaId, horarios: initialHorarios, onSav
   const handleSalvar = async () => {
     try {
       setIsLoading(true)
+      console.log("Salvando horários:", horarios)
+
+      // Criar uma cópia dos horários para salvar no formato compatível com ambos os componentes
+      const horariosSalvar = { ...horarios }
+
+      // Adicionar campos de compatibilidade para o formato antigo
+      Object.keys(horariosSalvar).forEach((dia) => {
+        if (horariosSalvar[dia]) {
+          horariosSalvar[dia] = {
+            ...horariosSalvar[dia],
+            // Adicionar campos no formato antigo para compatibilidade
+            open: horariosSalvar[dia].aberto,
+            abertura: horariosSalvar[dia].horaAbertura,
+            fechamento: horariosSalvar[dia].horaFechamento,
+          }
+        }
+      })
 
       if (onSave) {
         // Se tiver uma função de callback para salvar
-        await onSave(horarios)
+        await onSave(horariosSalvar)
       } else {
         // Caso contrário, salvar diretamente via API
         const response = await fetch(`/api/lojas/${lojaId}`, {
@@ -119,7 +137,7 @@ export function HorariosFuncionamento({ lojaId, horarios: initialHorarios, onSav
             Pragma: "no-cache",
           },
           body: JSON.stringify({
-            horarioFuncionamento: horarios,
+            horarioFuncionamento: horariosSalvar,
           }),
         })
 

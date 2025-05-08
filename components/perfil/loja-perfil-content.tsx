@@ -199,6 +199,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             horarioFuncionamento: data.horarioFuncionamento || horariosPadrao,
           }
 
+          console.log("Dados da loja carregados:", {
+            logo: lojaData.logo,
+            banner: lojaData.banner,
+          })
+
           // Preencher o formulário com os dados da loja
           form.reset({
             nome: lojaData.nome || initialValues?.nomeLoja || "",
@@ -302,6 +307,24 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         horarioFuncionamento: values.horarioFuncionamento || horariosPadrao,
       }
 
+      // Adicionar campos para compatibilidade com o formato antigo
+      if (dataToSend.horarioFuncionamento) {
+        Object.keys(dataToSend.horarioFuncionamento).forEach((dia) => {
+          const horario = (dataToSend.horarioFuncionamento as Record<string, any>)[dia]
+          if (horario) {
+            // Adicionar campos no formato antigo para compatibilidade
+            ;(horario as any).open = horario.aberto
+            ;(horario as any).abertura = horario.horaAbertura
+            ;(horario as any).fechamento = horario.horaFechamento
+          }
+        })
+      }
+
+      console.log("Enviando dados para salvar:", {
+        logo: dataToSend.logo,
+        banner: dataToSend.banner,
+      })
+
       const response = await fetch(`/api/lojas/${lojaId}`, {
         method: "PUT",
         headers: {
@@ -363,11 +386,29 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
 
   // Função para atualizar os horários de funcionamento
   const handleHorariosSave = async (horarios: any) => {
+    // Adicionar campos para compatibilidade com o formato antigo
+    Object.keys(horarios).forEach((dia) => {
+      const horario = horarios[dia]
+      if (horario) {
+        // Adicionar campos no formato antigo para compatibilidade
+        horario.open = horario.aberto
+        horario.abertura = horario.horaAbertura
+        horario.fechamento = horario.horaFechamento
+      }
+    })
+
     form.setValue("horarioFuncionamento", horarios)
     toast({
       title: "Horários atualizados",
       description: "Os horários foram atualizados no formulário. Clique em Salvar Alterações para confirmar.",
     })
+  }
+
+  // Função para lidar com a mudança de imagens
+  const handleImageChange = (fieldName: "logo" | "banner", url: string | string[]) => {
+    const imageUrl = typeof url === "string" ? url : url[0] || ""
+    console.log(`Atualizando ${fieldName} para:`, imageUrl)
+    form.setValue(fieldName, imageUrl)
   }
 
   if (isLoading) {
@@ -466,8 +507,8 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                           <FormControl>
                             <ImageUpload
                               value={field.value || ""}
-                              onChange={(url) => field.onChange(typeof url === "string" ? url : url[0] || "")}
-                              onRemove={() => field.onChange("")}
+                              onChange={(url) => handleImageChange("logo", url)}
+                              onRemove={() => handleImageChange("logo", "")}
                             />
                           </FormControl>
                           <FormMessage />
@@ -486,8 +527,8 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                           <FormControl>
                             <ImageUpload
                               value={field.value || ""}
-                              onChange={(url) => field.onChange(typeof url === "string" ? url : url[0] || "")}
-                              onRemove={() => field.onChange("")}
+                              onChange={(url) => handleImageChange("banner", url)}
+                              onRemove={() => handleImageChange("banner", "")}
                             />
                           </FormControl>
                           <FormMessage />
