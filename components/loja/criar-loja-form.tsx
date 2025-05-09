@@ -137,6 +137,8 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
       cnpj: removeFormatting(formData.cnpj), // Remove formatação
       descricao: formData.descricao,
       proprietarioId: userId,
+      // Enviar ambos userId e usuarioId para garantir consistência
+      userId: userId,
       usuarioId: userId,
       endereco: {
         rua: formData.rua,
@@ -177,15 +179,6 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
 
       const data = await response.json()
       console.log("Loja criada com sucesso:", data)
-
-      // Associar a loja ao usuário
-      await fetch(`/api/usuarios/${userId}/associar-loja`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ lojaId: data.lojaId }),
-      })
 
       // Recarregar a sessão para atualizar o lojaId
       await fetch("/api/auth/session", { method: "GET" })
@@ -278,7 +271,7 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     name="nome"
                     value={formData.nome}
                     onChange={handleChange}
-                    placeholder="Ex: Calçado modas"
+                    placeholder="Ex: Lojista Modas"
                     required
                   />
                 </div>
@@ -476,7 +469,7 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Ex: contato@calcadomodas.com.br"
+                  placeholder="Ex: contato@lojistaModas.com.br"
                   required
                 />
               </div>

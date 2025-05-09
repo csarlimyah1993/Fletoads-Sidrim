@@ -97,11 +97,11 @@ export function HorariosFuncionamento({ lojaId, horarios = {}, onSave }: Horario
       if (campo === "horaAbertura") novosHorarios[dia].abertura = valor
       if (campo === "horaFechamento") novosHorarios[dia].fechamento = valor
 
+      // Resetar o estado de sucesso quando o usuário faz alterações
+      setSaveSuccess(false)
+
       return novosHorarios
     })
-
-    // Resetar o estado de sucesso quando o usuário faz alterações
-    setSaveSuccess(false)
   }
 
   // Função para salvar os horários
@@ -151,13 +151,17 @@ export function HorariosFuncionamento({ lojaId, horarios = {}, onSave }: Horario
   const aplicarHorarioUtil = () => {
     const horarioSegunda = horariosState.segunda
 
-    setHorariosState((prev) => ({
-      ...prev,
-      terca: { ...horarioSegunda },
-      quarta: { ...horarioSegunda },
-      quinta: { ...horarioSegunda },
-      sexta: { ...horarioSegunda },
-    }))
+    setHorariosState((prev) => {
+      const novosHorarios = {
+        ...prev,
+        terca: { ...horarioSegunda },
+        quarta: { ...horarioSegunda },
+        quinta: { ...horarioSegunda },
+        sexta: { ...horarioSegunda },
+      }
+
+      return novosHorarios
+    })
 
     setSaveSuccess(false)
   }
@@ -166,15 +170,19 @@ export function HorariosFuncionamento({ lojaId, horarios = {}, onSave }: Horario
   const aplicarHorarioTodos = () => {
     const horarioSegunda = horariosState.segunda
 
-    setHorariosState((prev) => ({
-      ...prev,
-      terca: { ...horarioSegunda },
-      quarta: { ...horarioSegunda },
-      quinta: { ...horarioSegunda },
-      sexta: { ...horarioSegunda },
-      sabado: { ...horarioSegunda },
-      domingo: { ...horarioSegunda },
-    }))
+    setHorariosState((prev) => {
+      const novosHorarios = {
+        ...prev,
+        terca: { ...horarioSegunda },
+        quarta: { ...horarioSegunda },
+        quinta: { ...horarioSegunda },
+        sexta: { ...horarioSegunda },
+        sabado: { ...horarioSegunda },
+        domingo: { ...horarioSegunda },
+      }
+
+      return novosHorarios
+    })
 
     setSaveSuccess(false)
   }

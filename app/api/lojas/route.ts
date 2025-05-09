@@ -22,9 +22,20 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase()
 
-    // Garantir que usuarioId seja incluído
-    if (!lojaData.usuarioId) {
+    // Garantir consistência entre userId e usuarioId
+    // Se userId estiver presente, usar para usuarioId
+    // Se usuarioId estiver presente, usar para userId
+    // Se nenhum estiver presente, usar proprietarioId para ambos
+    if (lojaData.userId && !lojaData.usuarioId) {
+      lojaData.usuarioId = lojaData.userId
+      console.log("Definindo usuarioId a partir de userId:", lojaData.userId)
+    } else if (lojaData.usuarioId && !lojaData.userId) {
+      lojaData.userId = lojaData.usuarioId
+      console.log("Definindo userId a partir de usuarioId:", lojaData.usuarioId)
+    } else if (!lojaData.userId && !lojaData.usuarioId) {
+      lojaData.userId = lojaData.proprietarioId
       lojaData.usuarioId = lojaData.proprietarioId
+      console.log("Definindo userId e usuarioId a partir de proprietarioId:", lojaData.proprietarioId)
     }
 
     // Adicionar campos de data
@@ -45,14 +56,11 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection("lojas").insertOne(novaLoja)
     const lojaId = result.insertedId.toString()
-    
+
     console.log("Loja criada com sucesso:", lojaId)
 
     // Atualizar o usuário com o lojaId
-    await db.collection("usuarios").updateOne(
-      { _id: lojaData.proprietarioId },
-      { $set: { lojaId: lojaId } }
-    )
+    await db.collection("usuarios").updateOne({ _id: lojaData.proprietarioId }, { $set: { lojaId: lojaId } })
 
     return NextResponse.json(
       {
@@ -79,16 +87,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const proprietarioId = searchParams.get("proprietarioId")
     const usuarioId = searchParams.get("usuarioId")
+    const userId = searchParams.get("userId")
 
     const { db } = await connectToDatabase()
 
-    let query = {}
-    if (proprietarioId && usuarioId) {
-      query = { $or: [{ proprietarioId }, { usuarioId }] }
-    } else if (proprietarioId) {
-      query = { proprietarioId }
-    } else if (usuarioId) {
-      query = { usuarioId }
+    // Definir a query com tipagem correta para MongoDB
+    let query: Record<string, any> = {}
+
+    if (proprietarioId || usuarioId || userId) {
+      query = { $or: [] as Record<string, any>[] }
+
+      if (proprietarioId) {
+        ;(query.$or as Record<string, any>[]).push({ proprietarioId })
+      }
+
+      if (usuarioId) {
+        ;(query.$or as Record<string, any>[]).push({ usuarioId })
+      }
+
+      if (userId) {
+        ;(query.$or as Record<string, any>[]).push({ userId })
+      }
     }
 
     console.log("Buscando lojas com query:", query)

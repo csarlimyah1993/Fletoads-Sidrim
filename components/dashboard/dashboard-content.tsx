@@ -38,6 +38,15 @@ interface Produto {
   destaque?: boolean
 }
 
+interface HorarioFuncionamento {
+  aberto?: boolean
+  open?: boolean
+  horaAbertura?: string
+  abertura?: string
+  horaFechamento?: string
+  fechamento?: string
+}
+
 interface Loja {
   _id: string
   nome: string
@@ -46,13 +55,13 @@ interface Loja {
   telefone: string
   status: string
   horarioFuncionamento?: {
-    segunda?: { open: boolean; abertura: string; fechamento: string }
-    terca?: { open: boolean; abertura: string; fechamento: string }
-    quarta?: { open: boolean; abertura: string; fechamento: string }
-    quinta?: { open: boolean; abertura: string; fechamento: string }
-    sexta?: { open: boolean; abertura: string; fechamento: string }
-    sabado?: { open: boolean; abertura: string; fechamento: string }
-    domingo?: { open: boolean; abertura: string; fechamento: string }
+    segunda?: HorarioFuncionamento
+    terca?: HorarioFuncionamento
+    quarta?: HorarioFuncionamento
+    quinta?: HorarioFuncionamento
+    sexta?: HorarioFuncionamento
+    sabado?: HorarioFuncionamento
+    domingo?: HorarioFuncionamento
   }
   horarioFormatado?: {
     segunda?: string
@@ -128,10 +137,63 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
         const lojaResponse = await fetch("/api/dashboard/loja")
         if (lojaResponse.ok) {
           const data = await lojaResponse.json()
-          setLoja(data.loja || null)
-          console.log("Loja carregada:", data.loja ? "Sim" : "Não", data.loja?._id || "")
+
+          // Normalizar os dados da loja para garantir compatibilidade
+          if (data.loja) {
+            // Normalizar horários de funcionamento
+            if (data.loja.horarioFuncionamento) {
+              // Criar uma cópia para não modificar o objeto original diretamente
+              const lojaProcessada = {
+                ...data.loja,
+                horarioFuncionamento: { ...data.loja.horarioFuncionamento },
+              }
+
+              // Processar cada dia da semana
+              const diasSemana = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"]
+              diasSemana.forEach((dia) => {
+                if (lojaProcessada.horarioFuncionamento[dia]) {
+                  // Normalizar propriedades para garantir compatibilidade
+                  const horarioDia = lojaProcessada.horarioFuncionamento[dia]
+
+                  // Garantir que temos as propriedades corretas
+                  lojaProcessada.horarioFuncionamento[dia] = {
+                    // Priorizar 'aberto' se existir, senão usar 'open', senão default para false
+                    aberto:
+                      horarioDia.aberto !== undefined
+                        ? horarioDia.aberto
+                        : horarioDia.open !== undefined
+                          ? horarioDia.open
+                          : false,
+
+                    // Priorizar 'horaAbertura' se existir, senão usar 'abertura', senão default para "08:00"
+                    horaAbertura: horarioDia.horaAbertura || horarioDia.abertura || "08:00",
+
+                    // Priorizar 'horaFechamento' se existir, senão usar 'fechamento', senão default para "18:00"
+                    horaFechamento: horarioDia.horaFechamento || horarioDia.fechamento || "18:00",
+                  }
+                } else {
+                  // Se não existir, criar com valores padrão
+                  lojaProcessada.horarioFuncionamento[dia] = {
+                    aberto: false,
+                    horaAbertura: "08:00",
+                    horaFechamento: "18:00",
+                  }
+                }
+              })
+
+              setLoja(lojaProcessada)
+            } else {
+              setLoja(data.loja)
+            }
+
+            console.log("Loja carregada:", "Sim", data.loja._id || "")
+          } else {
+            setLoja(null)
+            console.log("Loja carregada: Não")
+          }
         } else {
           console.error("Erro ao buscar loja:", lojaResponse.status)
+          setLoja(null)
         }
         setIsLoadingData((prev) => ({ ...prev, loja: false }))
       } catch (error) {
@@ -186,11 +248,11 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
   const produtosDestaque = produtos.filter((p) => p.destaque).length
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 w-full overflow-hidden">
       {/* Cabeçalho */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground mt-1">Acompanhe o desempenho da sua loja e campanhas</p>
         </div>
         {userName && (
@@ -204,28 +266,30 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
 
       {/* Tabs para organizar o conteúdo */}
       <Tabs defaultValue="visao-geral" className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          <TabsTrigger value="visao-geral" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Visão Geral</span>
-          </TabsTrigger>
-          <TabsTrigger value="loja" className="flex items-center gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Minha Loja</span>
-          </TabsTrigger>
-          <TabsTrigger value="produtos" className="flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4" />
-            <span className="hidden sm:inline">Produtos</span>
-          </TabsTrigger>
-          <TabsTrigger value="clientes" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Clientes</span>
-          </TabsTrigger>
-          <TabsTrigger value="recursos" className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4" />
-            <span className="hidden sm:inline">Recursos</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="w-full md:w-auto grid grid-cols-5 md:flex md:flex-row">
+            <TabsTrigger value="visao-geral" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Visão Geral</span>
+            </TabsTrigger>
+            <TabsTrigger value="loja" className="flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              <span className="hidden sm:inline">Minha Loja</span>
+            </TabsTrigger>
+            <TabsTrigger value="produtos" className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="hidden sm:inline">Produtos</span>
+            </TabsTrigger>
+            <TabsTrigger value="clientes" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Clientes</span>
+            </TabsTrigger>
+            <TabsTrigger value="recursos" className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4" />
+              <span className="hidden sm:inline">Recursos</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Conteúdo da aba Visão Geral */}
         <TabsContent value="visao-geral" className="space-y-6">
@@ -235,7 +299,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <Activity className="h-5 w-5 text-primary" />
               Métricas Principais
             </h3>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {isLoading ? (
                 <>
                   <Skeleton className="h-[120px] w-full" />
@@ -288,14 +352,16 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <TrendingUp className="h-5 w-5 text-primary" />
               Desempenho
             </h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <Card className="md:col-span-1">
                 <CardHeader>
                   <CardTitle>Panfletos por Mês</CardTitle>
                   <CardDescription>Número de panfletos criados nos últimos 6 meses</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <PanfletosPorMes data={estatisticas?.panfletos?.porMes || []} isLoading={isLoading} />
+                  <div className="w-full overflow-x-auto">
+                    <PanfletosPorMes data={estatisticas?.panfletos?.porMes || []} isLoading={isLoading} />
+                  </div>
                 </CardContent>
               </Card>
               <Card className="md:col-span-1">
@@ -304,14 +370,16 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
                   <CardDescription>Distribuição de panfletos por categoria</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <PanfletosPorCategoria data={estatisticas?.panfletos?.porCategoria || []} isLoading={isLoading} />
+                  <div className="w-full overflow-x-auto">
+                    <PanfletosPorCategoria data={estatisticas?.panfletos?.porCategoria || []} isLoading={isLoading} />
+                  </div>
                 </CardContent>
               </Card>
             </div>
           </section>
 
           {/* Seção de atividades recentes e plano */}
-          <section className="grid gap-4 md:grid-cols-2">
+          <section className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <div>
               <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Activity className="h-5 w-5 text-primary" />
@@ -332,14 +400,18 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
         {/* Conteúdo da aba Minha Loja */}
         <TabsContent value="loja" className="space-y-6">
           {/* Substituir o EventoCard pelo EventosCarousel */}
-          {loja && loja._id && <EventosCarousel lojaId={loja._id.toString()} />}
+          {loja && loja._id && (
+            <div className="overflow-hidden">
+              <EventosCarousel lojaId={loja._id.toString()} />
+            </div>
+          )}
 
           <section>
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Store className="h-5 w-5 text-primary" />
               Status da Loja
             </h3>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {isLoadingData.loja ? (
                 <>
                   <Skeleton className="h-[200px] w-full" />
@@ -392,14 +464,19 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
                   </Card>
                 </>
               ) : (
-                <Card className="col-span-3">
+                <Card className="col-span-1 sm:col-span-2 lg:col-span-3">
                   <CardContent className="pt-6">
                     <div className="text-center py-8">
                       <h3 className="text-lg font-medium mb-2">Nenhuma loja cadastrada</h3>
                       <p className="text-muted-foreground mb-4">
                         Você ainda não possui uma loja cadastrada. Cadastre sua loja para começar a vender.
                       </p>
-                      <button className="bg-primary text-white px-4 py-2 rounded-md">Cadastrar Loja</button>
+                      <button
+                        className="bg-primary text-white px-4 py-2 rounded-md"
+                        onClick={() => router.push("/dashboard/perfil-da-loja")}
+                      >
+                        Cadastrar Loja
+                      </button>
                     </div>
                   </CardContent>
                 </Card>
@@ -412,14 +489,16 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <TrendingUp className="h-5 w-5 text-primary" />
               Desempenho da Loja
             </h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <Card className="md:col-span-1">
                 <CardHeader>
                   <CardTitle>Performance de Campanhas</CardTitle>
                   <CardDescription>Taxa de conversão das campanhas ativas</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
-                  <CampanhasPerformance data={transformCampanhasData()} isLoading={isLoading} />
+                  <div className="w-full overflow-x-auto">
+                    <CampanhasPerformance data={transformCampanhasData()} isLoading={isLoading} />
+                  </div>
                 </CardContent>
               </Card>
               <Card className="md:col-span-1">
@@ -494,7 +573,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <BarChart3 className="h-5 w-5 text-primary" />
               Estatísticas de Produtos
             </h3>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
@@ -535,14 +614,16 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <Users className="h-5 w-5 text-primary" />
               Segmentação de Clientes
             </h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <Card className="md:col-span-1">
                 <CardHeader>
                   <CardTitle>Clientes por Segmento</CardTitle>
                   <CardDescription>Distribuição de clientes por segmento</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ClientesAtivos data={transformClientesData()} isLoading={isLoading} />
+                  <div className="w-full overflow-x-auto">
+                    <ClientesAtivos data={transformClientesData()} isLoading={isLoading} />
+                  </div>
                 </CardContent>
               </Card>
               <Card className="md:col-span-1">
@@ -603,7 +684,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <BarChart3 className="h-5 w-5 text-primary" />
               Estatísticas de Clientes
             </h3>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
@@ -650,7 +731,7 @@ export function DashboardContent({ userName, plan = "gratuito", planExpiresAt }:
               <Lightbulb className="h-5 w-5 text-primary" />
               Dicas e Recursos
             </h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <TipsCard />
               <Card>
                 <CardHeader>

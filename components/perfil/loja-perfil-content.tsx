@@ -36,54 +36,65 @@ type HorariosFuncionamentoType = {
   }
 }
 
-const lojaFormSchema = z.object({
-  nome: z.string().min(2, {
-    message: "O nome da loja deve ter pelo menos 2 caracteres.",
-  }),
-  descricao: z.string().optional(),
-  endereco: z
-    .object({
-      rua: z.string().min(1, { message: "A rua é obrigatória." }).optional(),
-      numero: z.string().min(1, { message: "O número é obrigatório." }).optional(),
-      complemento: z.string().optional(),
-      bairro: z.string().min(1, { message: "O bairro é obrigatório." }).optional(),
-      cidade: z.string().min(1, { message: "A cidade é obrigatória." }).optional(),
-      estado: z.string().min(1, { message: "O estado é obrigatório." }).optional(),
-      cep: z.string().min(1, { message: "O CEP é obrigatório." }).optional(),
-      latitude: z.string().optional(),
-      longitude: z.string().optional(),
-    })
-    .optional(),
-  contato: z
-    .object({
-      telefone: z.string().min(1, { message: "O telefone é obrigatório." }).optional(),
-      email: z.string().email({ message: "Email inválido." }).optional(),
-      whatsapp: z.string().optional(),
-      site: z.string().optional(),
-    })
-    .optional(),
-  redesSociais: z
-    .object({
-      instagram: z.string().optional(),
-      facebook: z.string().optional(),
-      twitter: z.string().optional(),
-      youtube: z.string().optional(),
-      linkedin: z.string().optional(),
-    })
-    .optional(),
-  horarioFuncionamento: z
-    .record(
-      z.string(),
-      z.object({
-        aberto: z.boolean(),
-        horaAbertura: z.string(),
-        horaFechamento: z.string(),
-      }),
-    )
-    .optional(),
-  logo: z.string().optional(),
-  banner: z.string().optional(),
-})
+// Definir um schema mais flexível para horários de funcionamento
+const horarioDiaSchema = z
+  .object({
+    aberto: z.boolean().optional().default(false),
+    horaAbertura: z.string().optional().default("08:00"),
+    horaFechamento: z.string().optional().default("18:00"),
+    // Campos de compatibilidade
+    open: z.boolean().optional(),
+    abertura: z.string().optional(),
+    fechamento: z.string().optional(),
+  })
+  .passthrough() // Permite campos adicionais
+
+const lojaFormSchema = z
+  .object({
+    nome: z.string().min(2, {
+      message: "O nome da loja deve ter pelo menos 2 caracteres.",
+    }),
+    descricao: z.string().optional(),
+    endereco: z
+      .object({
+        rua: z.string().min(1, { message: "A rua é obrigatória." }).optional(),
+        numero: z.string().min(1, { message: "O número é obrigatório." }).optional(),
+        complemento: z.string().optional(),
+        bairro: z.string().min(1, { message: "O bairro é obrigatório." }).optional(),
+        cidade: z.string().min(1, { message: "A cidade é obrigatória." }).optional(),
+        estado: z.string().min(1, { message: "O estado é obrigatório." }).optional(),
+        cep: z.string().min(1, { message: "O CEP é obrigatório." }).optional(),
+        latitude: z.string().optional(),
+        longitude: z.string().optional(),
+      })
+      .optional(),
+    contato: z
+      .object({
+        telefone: z.string().min(1, { message: "O telefone é obrigatório." }).optional(),
+        email: z.string().email({ message: "Email inválido." }).optional(),
+        whatsapp: z.string().optional(),
+        site: z.string().optional(),
+      })
+      .optional(),
+    redesSociais: z
+      .object({
+        instagram: z.string().optional(),
+        facebook: z.string().optional(),
+        twitter: z.string().optional(),
+        youtube: z.string().optional(),
+        linkedin: z.string().optional(),
+      })
+      .optional(),
+    // Usar um schema mais flexível para horários
+    horarioFuncionamento: z.record(z.string(), horarioDiaSchema).optional(),
+    logo: z.string().optional(),
+    banner: z.string().optional(),
+    // Adicionar os campos de ID
+    userId: z.string().optional(),
+    usuarioId: z.string().optional(),
+    proprietarioId: z.string().optional(),
+  })
+  .passthrough() // Permite campos adicionais não definidos no schema
 
 type LojaFormValues = z.infer<typeof lojaFormSchema>
 
@@ -106,6 +117,8 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
   const [activeTab, setActiveTab] = useState("informacoes")
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const [currentHorarios, setCurrentHorarios] = useState<Record<string, any>>({})
+  const [lojaOriginal, setLojaOriginal] = useState<any>(null) // Armazenar a loja original
 
   // Valores padrão para horários de funcionamento
   const horariosPadrao = {
@@ -190,6 +203,9 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         const data = await response.json()
 
         if (data) {
+          // Armazenar a loja original para referência
+          setLojaOriginal(data)
+
           // Garantir que todos os objetos aninhados existam
           const lojaData = {
             ...data,
@@ -204,6 +220,9 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             banner: lojaData.banner,
             endereco: lojaData.endereco,
             horarioFuncionamento: lojaData.horarioFuncionamento,
+            userId: lojaData.userId,
+            usuarioId: lojaData.usuarioId,
+            proprietarioId: lojaData.proprietarioId,
           })
 
           // Preencher o formulário com os dados da loja
@@ -288,25 +307,59 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
   }
 
   // Função para lidar com o envio do formulário
-  const onSubmit = async (values: LojaFormValues) => {
+  const handleSaveClick = async () => {
+    console.log("==== INÍCIO: Botão Salvar Alterações clicado ====")
+
     try {
+      // Verificar se o formulário está sendo submetido
+      console.log("Estado do formulário:", {
+        isDirty: form.formState.isDirty,
+        isSubmitting: form.formState.isSubmitting,
+        isValid: form.formState.isValid,
+        errors: form.formState.errors,
+      })
+
+      // Mostrar detalhes dos erros de validação
+      if (Object.keys(form.formState.errors).length > 0) {
+        console.log("Detalhes dos erros de validação:", JSON.stringify(form.formState.errors, null, 2))
+      }
+
+      // Obter todos os valores do formulário sem validação
+      const values = form.getValues()
+      console.log("Valores do formulário:", values)
+
+      // Verificar se o nome da loja está preenchido (validação manual mínima)
+      if (!values.nome || values.nome.length < 2) {
+        console.log("Nome da loja inválido")
+        toast({
+          title: "Erro de validação",
+          description: "O nome da loja deve ter pelo menos 2 caracteres.",
+          variant: "destructive",
+        })
+        return
+      }
+
       setIsSubmitting(true)
       setSaveSuccess(false)
       setError(null)
 
       if (!lojaId) {
+        console.error("ID da loja não fornecido")
         throw new Error("ID da loja não fornecido")
       }
+      console.log("ID da loja:", lojaId)
 
       // Adicionar um timeout mais longo para a requisição
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout
 
       // Criar uma cópia dos valores para enviar
-      const dataToSend = {
+      const dataToSend: any = {
         ...values,
         // Garantir que os horários estejam no formato correto
-        horarioFuncionamento: values.horarioFuncionamento || horariosPadrao,
+        // Usar os horários atualizados do estado local, se disponíveis
+        horarioFuncionamento:
+          Object.keys(currentHorarios).length > 0 ? currentHorarios : values.horarioFuncionamento || horariosPadrao,
       }
 
       // Adicionar campos para compatibilidade com o formato antigo
@@ -315,20 +368,40 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
           const horario = dataToSend.horarioFuncionamento![dia as keyof typeof dataToSend.horarioFuncionamento]
           if (horario) {
             // Adicionar campos no formato antigo para compatibilidade
-            ;(horario as any).open = horario.aberto
-            ;(horario as any).abertura = horario.horaAbertura
-            ;(horario as any).fechamento = horario.horaFechamento
+            horario.open = horario.aberto !== undefined ? horario.aberto : false
+            horario.abertura = horario.horaAbertura || "08:00"
+            horario.fechamento = horario.horaFechamento || "18:00"
           }
         })
       }
 
-      console.log("Enviando dados para salvar:", {
-        logo: dataToSend.logo,
-        banner: dataToSend.banner,
-        endereco: dataToSend.endereco,
-        horarioFuncionamento: dataToSend.horarioFuncionamento,
-      })
+      // Manter os IDs originais da loja
+      if (lojaOriginal) {
+        console.log("Dados originais da loja:", {
+          userId: lojaOriginal.userId,
+          usuarioId: lojaOriginal.usuarioId,
+          proprietarioId: lojaOriginal.proprietarioId,
+        })
 
+        dataToSend.userId = lojaOriginal.userId
+        dataToSend.usuarioId = lojaOriginal.usuarioId
+        dataToSend.proprietarioId = lojaOriginal.proprietarioId
+
+        // Garantir consistência entre userId e usuarioId
+        if (lojaOriginal.userId && !lojaOriginal.usuarioId) {
+          dataToSend.usuarioId = lojaOriginal.userId
+        } else if (lojaOriginal.usuarioId && !lojaOriginal.userId) {
+          dataToSend.userId = lojaOriginal.usuarioId
+        }
+      } else {
+        console.warn("Dados originais da loja não disponíveis")
+      }
+
+      console.log("Preparando para enviar dados para a API")
+      console.log("URL da requisição:", `/api/lojas/${lojaId}`)
+      console.log("Dados a serem enviados:", JSON.stringify(dataToSend).substring(0, 500) + "...")
+
+      console.log("Iniciando requisição PUT...")
       const response = await fetch(`/api/lojas/${lojaId}`, {
         method: "PUT",
         headers: {
@@ -339,25 +412,31 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         body: JSON.stringify(dataToSend),
         signal: controller.signal,
       })
+      console.log("Requisição concluída, status:", response.status)
 
       clearTimeout(timeoutId)
 
       // Tentar obter o texto da resposta primeiro
       const responseText = await response.text()
+      console.log("Resposta do servidor (texto):", responseText)
 
       // Tentar converter para JSON
       let result
       try {
         result = JSON.parse(responseText)
+        console.log("Resposta do servidor (JSON):", result)
       } catch (e) {
+        console.error("Erro ao analisar resposta JSON:", e)
         throw new Error(`Resposta inválida do servidor: ${responseText}`)
       }
 
       if (!response.ok) {
+        console.error("Resposta não-OK:", response.status, result)
         throw new Error(result.error || `Erro ao salvar dados da loja: ${response.status}`)
       }
 
       // Mostrar mensagem de sucesso
+      console.log("Dados salvos com sucesso!")
       setSaveSuccess(true)
 
       toast({
@@ -373,7 +452,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         router.refresh()
       }, 500)
     } catch (error) {
-      console.error("Erro ao salvar dados da loja:", error)
+      console.error("Erro detalhado ao salvar dados da loja:", error)
       setError(error instanceof Error ? error.message : "Erro desconhecido ao salvar dados da loja")
       toast({
         title: "Erro",
@@ -384,7 +463,9 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
         variant: "destructive",
       })
     } finally {
+      console.log("Finalizando processo de salvamento")
       setIsSubmitting(false)
+      console.log("==== FIM: Processo de salvamento concluído ====")
     }
   }
 
@@ -395,18 +476,28 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
       const horario = horarios[dia]
       if (horario) {
         // Adicionar campos no formato antigo para compatibilidade
-        horario.open = horario.aberto
-        horario.abertura = horario.horaAbertura
-        horario.fechamento = horario.horaFechamento
+        horario.open = horario.aberto !== undefined ? horario.aberto : false
+        horario.abertura = horario.horaAbertura || "08:00"
+        horario.fechamento = horario.horaFechamento || "18:00"
       }
     })
 
     console.log("Atualizando horários de funcionamento:", horarios)
-    form.setValue("horarioFuncionamento", horarios)
-    toast({
-      title: "Horários atualizados",
-      description: "Os horários foram atualizados no formulário. Clique em Salvar Alterações para confirmar.",
-    })
+
+    // Atualizar o estado local com os horários atualizados de forma segura
+    setTimeout(() => {
+      setCurrentHorarios(horarios)
+
+      // Atualizar o formulário
+      form.setValue("horarioFuncionamento", horarios, {
+        shouldValidate: false, // Não validar para evitar erros
+      })
+
+      toast({
+        title: "Horários atualizados",
+        description: "Os horários foram atualizados no formulário. Clique em Salvar Alterações para confirmar.",
+      })
+    }, 0)
   }
 
   // Função para lidar com a mudança de imagens
@@ -439,7 +530,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <div className="space-y-8">
         {saveSuccess && (
           <Alert className="bg-green-50 border-green-200 text-green-800 mb-6">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -832,7 +923,15 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                console.log("Botão clicado - evento capturado")
+                handleSaveClick()
+              }}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -844,7 +943,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             </Button>
           </CardFooter>
         </Card>
-      </form>
+      </div>
     </Form>
   )
 }

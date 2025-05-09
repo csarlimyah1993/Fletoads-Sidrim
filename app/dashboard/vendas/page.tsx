@@ -17,7 +17,6 @@ import {
   Download,
   Search,
   Filter,
-  ArrowUpDown,
   MoreHorizontal,
   Eye,
   FileText,
@@ -278,16 +277,17 @@ export default function VendasPage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Vendas</h2>
-        <div className="flex gap-2">
-          <Button onClick={() => router.push("/dashboard/vendas/nova")} variant="default">
+      {/* Cabeçalho responsivo */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Vendas</h2>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Button onClick={() => router.push("/dashboard/vendas/nova")} variant="default" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Registrar Venda
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
@@ -306,8 +306,8 @@ export default function VendasPage() {
         </div>
       </div>
 
-      {/* Cards de estatísticas */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Cards de estatísticas responsivos */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Total de Vendas */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -387,7 +387,7 @@ export default function VendasPage() {
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold truncate">
+                <div className="text-xl sm:text-2xl font-bold truncate">
                   {estatisticas.produtosMaisVendidos[0]?.nome &&
                   estatisticas.produtosMaisVendidos[0].nome !== "Produto não encontrado"
                     ? estatisticas.produtosMaisVendidos[0].nome
@@ -435,19 +435,20 @@ export default function VendasPage() {
           <CardTitle>Histórico de Vendas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
+          {/* Filtros responsivos */}
+          <div className="flex flex-col space-y-4 mb-6">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar vendas..."
-                className="pl-10"
+                className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-4">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -459,20 +460,22 @@ export default function VendasPage() {
               </Select>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[240px] justify-start text-left font-normal">
+                  <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
-                          {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
-                        </>
+                    <span className="truncate">
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                            {format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
+                        )
                       ) : (
-                        format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })
-                      )
-                    ) : (
-                      <span>Selecione um período</span>
-                    )}
+                        <span>Selecione um período</span>
+                      )}
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -482,21 +485,33 @@ export default function VendasPage() {
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
                     onSelect={setDateRange}
+                    numberOfMonths={1}
+                    locale={ptBR}
+                    className="sm:hidden"
+                  />
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
                     numberOfMonths={2}
                     locale={ptBR}
+                    className="hidden sm:block"
                   />
                 </PopoverContent>
               </Popover>
               <Button
                 variant="outline"
-                size="icon"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setSearchTerm("")
                   setStatusFilter("todos")
                   setDateRange(undefined)
                 }}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-4 w-4 mr-2" />
+                <span>Limpar filtros</span>
               </Button>
             </div>
           </div>
@@ -508,20 +523,38 @@ export default function VendasPage() {
                 <Skeleton className="h-8 w-12" />
               </div>
               <div className="rounded-md border">
-                <div className="grid grid-cols-6 border-b">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                <div className="grid grid-cols-3 sm:grid-cols-6 border-b">
+                  {Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="p-4">
                       <Skeleton className="h-4 w-full" />
                     </div>
                   ))}
+                  <div className="hidden sm:block p-4">
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                  <div className="hidden sm:block p-4">
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                  <div className="hidden sm:block p-4">
+                    <Skeleton className="h-4 w-full" />
+                  </div>
                 </div>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-6 border-b">
-                    {Array.from({ length: 6 }).map((_, j) => (
+                  <div key={i} className="grid grid-cols-3 sm:grid-cols-6 border-b">
+                    {Array.from({ length: 3 }).map((_, j) => (
                       <div key={j} className="p-4">
                         <Skeleton className="h-4 w-full" />
                       </div>
                     ))}
+                    <div className="hidden sm:block p-4">
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                    <div className="hidden sm:block p-4">
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                    <div className="hidden sm:block p-4">
+                      <Skeleton className="h-4 w-full" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -533,38 +566,37 @@ export default function VendasPage() {
               Nenhuma venda encontrada com os filtros selecionados.
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">ID</TableHead>
-                    <TableHead>
-                      <div className="flex items-center">
-                        Cliente
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead>Produtos</TableHead>
+                    <TableHead className="w-[80px]">ID</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="hidden md:table-cell">Produtos</TableHead>
                     <TableHead>Valor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Data</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredVendas.map((venda) => (
                     <TableRow key={venda._id}>
-                      <TableCell className="font-medium">{venda._id.substring(0, 8)}</TableCell>
-                      <TableCell>{venda.cliente?.nome || "Cliente não especificado"}</TableCell>
-                      <TableCell>
-                        {venda.itens?.map((item, index) => (
-                          <div key={index} className="text-sm">
-                            {item.quantidade}x {item.produto?.nome || "Produto não especificado"}
-                          </div>
-                        )) || "Sem itens"}
+                      <TableCell className="font-medium">{venda._id.substring(0, 6)}</TableCell>
+                      <TableCell className="max-w-[120px] truncate">
+                        {venda.cliente?.nome || "Cliente não especificado"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="max-h-20 overflow-y-auto">
+                          {venda.itens?.map((item, index) => (
+                            <div key={index} className="text-sm">
+                              {item.quantidade}x {item.produto?.nome || "Produto não especificado"}
+                            </div>
+                          )) || "Sem itens"}
+                        </div>
                       </TableCell>
                       <TableCell>{formatarValor(venda.total)}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge
                           className={
                             venda.status === "concluida"
@@ -581,11 +613,20 @@ export default function VendasPage() {
                               : "Cancelada"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatarData(venda.dataCriacao)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{formatarData(venda.dataCriacao)}</TableCell>
                       <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 sm:hidden"
+                          onClick={() => verDetalhesVenda(venda._id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">Ver detalhes</span>
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button variant="ghost" className="h-8 w-8 p-0 hidden sm:flex">
                               <span className="sr-only">Abrir menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
