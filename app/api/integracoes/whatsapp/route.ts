@@ -5,8 +5,8 @@ import { connectToDatabase } from "@/lib/mongodb"
 import WhatsappIntegracao from "@/lib/models/whatsapp-integracao"
 import Loja from "@/lib/models/loja"
 import Usuario from "@/lib/models/usuario"
-import { ENV } from "@/lib/env-config"
-import { createInstance } from "@/lib/utils/evolution-api"
+// import { ENV } from "@/lib/env-config" // Removido: não mais utilizado após refatoração do POST
+// import { createInstance } from "@/lib/utils/evolution-api" // Removido: POST não cria mais instâncias na Evolution API
 
 // Listar integrações do WhatsApp
 export async function GET() {
@@ -26,7 +26,7 @@ export async function GET() {
 
     // Buscar integrações do usuário
     const integracoes = await WhatsappIntegracao.find({ userId: session.user.id })
-
+    console.log(integracoes)
     // Verificar limite de contas WhatsApp com base no plano
     let limiteContasWhatsapp = 1 // Padrão para plano gratuito
 
@@ -99,15 +99,40 @@ export async function POST(request: Request) {
     // Obter dados da requisição
     const dados = await request.json()
 
-    // Validar dados
-    if (!dados.nomeInstancia) {
-      return NextResponse.json({ error: "Nome da instância é obrigatório" }, { status: 400 })
+    // Validar campos básicos obrigatórios
+    if (!dados.evolutionApiUrl || typeof dados.evolutionApiUrl !== 'string' || dados.evolutionApiUrl.trim() === '') {
+        return NextResponse.json({ error: "O campo 'evolutionApiUrl' é obrigatório e deve ser uma string não vazia." }, { status: 400 });
+    }
+    if (!dados.telefone || typeof dados.telefone !== 'string' || dados.telefone.trim() === '') {
+        return NextResponse.json({ error: "O campo 'telefone' é obrigatório e deve ser uma string não vazia." }, { status: 400 });
+    }
+    if (!dados.evolutionApiData || typeof dados.evolutionApiData !== 'object' || dados.evolutionApiData === null || Array.isArray(dados.evolutionApiData)) {
+        return NextResponse.json({ error: "O campo 'evolutionApiData' é obrigatório e deve ser um objeto válido." }, { status: 400 });
     }
 
-    // Verificar se já existe uma instância com o mesmo nome
-    const instanciaExistente = await WhatsappIntegracao.findOne({ nomeInstancia: dados.nomeInstancia })
+    // Extrair e validar os dados da instância, com fallback para evolutionApiData
+    const nomeInstancia = dados.nomeInstancia || dados.evolutionApiData?.instance?.instanceName;
+    const instanceId = dados.instanceId || dados.evolutionApiData?.instance?.instanceId;
+    const apiKey = dados.apiKey || dados.evolutionApiData?.hash;
+    const status = dados.status || dados.evolutionApiData?.instance?.status;
+
+    if (!nomeInstancia || typeof nomeInstancia !== 'string' || nomeInstancia.trim() === '') {
+        return NextResponse.json({ error: "O campo 'nomeInstancia' é obrigatório (diretamente ou via evolutionApiData.instance.instanceName) e deve ser uma string não vazia." }, { status: 400 });
+    }
+    if (!instanceId || typeof instanceId !== 'string' || instanceId.trim() === '') {
+        return NextResponse.json({ error: "O campo 'instanceId' é obrigatório (diretamente ou via evolutionApiData.instance.instanceId) e deve ser uma string não vazia." }, { status: 400 });
+    }
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+        return NextResponse.json({ error: "O campo 'apiKey' é obrigatório (diretamente ou via evolutionApiData.hash) e deve ser uma string não vazia." }, { status: 400 });
+    }
+    if (!status || typeof status !== 'string' || status.trim() === '') {
+        return NextResponse.json({ error: "O campo 'status' é obrigatório (diretamente ou via evolutionApiData.instance.status) e deve ser uma string não vazia." }, { status: 400 });
+    }
+    
+    // Verificar se já existe uma instância com o mesmo nome (globalmente, conforme lógica original)
+    const instanciaExistente = await WhatsappIntegracao.findOne({ nomeInstancia: nomeInstancia })
     if (instanciaExistente) {
-      return NextResponse.json({ error: "Já existe uma instância com este nome" }, { status: 409 })
+      return NextResponse.json({ error: "Já existe uma instância com este nome." }, { status: 409 })
     }
 
     // Buscar a loja do usuário (opcional)
@@ -117,31 +142,20 @@ export async function POST(request: Request) {
       lojaId = loja._id
     }
 
-    // --- INÍCIO DA CHAMADA À EVOLUTION API ---
-    let evolutionApiData = null
-    try {
-      evolutionApiData = await createInstance({
-        instanceName: dados.nomeInstancia,
-        qrcode: true,
-        number: dados.telefone,
-        integration: "WHATSAPP-BAILEYS"
-      })
-    } catch (err) {
-      return NextResponse.json({ error: "Erro ao criar instância na Evolution API", details: (err as Error).message }, { status: 502 })
-    }
-    // --- FIM DA CHAMADA À EVOLUTION API ---
+    // Os dados da Evolution API são fornecidos diretamente na requisição
+    const evolutionApiData = dados.evolutionApiData; // Manter esta linha para clareza ao acessar nested props.
 
     // Criar a integração no banco de dados
     const integracao = new WhatsappIntegracao({
       userId: session.user.id,
       lojaId: lojaId,
-      nomeInstancia: dados.nomeInstancia,
-      status: evolutionApiData?.instance?.status || "pendente",
-      telefone: dados.telefone,
-      evolutionApiUrl: ENV.EVOLUTION_API_BASE_URL,
-      apiKey: ENV.EVOLUTION_API_KEY,
-      instanceId: evolutionApiData?.instance?.instanceId || null,
-      evolutionApiData: evolutionApiData
+      nomeInstancia: nomeInstancia, // Usar variável derivada e validada
+      status: status, // Usar variável derivada e validada
+      telefone: dados.telefone, // Diretamente de dados, já validado
+      evolutionApiUrl: dados.evolutionApiUrl, // Diretamente de dados, já validado
+      apiKey: apiKey, // Usar variável derivada e validada
+      instanceId: instanceId, // Usar variável derivada e validada
+      evolutionApiData: evolutionApiData // Usar a variável atribuída, que é dados.evolutionApiData
     })
 
     // Salvar campos úteis do retorno da API diretamente na integração
