@@ -6,6 +6,7 @@ import WhatsappIntegracao from "@/lib/models/whatsapp-integracao"
 import Loja from "@/lib/models/loja"
 import Usuario from "@/lib/models/usuario"
 import { ENV } from "@/lib/env-config"
+import { createInstance } from "@/lib/utils/evolution-api"
 
 // Listar integrações do WhatsApp
 export async function GET() {
@@ -116,29 +117,40 @@ export async function POST(request: Request) {
       lojaId = loja._id
     }
 
+    // --- INÍCIO DA CHAMADA À EVOLUTION API ---
+    let evolutionApiData = null
+    try {
+      evolutionApiData = await createInstance({
+        instanceName: dados.nomeInstancia,
+        qrcode: true,
+        number: dados.telefone,
+        integration: "WHATSAPP-BAILEYS"
+      })
+    } catch (err) {
+      return NextResponse.json({ error: "Erro ao criar instância na Evolution API", details: (err as Error).message }, { status: 502 })
+    }
+    // --- FIM DA CHAMADA À EVOLUTION API ---
+
     // Criar a integração no banco de dados
     const integracao = new WhatsappIntegracao({
       userId: session.user.id,
       lojaId: lojaId,
       nomeInstancia: dados.nomeInstancia,
-      status: "pendente",
+      status: evolutionApiData?.instance?.status || "pendente",
       telefone: dados.telefone,
-      evolutionApiUrl: ENV.EVOLUTION_API_BASE_URL || "http://localhost:8080",
-      apiKey: ENV.EVOLUTION_API_KEY || "",
+      evolutionApiUrl: ENV.EVOLUTION_API_BASE_URL,
+      apiKey: ENV.EVOLUTION_API_KEY,
+      instanceId: evolutionApiData?.instance?.instanceId || null,
+      evolutionApiData: evolutionApiData
     })
 
-    // Salvar os dados da Evolution API se fornecidos
-    if (dados.evolutionApiData) {
-      // Podemos adicionar campos adicionais para armazenar os dados da API
-      integracao.set("evolutionApiData", dados.evolutionApiData)
-      // Salvar campos úteis do retorno da API diretamente na integração
-      if (dados.evolutionApiData.qrcode) {
-        integracao.set("qrcode", dados.evolutionApiData.qrcode.base64 || null)
-        integracao.set("pairingCode", dados.evolutionApiData.qrcode.pairingCode || null)
-      }
-      if (dados.evolutionApiData.instance) {
-        integracao.set("instanceInfo", dados.evolutionApiData.instance)
-      }
+    // Salvar campos úteis do retorno da API diretamente na integração
+    if (evolutionApiData?.qrcode) {
+      integracao.set("qrcode", evolutionApiData.qrcode.base64 || null)
+      integracao.set("pairingCode", evolutionApiData.qrcode.pairingCode || null)
+    }
+    if (evolutionApiData?.instance) {
+      integracao.set("instanceInfo", evolutionApiData.instance)
     }
 
     await integracao.save()
