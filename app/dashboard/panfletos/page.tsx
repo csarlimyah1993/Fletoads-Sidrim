@@ -34,6 +34,23 @@ export default function PanfletosPage() {
     limit: 10,
     pages: 1,
   })
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar se é dispositivo móvel
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    // Verificar inicialmente
+    checkMobile()
+
+    // Adicionar listener para redimensionamento
+    window.addEventListener("resize", checkMobile)
+
+    // Limpar listener
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // Buscar panfletos
   const fetchPanfletos = async (page = 1, statusFilter = status, categoriaFilter = categoria) => {
@@ -108,30 +125,33 @@ export default function PanfletosPage() {
   })
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Panfletos</h2>
-        <Button onClick={() => router.push("/dashboard/panfletos/novo")}>
-          <Plus className="mr-2 h-4 w-4" />
+    <div className="flex-1 space-y-4 p-3 sm:p-4 md:p-6 lg:p-8 pt-4 sm:pt-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Panfletos</h2>
+        <Button
+          onClick={() => router.push("/dashboard/panfletos/novo")}
+          className="text-xs sm:text-sm h-9 sm:h-10 w-full sm:w-auto"
+        >
+          <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
           Novo Panfleto
         </Button>
       </div>
 
-      <div className="flex flex-col space-y-4 md:flex-row md:space-x-4 md:space-y-0">
+      <div className="flex flex-col space-y-3 sm:space-y-4 md:flex-row md:space-x-4 md:space-y-0">
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar panfletos..."
-              className="pl-8"
+              className="pl-8 text-xs sm:text-sm h-9 sm:h-10"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:w-[400px]">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:w-[400px]">
           <Select value={categoria} onValueChange={setCategoria}>
-            <SelectTrigger>
+            <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -144,7 +164,7 @@ export default function PanfletosPage() {
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
+            <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -158,51 +178,65 @@ export default function PanfletosPage() {
       </div>
 
       <Tabs defaultValue="todos" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="todos">Todos</TabsTrigger>
-          <TabsTrigger value="publicados">Publicados</TabsTrigger>
-          <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
-          <TabsTrigger value="arquivados">Arquivados</TabsTrigger>
-        </TabsList>
+        <div className="relative w-full overflow-auto pb-2">
+          <TabsList className="inline-flex min-w-full w-max border-b-0">
+            <TabsTrigger value="todos" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+              Todos
+            </TabsTrigger>
+            <TabsTrigger value="publicados" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+              Publicados
+            </TabsTrigger>
+            <TabsTrigger value="rascunhos" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+              Rascunhos
+            </TabsTrigger>
+            <TabsTrigger value="arquivados" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+              Arquivados
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
         <TabsContent value="todos" className="space-y-4">
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex justify-center items-center h-48 sm:h-64">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
             </div>
           ) : error ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center h-64">
-                <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
-                <p className="text-lg font-medium text-center">{error}</p>
-                <Button onClick={() => fetchPanfletos()} className="mt-4">
+              <CardContent className="flex flex-col items-center justify-center h-48 sm:h-64 p-4 sm:p-6">
+                <AlertCircle className="h-8 w-8 sm:h-10 sm:w-10 text-red-500 mb-3 sm:mb-4" />
+                <p className="text-base sm:text-lg font-medium text-center">{error}</p>
+                <Button onClick={() => fetchPanfletos()} className="mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-10">
                   Tentar novamente
                 </Button>
               </CardContent>
             </Card>
           ) : panfletosFiltrados.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center h-64">
-                <FileText className="h-10 w-10 text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-center">Nenhum panfleto encontrado</p>
-                <p className="text-sm text-gray-500 text-center mt-1">
+              <CardContent className="flex flex-col items-center justify-center h-48 sm:h-64 p-4 sm:p-6">
+                <FileText className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mb-3 sm:mb-4" />
+                <p className="text-base sm:text-lg font-medium text-center">Nenhum panfleto encontrado</p>
+                <p className="text-xs sm:text-sm text-gray-500 text-center mt-1">
                   Comece criando um novo panfleto ou ajuste seus filtros de busca.
                 </p>
-                <Button onClick={() => router.push("/dashboard/panfletos/novo")} className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
+                <Button
+                  onClick={() => router.push("/dashboard/panfletos/novo")}
+                  className="mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-10"
+                >
+                  <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                   Novo Panfleto
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {panfletosFiltrados.map((panfleto) => (
                 <Link href={`/dashboard/panfletos/${panfleto._id}`} key={panfleto._id}>
-                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{panfleto.titulo}</CardTitle>
+                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors h-full">
+                    <CardHeader className="pb-2 px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex justify-between items-start gap-2">
+                        <CardTitle className="text-base sm:text-lg line-clamp-1">{panfleto.titulo}</CardTitle>
                         <div
-                          className={`px-2 py-1 rounded-full text-xs ${
+                          className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs whitespace-nowrap ${
                             panfleto.status === "publicado"
                               ? "bg-green-100 text-green-800"
                               : panfleto.status === "rascunho"
@@ -217,22 +251,26 @@ export default function PanfletosPage() {
                               : "Arquivado"}
                         </div>
                       </div>
-                      <CardDescription>{panfleto.descricao}</CardDescription>
+                      <CardDescription className="text-xs sm:text-sm line-clamp-2 mt-1">
+                        {panfleto.descricao}
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <FileText className="mr-1 h-4 w-4" />
-                        <span>{panfleto.categoria}</span>
+                    <CardContent className="px-3 sm:px-6 py-2">
+                      <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                        <FileText className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="truncate">{panfleto.categoria}</span>
                       </div>
                     </CardContent>
-                    <CardFooter className="flex justify-between pt-0">
-                      <div className="text-xs text-muted-foreground">
+                    <CardFooter className="flex justify-between pt-0 px-3 sm:px-6 pb-3 sm:pb-4">
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
                         Publicado em:{" "}
                         {panfleto.dataCriacao
                           ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
                           : "Data não disponível"}
                       </div>
-                      <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
+                        {panfleto.visualizacoes} visualizações
+                      </div>
                     </CardFooter>
                   </Card>
                 </Link>
@@ -242,34 +280,56 @@ export default function PanfletosPage() {
 
           {/* Paginação */}
           {pagination.pages > 1 && (
-            <div className="flex justify-center mt-6">
-              <div className="flex space-x-2">
+            <div className="flex justify-center mt-4 sm:mt-6">
+              <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => fetchPanfletos(pagination.page - 1)}
                   disabled={pagination.page === 1 || isLoading}
+                  className="text-xs h-8 px-2 sm:px-3"
                 >
                   Anterior
                 </Button>
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
-                    <Button
-                      key={page}
-                      variant={pagination.page === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => fetchPanfletos(page)}
-                      disabled={isLoading}
-                    >
-                      {page}
-                    </Button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                  {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      // Em dispositivos móveis, mostrar apenas páginas próximas à atual
+                      if (isMobile) {
+                        return page === 1 || page === pagination.pages || Math.abs(page - pagination.page) <= 1
+                      }
+                      return true
+                    })
+                    .map((page, index, array) => {
+                      // Adicionar elipses para páginas omitidas
+                      if (isMobile && index > 0 && array[index - 1] !== page - 1) {
+                        return (
+                          <span key={`ellipsis-${page}`} className="text-xs text-muted-foreground px-1">
+                            ...
+                          </span>
+                        )
+                      }
+
+                      return (
+                        <Button
+                          key={page}
+                          variant={pagination.page === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => fetchPanfletos(page)}
+                          disabled={isLoading}
+                          className="text-xs h-8 w-8 p-0"
+                        >
+                          {page}
+                        </Button>
+                      )
+                    })}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => fetchPanfletos(pagination.page + 1)}
                   disabled={pagination.page === pagination.pages || isLoading}
+                  className="text-xs h-8 px-2 sm:px-3"
                 >
                   Próxima
                 </Button>
@@ -277,37 +337,42 @@ export default function PanfletosPage() {
             </div>
           )}
         </TabsContent>
+
         <TabsContent value="publicados" className="space-y-4">
           {/* Conteúdo similar ao da aba "todos", mas filtrado por status="publicado" */}
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex justify-center items-center h-48 sm:h-64">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {panfletosFiltrados
                 .filter((p) => p.status === "publicado")
                 .map((panfleto) => (
                   <Link href={`/dashboard/panfletos/${panfleto._id}`} key={panfleto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{panfleto.titulo}</CardTitle>
-                        <CardDescription>{panfleto.descricao}</CardDescription>
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors h-full">
+                      <CardHeader className="pb-2 px-3 sm:px-6 py-3 sm:py-4">
+                        <CardTitle className="text-base sm:text-lg line-clamp-1">{panfleto.titulo}</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm line-clamp-2 mt-1">
+                          {panfleto.descricao}
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <FileText className="mr-1 h-4 w-4" />
-                          <span>{panfleto.categoria}</span>
+                      <CardContent className="px-3 sm:px-6 py-2">
+                        <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                          <FileText className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="truncate">{panfleto.categoria}</span>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">
+                      <CardFooter className="flex justify-between pt-0 px-3 sm:px-6 pb-3 sm:pb-4">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
                           Publicado em:{" "}
                           {panfleto.dataCriacao
                             ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
                             : "Data não disponível"}
                         </div>
-                        <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                          {panfleto.visualizacoes} visualizações
+                        </div>
                       </CardFooter>
                     </Card>
                   </Link>
@@ -315,31 +380,34 @@ export default function PanfletosPage() {
             </div>
           )}
         </TabsContent>
+
         <TabsContent value="rascunhos" className="space-y-4">
           {/* Conteúdo similar ao da aba "todos", mas filtrado por status="rascunho" */}
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex justify-center items-center h-48 sm:h-64">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {panfletosFiltrados
                 .filter((p) => p.status === "rascunho")
                 .map((panfleto) => (
                   <Link href={`/dashboard/panfletos/${panfleto._id}`} key={panfleto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{panfleto.titulo}</CardTitle>
-                        <CardDescription>{panfleto.descricao}</CardDescription>
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors h-full">
+                      <CardHeader className="pb-2 px-3 sm:px-6 py-3 sm:py-4">
+                        <CardTitle className="text-base sm:text-lg line-clamp-1">{panfleto.titulo}</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm line-clamp-2 mt-1">
+                          {panfleto.descricao}
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <FileText className="mr-1 h-4 w-4" />
-                          <span>{panfleto.categoria}</span>
+                      <CardContent className="px-3 sm:px-6 py-2">
+                        <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                          <FileText className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="truncate">{panfleto.categoria}</span>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">
+                      <CardFooter className="flex justify-between pt-0 px-3 sm:px-6 pb-3 sm:pb-4">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
                           Criado em:{" "}
                           {panfleto.dataCriacao
                             ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
@@ -352,37 +420,42 @@ export default function PanfletosPage() {
             </div>
           )}
         </TabsContent>
+
         <TabsContent value="arquivados" className="space-y-4">
           {/* Conteúdo similar ao da aba "todos", mas filtrado por status="arquivado" */}
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex justify-center items-center h-48 sm:h-64">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {panfletosFiltrados
                 .filter((p) => p.status === "arquivado")
                 .map((panfleto) => (
                   <Link href={`/dashboard/panfletos/${panfleto._id}`} key={panfleto._id}>
-                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{panfleto.titulo}</CardTitle>
-                        <CardDescription>{panfleto.descricao}</CardDescription>
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors h-full">
+                      <CardHeader className="pb-2 px-3 sm:px-6 py-3 sm:py-4">
+                        <CardTitle className="text-base sm:text-lg line-clamp-1">{panfleto.titulo}</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm line-clamp-2 mt-1">
+                          {panfleto.descricao}
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <FileText className="mr-1 h-4 w-4" />
-                          <span>{panfleto.categoria}</span>
+                      <CardContent className="px-3 sm:px-6 py-2">
+                        <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                          <FileText className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="truncate">{panfleto.categoria}</span>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="text-xs text-muted-foreground">
+                      <CardFooter className="flex justify-between pt-0 px-3 sm:px-6 pb-3 sm:pb-4">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
                           Arquivado em:{" "}
                           {panfleto.dataCriacao
                             ? format(new Date(panfleto.dataCriacao), "dd/MM/yyyy")
                             : "Data não disponível"}
                         </div>
-                        <div className="text-xs text-muted-foreground">{panfleto.visualizacoes} visualizações</div>
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                          {panfleto.visualizacoes} visualizações
+                        </div>
                       </CardFooter>
                     </Card>
                   </Link>

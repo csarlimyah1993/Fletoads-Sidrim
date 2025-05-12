@@ -237,35 +237,37 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Criar Nova Loja</CardTitle>
-        <CardDescription>
+      <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+        <CardTitle className="text-xl sm:text-2xl">Criar Nova Loja</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           Preencha os dados principais da sua loja. Você poderá completar as informações adicionais depois.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6 py-2 sm:py-4">
         {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="mb-4 sm:mb-6">
+            <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <AlertTitle className="text-sm sm:text-base">Erro</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
           </Alert>
         )}
 
-        <form id="lojaForm" onSubmit={handleSubmit} className="space-y-6">
+        <form id="lojaForm" onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <Tabs value={`step-${activeStep}`} className="w-full">
             {/* Etapa 1: Informações Básicas */}
-            <TabsContent value="step-1" className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center">
-                  <Store className="h-4 w-4" />
+            <TabsContent value="step-1" className="space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <div className="bg-primary text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
+                  <Store className="h-3 w-3 sm:h-4 sm:w-4" />
                 </div>
-                <h3 className="text-xl font-semibold">Informações Básicas</h3>
+                <h3 className="text-lg sm:text-xl font-semibold">Informações Básicas</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome da Loja *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="nome" className="text-sm sm:text-base">
+                    Nome da Loja *
+                  </Label>
                   <Input
                     id="nome"
                     name="nome"
@@ -273,10 +275,13 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="Ex: Lojista Modas"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cnpj">CNPJ *</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="cnpj" className="text-sm sm:text-base">
+                    CNPJ *
+                  </Label>
                   <Input
                     id="cnpj"
                     name="cnpj"
@@ -284,13 +289,18 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="00.000.000/0000-00"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
-                  <p className="text-xs text-muted-foreground">Digite apenas os números, a formatação é automática</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Digite apenas os números, a formatação é automática
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição da Loja</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="descricao" className="text-sm sm:text-base">
+                  Descrição da Loja
+                </Label>
                 <Textarea
                   id="descricao"
                   name="descricao"
@@ -298,17 +308,20 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                   onChange={handleChange}
                   placeholder="Ex: Loja de roupas"
                   rows={3}
+                  className="text-sm sm:text-base min-h-[80px] sm:min-h-[100px]"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="categoria">Categoria Principal</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="categoria" className="text-sm sm:text-base">
+                  Categoria Principal
+                </Label>
                 <Select
                   name="categoria"
                   value={formData.categoria}
                   onValueChange={(value) => handleSelectChange("categoria", value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base h-9 sm:h-10">
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
@@ -323,17 +336,19 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
             </TabsContent>
 
             {/* Etapa 2: Endereço */}
-            <TabsContent value="step-2" className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center">
-                  <MapPin className="h-4 w-4" />
+            <TabsContent value="step-2" className="space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <div className="bg-primary text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
+                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                 </div>
-                <h3 className="text-xl font-semibold">Endereço</h3>
+                <h3 className="text-lg sm:text-xl font-semibold">Endereço</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="cep">CEP *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="cep" className="text-sm sm:text-base">
+                    CEP *
+                  </Label>
                   <Input
                     id="cep"
                     name="cep"
@@ -341,11 +356,16 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="00000-000"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
-                  <p className="text-xs text-muted-foreground">Digite apenas os números, a formatação é automática</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Digite apenas os números, a formatação é automática
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="rua">Rua/Logradouro *</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="rua" className="text-sm sm:text-base">
+                    Rua/Logradouro *
+                  </Label>
                   <Input
                     id="rua"
                     name="rua"
@@ -353,13 +373,16 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="Ex: Rua Arapuá"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="numero">Número *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="numero" className="text-sm sm:text-base">
+                    Número *
+                  </Label>
                   <Input
                     id="numero"
                     name="numero"
@@ -367,23 +390,29 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="Ex: 367"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="complemento">Complemento</Label>
+                <div className="space-y-1.5 sm:space-y-2 sm:col-span-2">
+                  <Label htmlFor="complemento" className="text-sm sm:text-base">
+                    Complemento
+                  </Label>
                   <Input
                     id="complemento"
                     name="complemento"
                     value={formData.complemento}
                     onChange={handleChange}
                     placeholder="Sala, Apto, etc."
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="bairro">Bairro *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="bairro" className="text-sm sm:text-base">
+                    Bairro *
+                  </Label>
                   <Input
                     id="bairro"
                     name="bairro"
@@ -391,10 +420,13 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="Ex: Cidade Nova"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cidade">Cidade *</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="cidade" className="text-sm sm:text-base">
+                    Cidade *
+                  </Label>
                   <Input
                     id="cidade"
                     name="cidade"
@@ -402,16 +434,19 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="Ex: Manaus"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="estado">Estado *</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="estado" className="text-sm sm:text-base">
+                    Estado *
+                  </Label>
                   <Select
                     name="estado"
                     value={formData.estado}
                     onValueChange={(value) => handleSelectChange("estado", value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm sm:text-base h-9 sm:h-10">
                       <SelectValue placeholder="UF" />
                     </SelectTrigger>
                     <SelectContent>
@@ -427,17 +462,19 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
             </TabsContent>
 
             {/* Etapa 3: Contato */}
-            <TabsContent value="step-3" className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center">
-                  <Phone className="h-4 w-4" />
+            <TabsContent value="step-3" className="space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <div className="bg-primary text-white rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
+                  <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
                 </div>
-                <h3 className="text-xl font-semibold">Informações de Contato</h3>
+                <h3 className="text-lg sm:text-xl font-semibold">Informações de Contato</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="telefone" className="text-sm sm:text-base">
+                    Telefone *
+                  </Label>
                   <Input
                     id="telefone"
                     name="telefone"
@@ -445,24 +482,34 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                     onChange={handleChange}
                     placeholder="(00) 00000-0000"
                     required
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
-                  <p className="text-xs text-muted-foreground">Digite apenas os números, a formatação é automática</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Digite apenas os números, a formatação é automática
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp">WhatsApp</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="whatsapp" className="text-sm sm:text-base">
+                    WhatsApp
+                  </Label>
                   <Input
                     id="whatsapp"
                     name="whatsapp"
                     value={formData.whatsapp}
                     onChange={handleChange}
                     placeholder="(00) 00000-0000"
+                    className="text-sm sm:text-base h-9 sm:h-10"
                   />
-                  <p className="text-xs text-muted-foreground">Digite apenas os números, a formatação é automática</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Digite apenas os números, a formatação é automática
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email de Contato *</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="email" className="text-sm sm:text-base">
+                  Email de Contato *
+                </Label>
                 <Input
                   id="email"
                   name="email"
@@ -471,15 +518,16 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
                   onChange={handleChange}
                   placeholder="Ex: contato@lojistaModas.com.br"
                   required
+                  className="text-sm sm:text-base h-9 sm:h-10"
                 />
               </div>
 
-              <div className="bg-muted/50 p-4 rounded-lg mt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Check className="h-5 w-5 text-green-500" />
-                  <h4 className="font-medium">Revisão</h4>
+              <div className="bg-muted/50 p-3 sm:p-4 rounded-lg mt-4 sm:mt-6">
+                <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                  <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                  <h4 className="font-medium text-sm sm:text-base">Revisão</h4>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Verifique se todas as informações estão corretas antes de criar sua loja. Você poderá adicionar mais
                   detalhes como horário de funcionamento, redes sociais e imagens após a criação.
                 </p>
@@ -488,22 +536,40 @@ export function CriarLojaForm({ userId }: CriarLojaFormProps) {
           </Tabs>
         </form>
       </CardContent>
-      <CardFooter className="flex justify-between border-t p-6">
-        <div className="flex items-center gap-2">
-          <span className={`w-3 h-3 rounded-full ${activeStep >= 1 ? "bg-primary" : "bg-gray-300"}`}></span>
-          <span className={`w-3 h-3 rounded-full ${activeStep >= 2 ? "bg-primary" : "bg-gray-300"}`}></span>
-          <span className={`w-3 h-3 rounded-full ${activeStep >= 3 ? "bg-primary" : "bg-gray-300"}`}></span>
+      <CardFooter className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 border-t px-4 sm:px-6 py-4 sm:py-6">
+        <div className="flex items-center gap-2 order-2 sm:order-1">
+          <span
+            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${activeStep >= 1 ? "bg-primary" : "bg-gray-300"}`}
+          ></span>
+          <span
+            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${activeStep >= 2 ? "bg-primary" : "bg-gray-300"}`}
+          ></span>
+          <span
+            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${activeStep >= 3 ? "bg-primary" : "bg-gray-300"}`}
+          ></span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto order-1 sm:order-2">
           {activeStep > 1 && (
-            <Button variant="outline" onClick={prevStep} disabled={loading}>
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              disabled={loading}
+              className="text-xs sm:text-sm h-9 sm:h-10 flex-1 sm:flex-none"
+            >
               Voltar
             </Button>
           )}
           {activeStep < 3 ? (
-            <Button onClick={nextStep}>Próximo</Button>
+            <Button onClick={nextStep} className="text-xs sm:text-sm h-9 sm:h-10 flex-1 sm:flex-none">
+              Próximo
+            </Button>
           ) : (
-            <Button type="submit" form="lojaForm" disabled={loading} className="bg-green-600 hover:bg-green-700">
+            <Button
+              type="submit"
+              form="lojaForm"
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm h-9 sm:h-10 flex-1 sm:flex-none"
+            >
               {loading ? "Criando..." : "Criar Loja"}
             </Button>
           )}

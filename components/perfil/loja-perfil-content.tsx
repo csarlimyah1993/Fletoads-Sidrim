@@ -119,6 +119,23 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
   const router = useRouter()
   const [currentHorarios, setCurrentHorarios] = useState<Record<string, any>>({})
   const [lojaOriginal, setLojaOriginal] = useState<any>(null) // Armazenar a loja original
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar se é dispositivo móvel
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    // Verificar inicialmente
+    checkMobile()
+
+    // Adicionar listener para redimensionamento
+    window.addEventListener("resize", checkMobile)
+
+    // Limpar listener
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // Valores padrão para horários de funcionamento
   const horariosPadrao = {
@@ -509,19 +526,19 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Carregando dados da loja...</span>
+      <div className="flex items-center justify-center p-4 sm:p-8">
+        <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
+        <span className="ml-2 text-sm sm:text-base">Carregando dados da loja...</span>
       </div>
     )
   }
 
   if (error && !lojaId) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-        <h3 className="text-lg font-medium text-red-800">Erro ao carregar dados</h3>
-        <p className="text-red-700">{error}</p>
-        <Button className="mt-4" onClick={() => router.push("/dashboard")}>
+      <div className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-md">
+        <h3 className="text-base sm:text-lg font-medium text-red-800">Erro ao carregar dados</h3>
+        <p className="text-sm sm:text-base text-red-700">{error}</p>
+        <Button className="mt-3 sm:mt-4 text-sm" onClick={() => router.push("/dashboard")}>
           Voltar para o Dashboard
         </Button>
       </div>
@@ -530,49 +547,65 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
 
   return (
     <Form {...form}>
-      <div className="space-y-8">
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
         {saveSuccess && (
-          <Alert className="bg-green-50 border-green-200 text-green-800 mb-6">
+          <Alert className="bg-green-50 border-green-200 text-green-800 mb-4 sm:mb-6">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle>Dados salvos com sucesso!</AlertTitle>
-            <AlertDescription>As informações da sua loja foram atualizadas com sucesso.</AlertDescription>
+            <AlertTitle className="text-sm sm:text-base">Dados salvos com sucesso!</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm">
+              As informações da sua loja foram atualizadas com sucesso.
+            </AlertDescription>
           </Alert>
         )}
 
         {error && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-4 sm:mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Erro ao salvar dados</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle className="text-sm sm:text-base">Erro ao salvar dados</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
           </Alert>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Perfil da Loja</CardTitle>
-            <CardDescription>Configure as informações da sua loja que serão exibidas para os clientes.</CardDescription>
+        <Card className="overflow-hidden">
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-lg sm:text-xl md:text-2xl">Perfil da Loja</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Configure as informações da sua loja que serão exibidas para os clientes.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-6">
-                <TabsTrigger value="informacoes">Informações Básicas</TabsTrigger>
-                <TabsTrigger value="horarios">Horários</TabsTrigger>
-                <TabsTrigger value="endereco">Endereço</TabsTrigger>
-                <TabsTrigger value="contato">Contato</TabsTrigger>
-                <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
-              </TabsList>
+          <CardContent className="px-4 sm:px-6 py-2 sm:py-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="relative w-full overflow-auto pb-2 mb-4 sm:mb-6">
+                <TabsList className="inline-flex min-w-full w-max border-b-0">
+                  <TabsTrigger value="informacoes" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                    Informações Básicas
+                  </TabsTrigger>
+                  <TabsTrigger value="horarios" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                    Horários
+                  </TabsTrigger>
+                  <TabsTrigger value="endereco" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                    Endereço
+                  </TabsTrigger>
+                  <TabsTrigger value="contato" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                    Contato
+                  </TabsTrigger>
+                  <TabsTrigger value="redes" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                    Redes Sociais
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="informacoes" className="space-y-6">
+              <TabsContent value="informacoes" className="space-y-4 sm:space-y-6">
                 <FormField
                   control={form.control}
                   name="nome"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome da Loja</FormLabel>
+                      <FormLabel className="text-sm sm:text-base">Nome da Loja</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome da sua loja" {...field} />
+                        <Input placeholder="Nome da sua loja" {...field} className="text-sm sm:text-base" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs sm:text-sm" />
                     </FormItem>
                   )}
                 />
@@ -582,19 +615,25 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                   name="descricao"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Descrição</FormLabel>
+                      <FormLabel className="text-sm sm:text-base">Descrição</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Descreva sua loja em poucas palavras..." {...field} />
+                        <Textarea
+                          placeholder="Descreva sua loja em poucas palavras..."
+                          {...field}
+                          className="text-sm sm:text-base min-h-[80px] sm:min-h-[100px]"
+                        />
                       </FormControl>
-                      <FormDescription>Esta descrição será exibida na página principal da sua loja.</FormDescription>
-                      <FormMessage />
+                      <FormDescription className="text-xs sm:text-sm">
+                        Esta descrição será exibida na página principal da sua loja.
+                      </FormDescription>
+                      <FormMessage className="text-xs sm:text-sm" />
                     </FormItem>
                   )}
                 />
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div>
-                    <h3 className="text-lg font-medium mb-2">Logo</h3>
+                    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Logo</h3>
                     <FormField
                       control={form.control}
                       name="logo"
@@ -607,14 +646,14 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                               onRemove={() => handleImageChange("logo", "")}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-xs sm:text-sm" />
                         </FormItem>
                       )}
                     />
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-medium mb-2">Banner</h3>
+                    <h3 className="text-base sm:text-lg font-medium mb-1 sm:mb-2">Banner</h3>
                     <FormField
                       control={form.control}
                       name="banner"
@@ -627,11 +666,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                               onRemove={() => handleImageChange("banner", "")}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-xs sm:text-sm" />
                         </FormItem>
                       )}
                     />
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2">
                       Recomendamos uma imagem de pelo menos 1200x400 pixels.
                     </p>
                   </div>
@@ -639,7 +678,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
               </TabsContent>
 
               {/* Aba de Horários de Funcionamento */}
-              <TabsContent value="horarios" className="space-y-6">
+              <TabsContent value="horarios" className="space-y-4 sm:space-y-6">
                 <HorariosFuncionamento
                   lojaId={lojaId}
                   horarios={form.watch("horarioFuncionamento") as Record<string, any>}
@@ -647,18 +686,18 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                 />
               </TabsContent>
 
-              <TabsContent value="endereco" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="endereco" className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="endereco.rua"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Rua/Logradouro</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Rua/Logradouro</FormLabel>
                         <FormControl>
-                          <Input placeholder="Rua/Avenida" {...field} />
+                          <Input placeholder="Rua/Avenida" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -668,11 +707,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="endereco.numero"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Número</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Número</FormLabel>
                         <FormControl>
-                          <Input placeholder="123" {...field} />
+                          <Input placeholder="123" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -682,11 +721,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="endereco.complemento"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Complemento</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Complemento</FormLabel>
                         <FormControl>
-                          <Input placeholder="Apto, Sala, etc." {...field} />
+                          <Input placeholder="Apto, Sala, etc." {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -696,11 +735,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="endereco.bairro"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Bairro</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Bairro</FormLabel>
                         <FormControl>
-                          <Input placeholder="Bairro" {...field} />
+                          <Input placeholder="Bairro" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -710,11 +749,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="endereco.cidade"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cidade</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Cidade</FormLabel>
                         <FormControl>
-                          <Input placeholder="Cidade" {...field} />
+                          <Input placeholder="Cidade" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -724,11 +763,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="endereco.estado"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Estado</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Estado</FormLabel>
                         <FormControl>
-                          <Input placeholder="Estado" {...field} />
+                          <Input placeholder="Estado" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -737,45 +776,46 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     control={form.control}
                     name="endereco.cep"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CEP</FormLabel>
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel className="text-sm sm:text-base">CEP</FormLabel>
                         <FormControl>
-                          <Input placeholder="00000-000" {...field} />
+                          <Input placeholder="00000-000" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">Localização no Mapa</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <h3 className="text-base sm:text-lg font-medium">Localização no Mapa</h3>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="self-start sm:self-auto text-xs sm:text-sm"
                       onClick={() => {
                         // Buscar localização pelo endereço
                         // O componente GoogleMap fará isso automaticamente
                       }}
                     >
-                      <MapPin className="h-4 w-4 mr-2" />
+                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       Buscar no Mapa
                     </Button>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-4">
                     Arraste o marcador para ajustar a localização exata da sua loja.
                   </p>
 
-                  <div className="h-[400px] w-full rounded-md overflow-hidden border">
+                  <div className="h-[250px] sm:h-[300px] md:h-[400px] w-full rounded-md overflow-hidden border">
                     <GoogleMap
                       address={getFormattedAddress()}
                       latitude={form.watch("endereco.latitude")}
                       longitude={form.watch("endereco.longitude")}
                       storeName={form.watch("nome")}
-                      height="400px"
+                      height="100%"
                       zoom={15}
                       onLocationChange={handleLocationChange}
                       interactive={true}
@@ -784,18 +824,18 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                 </div>
               </TabsContent>
 
-              <TabsContent value="contato" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="contato" className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="contato.telefone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Telefone</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Telefone</FormLabel>
                         <FormControl>
-                          <Input placeholder="(00) 0000-0000" {...field} />
+                          <Input placeholder="(00) 0000-0000" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -805,11 +845,11 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="contato.whatsapp"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>WhatsApp</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">WhatsApp</FormLabel>
                         <FormControl>
-                          <Input placeholder="(00) 00000-0000" {...field} />
+                          <Input placeholder="(00) 00000-0000" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -818,12 +858,12 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     control={form.control}
                     name="contato.email"
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Email</FormLabel>
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel className="text-sm sm:text-base">Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="contato@sualoja.com" {...field} />
+                          <Input placeholder="contato@sualoja.com" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -832,30 +872,34 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     control={form.control}
                     name="contato.site"
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Site</FormLabel>
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel className="text-sm sm:text-base">Site</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://www.sualoja.com" {...field} />
+                          <Input placeholder="https://www.sualoja.com" {...field} className="text-sm sm:text-base" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
                 </div>
               </TabsContent>
 
-              <TabsContent value="redes" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="redes" className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="redesSociais.instagram"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Instagram</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Instagram</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://instagram.com/sualoja" {...field} />
+                          <Input
+                            placeholder="https://instagram.com/sualoja"
+                            {...field}
+                            className="text-sm sm:text-base"
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -865,11 +909,15 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="redesSociais.facebook"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Facebook</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Facebook</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://facebook.com/sualoja" {...field} />
+                          <Input
+                            placeholder="https://facebook.com/sualoja"
+                            {...field}
+                            className="text-sm sm:text-base"
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -879,11 +927,15 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="redesSociais.twitter"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Twitter</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">Twitter</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://twitter.com/sualoja" {...field} />
+                          <Input
+                            placeholder="https://twitter.com/sualoja"
+                            {...field}
+                            className="text-sm sm:text-base"
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -893,11 +945,15 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     name="redesSociais.youtube"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>YouTube</FormLabel>
+                        <FormLabel className="text-sm sm:text-base">YouTube</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://youtube.com/sualoja" {...field} />
+                          <Input
+                            placeholder="https://youtube.com/sualoja"
+                            {...field}
+                            className="text-sm sm:text-base"
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -906,12 +962,16 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
                     control={form.control}
                     name="redesSociais.linkedin"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>LinkedIn</FormLabel>
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel className="text-sm sm:text-base">LinkedIn</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://linkedin.com/company/sualoja" {...field} />
+                          <Input
+                            placeholder="https://linkedin.com/company/sualoja"
+                            {...field}
+                            className="text-sm sm:text-base"
+                          />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs sm:text-sm" />
                       </FormItem>
                     )}
                   />
@@ -919,12 +979,18 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
               </TabsContent>
             </Tabs>
           </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>
+          <CardFooter className="flex flex-col sm:flex-row justify-between gap-3 px-4 sm:px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10"
+              onClick={() => router.push("/dashboard")}
+            >
               Cancelar
             </Button>
             <Button
               type="button"
+              className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10"
               onClick={(e) => {
                 e.preventDefault()
                 console.log("Botão clicado - evento capturado")
@@ -934,7 +1000,7 @@ export default function LojaPerfilContent({ lojaId, initialValues }: LojaPerfilF
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Salvando...
                 </>
               ) : (
