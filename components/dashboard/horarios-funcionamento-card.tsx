@@ -1,103 +1,93 @@
-"use client"
+import { Badge } from "@/components/ui/badge"
 
 interface HorarioFuncionamento {
-  open?: boolean
-  abertura?: string
-  fechamento?: string
   aberto?: boolean
+  open?: boolean
   horaAbertura?: string
+  abertura?: string
   horaFechamento?: string
+  fechamento?: string
+}
+
+type DiaSemana = "segunda" | "terca" | "quarta" | "quinta" | "sexta" | "sabado" | "domingo"
+
+interface HorariosObject {
+  [key: string]: HorarioFuncionamento | undefined
+  segunda?: HorarioFuncionamento
+  terca?: HorarioFuncionamento
+  quarta?: HorarioFuncionamento
+  quinta?: HorarioFuncionamento
+  sexta?: HorarioFuncionamento
+  sabado?: HorarioFuncionamento
+  domingo?: HorarioFuncionamento
 }
 
 interface HorariosFuncionamentoCardProps {
-  horarios?: {
-    segunda?: HorarioFuncionamento
-    terca?: HorarioFuncionamento
-    quarta?: HorarioFuncionamento
-    quinta?: HorarioFuncionamento
-    sexta?: HorarioFuncionamento
-    sabado?: HorarioFuncionamento
-    domingo?: HorarioFuncionamento
-  }
+  horarios?: HorariosObject
 }
 
 export function HorariosFuncionamentoCard({ horarios }: HorariosFuncionamentoCardProps) {
-  // Função para formatar o horário
-  const formatarHorario = (dia?: HorarioFuncionamento) => {
-    if (!dia) return "Fechado"
-
-    // Verificar formato novo (aberto)
-    if (dia.aberto !== undefined) {
-      if (!dia.aberto) return "Fechado"
-      if (!dia.horaAbertura || !dia.horaFechamento) return "Horário não definido"
-      return `${dia.horaAbertura} - ${dia.horaFechamento}`
-    }
-
-    // Verificar formato antigo (open)
-    if (dia.open !== undefined) {
-      if (!dia.open) return "Fechado"
-      if (!dia.abertura || !dia.fechamento) return "Horário não definido"
-      return `${dia.abertura} - ${dia.fechamento}`
-    }
-
-    return "Horário não definido"
+  if (!horarios) {
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        <p>Horários não configurados</p>
+      </div>
+    )
   }
 
-  // Verificar se os dias da semana têm o mesmo horário (seg-sex)
-  const verificarHorariosSemanaIguais = () => {
-    if (!horarios) return false
+  const diasSemana = [
+    { key: "segunda" as DiaSemana, label: "Segunda" },
+    { key: "terca" as DiaSemana, label: "Terça" },
+    { key: "quarta" as DiaSemana, label: "Quarta" },
+    { key: "quinta" as DiaSemana, label: "Quinta" },
+    { key: "sexta" as DiaSemana, label: "Sexta" },
+    { key: "sabado" as DiaSemana, label: "Sábado" },
+    { key: "domingo" as DiaSemana, label: "Domingo" },
+  ]
 
-    const { segunda, terca, quarta, quinta, sexta } = horarios
-    if (!segunda || !terca || !quarta || !quinta || !sexta) return false
-
-    const horarioSegunda = formatarHorario(segunda)
-    return [terca, quarta, quinta, sexta].every((dia) => formatarHorario(dia) === horarioSegunda)
+  // Função para verificar se o dia está aberto
+  const isDiaAberto = (dia: HorarioFuncionamento | undefined) => {
+    if (!dia) return false
+    return dia.aberto === true || dia.open === true
   }
 
-  const horariosSemanaIguais = verificarHorariosSemanaIguais()
+  // Função para obter o horário de abertura
+  const getHorarioAbertura = (dia: HorarioFuncionamento | undefined) => {
+    if (!dia) return "08:00"
+    return dia.horaAbertura || dia.abertura || "08:00"
+  }
+
+  // Função para obter o horário de fechamento
+  const getHorarioFechamento = (dia: HorarioFuncionamento | undefined) => {
+    if (!dia) return "18:00"
+    return dia.horaFechamento || dia.fechamento || "18:00"
+  }
 
   return (
-    <div className="space-y-2 text-sm">
-      {horariosSemanaIguais ? (
-        <div className="flex justify-between">
-          <span>Segunda-Sexta:</span>
-          <span className="font-medium">{formatarHorario(horarios?.segunda)}</span>
+    <div className="space-y-2">
+      {diasSemana.map((dia) => (
+        <div key={dia.key} className="flex items-center justify-between">
+          <span className="font-medium">{dia.label}</span>
+          <div>
+            {isDiaAberto(horarios[dia.key]) ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm">
+                  {getHorarioAbertura(horarios[dia.key])} - {getHorarioFechamento(horarios[dia.key])}
+                </span>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  Aberto
+                </Badge>
+              </div>
+            ) : (
+              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                Fechado
+              </Badge>
+            )}
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="flex justify-between">
-            <span>Segunda:</span>
-            <span className="font-medium">{formatarHorario(horarios?.segunda)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Terça:</span>
-            <span className="font-medium">{formatarHorario(horarios?.terca)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Quarta:</span>
-            <span className="font-medium">{formatarHorario(horarios?.quarta)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Quinta:</span>
-            <span className="font-medium">{formatarHorario(horarios?.quinta)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Sexta:</span>
-            <span className="font-medium">{formatarHorario(horarios?.sexta)}</span>
-          </div>
-        </>
-      )}
-      <div className="flex justify-between">
-        <span>Sábado:</span>
-        <span className="font-medium">{formatarHorario(horarios?.sabado)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span>Domingo:</span>
-        <span className="font-medium">{formatarHorario(horarios?.domingo)}</span>
-      </div>
+      ))}
     </div>
   )
 }
 
-// Also add a default export to ensure it can be imported either way
 export default HorariosFuncionamentoCard

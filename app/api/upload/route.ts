@@ -1,69 +1,64 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../../../lib/auth"
 import { put } from "@vercel/blob"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { v4 as uuidv4 } from "uuid"
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticação
     const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const formData = await req.formData()
+    // Obter o ID do usuário da sessão
+    const userId = session.user.id
+
+    // Verificar se o formulário contém um arquivo
+    const formData = await request.formData()
     const file = formData.get("file") as File
 
     if (!file) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
     }
 
-    // Lista de tipos de arquivo permitidos
-    const allowedTypes = [
-      // Imagens
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "image/svg+xml",
-      // Documentos
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // Word
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // Excel
-      "application/vnd.ms-powerpoint",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation", // PowerPoint
-      "text/plain",
-      "text/csv",
-      "text/html",
-      "text/rtf",
-      "application/zip",
-      "application/x-zip-compressed",
-    ]
-
     // Verificar o tipo de arquivo
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          error: `Tipo de arquivo não permitido: ${file.type}. Tipos permitidos: imagens, PDF, Word, Excel, PowerPoint, texto e ZIP.`,
-        },
-        { status: 400 },
-      )
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "O arquivo deve ser uma imagem" }, { status: 400 })
+    }
+
+    // Verificar o tamanho do arquivo (limite de 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "O arquivo é muito grande. O tamanho máximo é 5MB" }, { status: 400 })
     }
 
     // Gerar um nome único para o arquivo
-    const fileName = `${session.user.id}/${uuidv4()}-${file.name}`
+    const fileExtension = file.name.split(".").pop()
+    const fileName = `${userId}/${uuidv4()}.${fileExtension}`
 
-    // Fazer upload para o Vercel Blob Storage
+    console.log("Iniciando upload para Vercel Blob:", fileName)
+
+    // Fazer upload do arquivo para o Vercel Blob Storage
     const blob = await put(fileName, file, {
       access: "public",
     })
 
+    console.log("Upload concluído:", blob.url)
+
+    // Retornar a URL do arquivo
     return NextResponse.json({ url: blob.url })
   } catch (error) {
-    console.error("Erro ao fazer upload:", error)
-    return NextResponse.json({ error: "Erro ao fazer upload do arquivo" }, { status: 500 })
+    console.error("Erro no upload de arquivo:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro desconhecido no upload de arquivo" },
+      { status: 500 },
+    )
   }
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 }

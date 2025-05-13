@@ -354,14 +354,6 @@ export const authOptions: NextAuthOptions = {
         if (extendedUser.tipoUsuario) {
           token.tipoUsuario = extendedUser.tipoUsuario
         }
-
-        // Log para depuração
-        console.log("JWT callback - user data:", {
-          id: user.id,
-          role: user.role || "user",
-          email: user.email,
-          tipoUsuario: extendedUser.tipoUsuario || "N/A",
-        })
       }
 
       // Update token when session is updated
@@ -393,12 +385,6 @@ export const authOptions: NextAuthOptions = {
             if (previousRole !== token.role) {
               console.log(`JWT callback - role changed from ${previousRole} to ${token.role}`)
             }
-
-            console.log("JWT callback - refreshed user data:", {
-              id: token.id,
-              role: token.role,
-              nome: token.nome,
-            })
           }
         } catch (error) {
           console.error("Erro ao atualizar dados do token:", error)
