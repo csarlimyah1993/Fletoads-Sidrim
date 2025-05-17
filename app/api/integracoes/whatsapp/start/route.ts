@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ENV } from '@/lib/env-config';
+import { emitStatusUpdate } from '../socket/route';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,16 @@ export async function POST(request: NextRequest) {
     }
 
     const responseData = await evolutionResponse.json();
+
+    // Emitir status para o cliente via WebSocket
+    // O 'instance' aqui é o sessionId que o frontend gerou
+    if (instance && responseData.instance?.instanceName) {
+      emitStatusUpdate(instance, "pending_qr_scan", `Instância ${responseData.instance.instanceName} criada, aguardando QR code.`);
+    } else if (instance) {
+      // Caso a resposta da Evolution API não tenha instanceName, mas a criação foi OK
+      emitStatusUpdate(instance, "pending_qr_scan", `Instância criada, aguardando QR code.`);
+    }
+
     return NextResponse.json(responseData, { status: evolutionResponse.status });
 
   } catch (error) {
