@@ -1,28 +1,42 @@
 import { NextResponse } from 'next/server';
-import { ENV } from '@/lib/env-config';
 import { emitStatusUpdate } from '../socket/route';
+import WhatsappIntegracao from '@/lib/models/whatsapp-integracao';
+import { connectToDatabase } from '@/lib/mongodb';
 
 // Configuração da API externa
 
 export async function GET(request: Request) {
   try {
+    await connectToDatabase();
+
     // Extrai o nome da instância da query string (?instance=nome)
     const { searchParams } = new URL(request.url);
-    const instance = searchParams.get('instance');
+    const instance = searchParams.get('instance'); // 'instance' is nomeInstancia in the model
 
     if (!instance) {
       return NextResponse.json({ error: 'Parâmetro instance ausente na query string' }, { status: 400 });
     }
 
+    const integration = await WhatsappIntegracao.findOne({ nomeInstancia: instance });
+
+    if (!integration) {
+      return NextResponse.json({ error: `WhatsApp integration with instance name '${instance}' not found.` }, { status: 404 });
+    }
+
+    if (!integration.evolutionApiUrl || !integration.apiKey) {
+      return NextResponse.json({ error: `API configuration missing for instance '${instance}'. Please check the integration settings.` }, { status: 500 });
+    }
+
     // Monta a URL do endpoint externo
-    const connectUrl = `${ENV.EVOLUTION_API_BASE_URL}/instance/connect/${instance}`;
+    const connectUrl = `${integration.evolutionApiUrl}/instance/connect/${instance}`;
+    const evolutionApiKey = integration.apiKey;
 
     // Faz a requisição GET para o endpoint externo
     const response = await fetch(connectUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': ENV.EVOLUTION_API_KEY
+        'apikey': evolutionApiKey
       },
     });
 
