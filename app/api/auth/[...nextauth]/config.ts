@@ -187,6 +187,12 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+
+      console.log("[NextAuth] signIn callback - user:", user)
+      console.log("[NextAuth] signIn callback - account:", account)
+      console.log("[NextAuth] signIn callback - profile:", profile)
+
+
       if (account?.provider === "google") {
         try {
           const { db } = await connectToDatabase()

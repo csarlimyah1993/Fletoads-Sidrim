@@ -367,9 +367,11 @@ export const authOptions: NextAuthOptions = {
         try {
           const { db } = await connectToDatabase()
 
-          const userData = await db.collection("usuarios").findOne({
-            _id: new ObjectId(token.id),
-          })
+          const query = ObjectId.isValid(token.id)
+            ? { _id: new ObjectId(token.id) }
+            : { googleId: token.id }
+
+          const userData = await db.collection("usuarios").findOne(query)
 
           if (userData) {
             const previousRole = token.role
@@ -412,13 +414,13 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-  // Log para depuração da sessão
-  //    console.log("Session callback - session data:", {
-  //     id: session.user?.id,
-  //      role: session.user?.role,
-  //      email: session.user?.email,
-  //      tipoUsuario: session.user?.tipoUsuario || "N/A",
-  //    })
+      // Log para depuração da sessão
+      //    console.log("Session callback - session data:", {
+      //     id: session.user?.id,
+      //      role: session.user?.role,
+      //      email: session.user?.email,
+      //      tipoUsuario: session.user?.tipoUsuario || "N/A",
+      //    })
 
       return session
     },
