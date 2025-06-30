@@ -228,6 +228,11 @@ export { ObjectId }
 
 // Função auxiliar para criar um clientPromise compatível com as rotas de API
 export const clientPromise = (async () => {
-  const { client } = await connectToDatabase()
-  return client
+  try {
+    const { client } = await connectToDatabase()
+    return client
+  } catch (error) {
+    console.error("Erro no clientPromise:", error)
+    throw error
+  }
 })()
