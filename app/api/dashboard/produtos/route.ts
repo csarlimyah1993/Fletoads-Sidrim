@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
+// Validação segura de ObjectId
+function isObjectIdLike(id: any): boolean {
+  return typeof id === "string" && id.length === 24 && /^[a-fA-F0-9]{24}$/.test(id)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -12,7 +17,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Conectar ao banco de dados
-    await connectToDatabase()
     const { db } = await connectToDatabase()
 
     // Parâmetros de busca
@@ -20,41 +24,61 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")
     const categoria = searchParams.get("categoria")
     const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "100") // Aumentando o limite para garantir que todos os produtos sejam retornados
+    const limit = Number.parseInt(searchParams.get("limit") || "100")
     const lojaId = searchParams.get("lojaId")
+    const userId = session.user.id
 
-    console.log("Buscando produtos para o usuário:", session.user.id)
+    console.log("Buscando produtos para o usuário:", userId)
 
-    // Buscar a loja do usuário
-    const loja = await db.collection("lojas").findOne({
-      $or: [
-        { proprietarioId: session.user.id },
-        { proprietarioId: new ObjectId(session.user.id) },
-        { usuarioId: session.user.id },
-        { usuarioId: new ObjectId(session.user.id) },
-        { userId: session.user.id },
-        { userId: new ObjectId(session.user.id) },
-      ],
-    })
+    // Montar consulta segura para buscar loja
+    const lojaQuery = [
+      { proprietarioId: userId },
+      { usuarioId: userId },
+      { userId: userId },
+    ]
+
+    if (isObjectIdLike(userId)) {
+      const objId = new ObjectId(userId)
+      lojaQuery.push(
+        { proprietarioId: objId.toString() },
+        { usuarioId: objId.toString() },
+        { userId: objId.toString() }
+      )
+    }
+
+    const loja = await db.collection("lojas").findOne({ $or: lojaQuery })
 
     console.log("Loja encontrada:", loja ? loja._id : "Nenhuma loja encontrada")
 
-    // Construir filtro
+    // Construir filtro de produtos
     const filter: any = {}
 
-    // Se temos um lojaId específico, usamos ele
     if (lojaId) {
       filter.lojaId = lojaId
     } else if (loja) {
-      // Caso contrário, buscamos produtos da loja do usuário
       filter.lojaId = loja._id.toString()
     } else {
-      // Se não encontrou loja, busca por userId
-      filter.$or = [{ userId: session.user.id }, { usuarioId: session.user.id }, { proprietarioId: session.user.id }]
+      const fallbackQuery = [
+        { userId },
+        { usuarioId: userId },
+        { proprietarioId: userId },
+      ]
+      if (isObjectIdLike(userId)) {
+        const objId = new ObjectId(userId)
+        fallbackQuery.push(
+          { userId: objId.toString() },
+          { usuarioId: objId.toString() },
+          { proprietarioId: objId.toString() }
+        )
+      }
+      filter.$or = fallbackQuery
     }
 
     if (search) {
-      filter.$or = [{ nome: { $regex: search, $options: "i" } }, { descricao: { $regex: search, $options: "i" } }]
+      filter.$or = [
+        { nome: { $regex: search, $options: "i" } },
+        { descricao: { $regex: search, $options: "i" } },
+      ]
     }
 
     if (categoria && categoria !== "todos") {
@@ -63,15 +87,11 @@ export async function GET(request: NextRequest) {
 
     console.log("Filtro de busca:", JSON.stringify(filter))
 
-    // Buscar produtos com paginação
     const skip = (page - 1) * limit
-
-    // Verificar se há produtos
     const count = await db.collection("produtos").countDocuments(filter)
     console.log("Total de produtos encontrados:", count)
 
     if (count === 0) {
-      // Retornar array vazio se não houver produtos
       return NextResponse.json({ produtos: [] })
     }
 
@@ -85,7 +105,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`Retornando ${produtos.length} produtos`)
 
-    // Converter ObjectId para string para evitar problemas de serialização
     const produtosSerializados = produtos.map((produto) => ({
       ...produto,
       _id: produto._id.toString(),
@@ -94,7 +113,6 @@ export async function GET(request: NextRequest) {
       dataAtualizacao: produto.dataAtualizacao ? produto.dataAtualizacao.toISOString() : null,
     }))
 
-    // Retornar objeto com produtos e informações de paginação
     return NextResponse.json({
       produtos: produtosSerializados,
       pagination: {
