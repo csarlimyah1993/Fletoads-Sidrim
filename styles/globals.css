@@ -13,6 +13,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
+    /* forçar redeploy */
+
     /* Cores do Fleto */
     --primary: 240 96% 65%; /* #525bfc */
     --primary-foreground: 0 0% 100%;
